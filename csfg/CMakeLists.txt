@@ -29,7 +29,9 @@ set (csfg_SOURCES
     "src/util/log.c"
     "src/util/str.c"
     "src/util/strlist.c"
-    "src/util/strview.c")
+    "src/util/strview.c"
+
+    "src/symbolic/expr.c")
 
 if (CSFG_DEBUG_MEMORY)
     list (APPEND csfg_SOURCES
@@ -61,6 +63,6 @@ target_include_directories (csfg PUBLIC
 
 if (CSFG_TESTS)
     target_sources (dpsfg-tests INTERFACE
-        "tests/test.cpp")
+        "tests/test_expr.cpp")
 endif ()
 
