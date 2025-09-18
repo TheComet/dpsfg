@@ -31,7 +31,10 @@ set (csfg_SOURCES
     "src/util/strlist.c"
     "src/util/strview.c"
 
-    "src/symbolic/expr.c")
+    "src/symbolic/expr.c"
+    "src/symbolic/expr_eval.c"
+    "src/symbolic/expr_parse.c"
+    "src/symbolic/var_table.c")
 
 if (CSFG_DEBUG_MEMORY)
     list (APPEND csfg_SOURCES
@@ -63,6 +66,16 @@ target_include_directories (csfg PUBLIC
 
 if (CSFG_TESTS)
     target_sources (dpsfg-tests INTERFACE
-        "tests/test_expr.cpp")
+        "tests/LogHelper.cpp"
+        "tests/test_expr.cpp"
+        "tests/test_hmap.cpp"
+        "tests/test_hmap_full.cpp"
+        "tests/test_hset.cpp"
+        "tests/test_mem.cpp"
+        "tests/test_strlist.cpp"
+        "tests/test_strview.cpp"
+        "tests/test_vec.cpp")
+    target_include_directories (dpsfg-tests INTERFACE
+        "${PROJECT_SOURCE_DIR}/tests/include")
 endif ()
 

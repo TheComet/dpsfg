@@ -1,10 +1,10 @@
 #pragma once
 
-#include "clither/util/hash.h"
-#include "clither/util/log.h" /* log_oom */
-#include "clither/util/mem.h" /* mem_alloc, mem_free */
-#include <stddef.h>           /* offsetof */
-#include <string.h>           /* memset */
+#include "csfg/util/hash.h"
+#include "csfg/util/log.h" /* log_oom */
+#include "csfg/util/mem.h" /* mem_alloc, mem_free */
+#include <stddef.h>        /* offsetof */
+#include <string.h>        /* memset */
 
 #define HSET_SLOT_UNUSED 0 /* SLOT_UNUSED must be 0 for memset() to work */
 #define HSET_SLOT_RIP    1
@@ -19,7 +19,7 @@ enum hset_status
 #define HSET_RETAIN 0
 #define HSET_ERASE  1
 
-#if defined(CLITHER_CAPACITY_WARNING)
+#if defined(CSFG_CAPACITY_WARNING)
 #    define HSET_CAPACITY_WARNING()                                            \
         do                                                                     \
         {                                                                      \
@@ -196,8 +196,7 @@ enum hset_status
             kvs_alloc;                                                         \
         void (*free_old)(struct prefix##_kvs*) = kvs_free_old;                 \
         void (*free_)(struct prefix##_kvs*) = kvs_free;                        \
-        K(*get_key)                                                            \
-        (const struct prefix##_kvs*, int##bits##_t) = kvs_get_key;             \
+        K (*get_key)(const struct prefix##_kvs*, int##bits##_t) = kvs_get_key; \
         void (*set_key)(struct prefix##_kvs*, int##bits##_t, K) = kvs_set_key; \
         int (*keys_equal)(K, K) = kvs_keys_equal;                              \
         (void)hash;                                                            \
@@ -224,7 +223,7 @@ enum hset_status
         int##bits##_t  old_cap = *hset ? (*hset)->capacity : 0;                \
         int##bits##_t  new_cap = old_cap ? old_cap * 2 : MIN_CAPACITY;         \
         /* Must be power of 2 */                                               \
-        CLITHER_DEBUG_ASSERT((new_cap & (new_cap - 1)) == 0);                  \
+        CSFG_DEBUG_ASSERT((new_cap & (new_cap - 1)) == 0);                     \
                                                                                \
         if (new_cap >= (1 << (bits - 2)))                                      \
             HSET_CAPACITY_WARNING();                                           \
@@ -258,7 +257,7 @@ enum hset_status
                 h = 2;                                                         \
             slot = prefix##_find_slot(                                         \
                 new_hset, kvs_get_key(&(*hset)->kvs, i), h);                   \
-            CLITHER_DEBUG_ASSERT(slot >= 0);                                   \
+            CSFG_DEBUG_ASSERT(slot >= 0);                                      \
             new_hset->hashes[slot] = h;                                        \
             kvs_set_key(&new_hset->kvs, slot, kvs_get_key(&(*hset)->kvs, i));  \
             new_hset->count++;                                                 \
@@ -287,9 +286,9 @@ enum hset_status
         const struct prefix* hset, K key, H h)                                 \
     {                                                                          \
         int##bits##_t slot, i, rip;                                            \
-        CLITHER_DEBUG_ASSERT(hset && hset->capacity > 0);                      \
-        CLITHER_DEBUG_ASSERT(h > 1);                                           \
-        CLITHER_DEBUG_ASSERT(HSET_IS_POWER_OF_2(hset->capacity));              \
+        CSFG_DEBUG_ASSERT(hset && hset->capacity > 0);                         \
+        CSFG_DEBUG_ASSERT(h > 1);                                              \
+        CSFG_DEBUG_ASSERT(HSET_IS_POWER_OF_2(hset->capacity));                 \
                                                                                \
         i = 0;                                                                 \
         rip = -1;                                                              \
@@ -318,7 +317,7 @@ enum hset_status
          * possible to know if the key exists or not without completing the    \
          * entire probing sequence. */                                         \
         slot = rip == -1 ? slot : rip;                                         \
-        CLITHER_DEBUG_ASSERT(hset->hashes[slot] < 2);                          \
+        CSFG_DEBUG_ASSERT(hset->hashes[slot] < 2);                             \
         return slot;                                                           \
     }                                                                          \
     void prefix##_clear(struct prefix* hset)                                   \
@@ -331,7 +330,7 @@ enum hset_status
     }                                                                          \
     void prefix##_compact(struct prefix** hset)                                \
     {                                                                          \
-        CLITHER_DEBUG_ASSERT(0); /* Not yet implemented */                     \
+        CSFG_DEBUG_ASSERT(0); /* Not yet implemented */                        \
         (void)hset;                                                            \
     }                                                                          \
     enum hset_status prefix##_insert(struct prefix** hset, K key)              \

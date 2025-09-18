@@ -206,7 +206,7 @@ enum hmap_status
         return &kvs->values[slot];                                             \
     }                                                                          \
     static void prefix##_kvs_set_value(                                        \
-        struct prefix##_kvs* kvs, int##bits##_t slot, const V* value)          \
+        struct prefix##_kvs* kvs, int##bits##_t slot, V* value)                \
     {                                                                          \
         kvs->values[slot] = *value;                                            \
     }                                                                          \
@@ -264,7 +264,7 @@ enum hmap_status
         int (*keys_equal)(K, K) = kvs_keys_equal;                              \
         V* (*get_value)(const struct prefix##_kvs*, int##bits##_t) =           \
             kvs_get_value;                                                     \
-        void (*set_value)(struct prefix##_kvs*, int##bits##_t, const V*) =     \
+        void (*set_value)(struct prefix##_kvs*, int##bits##_t, V*) =           \
             kvs_set_value;                                                     \
         (void)hash;                                                            \
         (void)alloc;                                                           \
