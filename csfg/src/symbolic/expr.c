@@ -36,13 +36,16 @@ static void expr_init(struct csfg_expr* expr, int capacity)
 }
 static int new_expr(struct csfg_expr** expr, enum csfg_expr_type type)
 {
-    int               new_cap, n;
+    int               n;
     struct csfg_expr* new_expr;
 
     if (*expr == NULL || (*expr)->count == (*expr)->capacity)
     {
+        int header, data, new_cap;
         new_cap = *expr ? (*expr)->capacity * 2 : 16;
-        new_expr = mem_realloc(*expr, new_cap * sizeof(struct csfg_expr));
+        header = offsetof(struct csfg_expr, nodes);
+        data = sizeof(struct csfg_expr) * new_cap;
+        new_expr = mem_realloc(*expr, header + data);
         if (new_expr == NULL)
             return -1;
         if (*expr == NULL)
