@@ -5,8 +5,10 @@
 
 /* ------------------------------------------------------------------------- */
 static double
-eval(struct csfg_expr* expr, const struct csfg_var_table* vt, int n)
+eval(struct csfg_expr_pool* expr, int n, const struct csfg_var_table* vt)
 {
+    double child_result[2];
+
     switch (expr->nodes[n].type)
     {
         case CSFG_EXPR_LIT: return expr->nodes[n].value.lit;
@@ -21,26 +23,32 @@ eval(struct csfg_expr* expr, const struct csfg_var_table* vt, int n)
         }
         case CSFG_EXPR_INF: return INFINITY;
         case CSFG_EXPR_OP_ADD:
-            return eval(expr, vt, expr->nodes[n].child[0]) +
-                   eval(expr, vt, expr->nodes[n].child[1]);
         case CSFG_EXPR_OP_SUB:
-            return eval(expr, vt, expr->nodes[n].child[0]) -
-                   eval(expr, vt, expr->nodes[n].child[1]);
         case CSFG_EXPR_OP_MUL:
-            return eval(expr, vt, expr->nodes[n].child[0]) *
-                   eval(expr, vt, expr->nodes[n].child[1]);
         case CSFG_EXPR_OP_DIV:
-            return eval(expr, vt, expr->nodes[n].child[0]) /
-                   eval(expr, vt, expr->nodes[n].child[1]);
         case CSFG_EXPR_OP_POW:
-            return pow(
-                eval(expr, vt, expr->nodes[n].child[0]),
-                eval(expr, vt, expr->nodes[n].child[1]));
+            child_result[0] = eval(expr, expr->nodes[n].child[0], vt);
+            child_result[1] = eval(expr, expr->nodes[n].child[1], vt);
+            break;
     }
+
+    switch (expr->nodes[n].type)
+    {
+        case CSFG_EXPR_LIT:
+        case CSFG_EXPR_VAR:
+        case CSFG_EXPR_INF: assert(0); break;
+        case CSFG_EXPR_OP_ADD: return child_result[0] + child_result[1];
+        case CSFG_EXPR_OP_SUB: return child_result[0] - child_result[1];
+        case CSFG_EXPR_OP_MUL: return child_result[0] * child_result[1];
+        case CSFG_EXPR_OP_DIV: return child_result[0] / child_result[1];
+        case CSFG_EXPR_OP_POW: return pow(child_result[0], child_result[1]);
+    }
+
+    return NAN;
 }
 
 /* ------------------------------------------------------------------------- */
-static void reset_visited(struct csfg_expr* expr)
+static void reset_visited(struct csfg_expr_pool* expr)
 {
     int n;
     for (n = 0; n != expr->count; ++n)
@@ -48,11 +56,12 @@ static void reset_visited(struct csfg_expr* expr)
 }
 
 /* ------------------------------------------------------------------------- */
-double csfg_expr_eval(struct csfg_expr* expr, const struct csfg_var_table* vt)
+double csfg_expr_eval(
+    struct csfg_expr_pool* expr, int root, const struct csfg_var_table* vt)
 {
     if (expr == NULL)
         return NAN;
     if (vt != NULL)
         reset_visited(expr);
-    return eval(expr, vt, expr->root);
+    return eval(expr, root, vt);
 }

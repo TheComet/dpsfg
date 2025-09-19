@@ -51,12 +51,8 @@ static enum token scan_next(struct parser* p)
     while (p->head != p->end)
     {
         /* Literal value */
-        if (isdigit(p->text[p->head]) || p->text[p->head] == '-')
+        if (isdigit(p->text[p->head]))
         {
-            char is_neg = p->text[p->head] == '-';
-            if (p->text[p->head] == '-')
-                p->head++;
-
             p->value.lit = 0;
             for (; p->head != p->end && isdigit(p->text[p->head]); ++p->head)
             {
@@ -77,8 +73,6 @@ static enum token scan_next(struct parser* p)
                     ++p->head;
             }
 
-            if (is_neg)
-                p->value.lit = -p->value.lit;
             return p->tok = TOK_LIT;
         }
 
@@ -114,8 +108,8 @@ static enum token scan_next(struct parser* p)
 }
 
 /* ------------------------------------------------------------------------- */
-static int parse_expr(struct parser* p, struct csfg_expr** e);
-static int parse_base(struct parser* p, struct csfg_expr** e)
+static int parse_expr(struct parser* p, struct csfg_expr_pool** e);
+static int parse_base(struct parser* p, struct csfg_expr_pool** e)
 {
     int n;
 
@@ -150,7 +144,7 @@ static int parse_base(struct parser* p, struct csfg_expr** e)
 }
 
 /* ------------------------------------------------------------------------- */
-static int parse_exponent(struct parser* p, struct csfg_expr** e)
+static int parse_exponent(struct parser* p, struct csfg_expr_pool** e)
 {
     int sign = 1;
 
@@ -174,7 +168,7 @@ static int parse_exponent(struct parser* p, struct csfg_expr** e)
 }
 
 /* ------------------------------------------------------------------------- */
-static int parse_factor(struct parser* p, struct csfg_expr** e)
+static int parse_factor(struct parser* p, struct csfg_expr_pool** e)
 {
     int child, pow = parse_exponent(p, e);
     if (pow == -1)
@@ -195,7 +189,7 @@ static int parse_factor(struct parser* p, struct csfg_expr** e)
 }
 
 /* ------------------------------------------------------------------------- */
-static int parse_term(struct parser* p, struct csfg_expr** e)
+static int parse_term(struct parser* p, struct csfg_expr_pool** e)
 {
     int child, factor = parse_factor(p, e);
     if (factor == -1)
@@ -219,7 +213,7 @@ static int parse_term(struct parser* p, struct csfg_expr** e)
 }
 
 /* ------------------------------------------------------------------------- */
-static int parse_expr(struct parser* p, struct csfg_expr** e)
+static int parse_expr(struct parser* p, struct csfg_expr_pool** e)
 {
     int child, term = parse_term(p, e);
     if (term == -1)
@@ -243,7 +237,7 @@ static int parse_expr(struct parser* p, struct csfg_expr** e)
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_parse(struct csfg_expr** expr, const char* text)
+int csfg_expr_parse(struct csfg_expr_pool** expr, const char* text)
 {
     int           root;
     struct parser p;
@@ -260,10 +254,8 @@ int csfg_expr_parse(struct csfg_expr** expr, const char* text)
         } error;
         error.offlen[0] = p.tail;
         error.offlen[1] = p.head - p.tail;
-        return error.value;
+        return -error.value;
     }
 
-    (*expr)->root = root;
-
-    return 0;
+    return root;
 }

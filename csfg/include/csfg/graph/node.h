@@ -12,7 +12,7 @@ struct csfg_node
 
 struct csfg_edge
 {
-    struct csfg_expr* expr;
+    struct csfg_expr_pool* expr;
 
     int source;
     int target;
