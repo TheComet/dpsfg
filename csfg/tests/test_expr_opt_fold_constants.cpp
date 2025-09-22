@@ -98,3 +98,14 @@ TEST_F(NAME, constant_chain_of_products_with_2_variables_in_middle)
     ASSERT_THAT(p->nodes[c2].type, Eq(CSFG_EXPR_LIT));
     ASSERT_THAT(p->nodes[c2].value.lit, DoubleEq(40));
 }
+
+TEST_F(NAME, negations)
+{
+    int e = csfg_expr_parse(&p, "2+-(a+3)");
+    ASSERT_THAT(e, Ge(0));
+    ASSERT_THAT(csfg_expr_opt_fold_constants(&p, &e), Gt(0));
+    int c1 = p->nodes[e].child[0];
+    int c2 = p->nodes[c1].child[0];
+    ASSERT_THAT(p->nodes[c2].type, Eq(CSFG_EXPR_LIT));
+    ASSERT_THAT(p->nodes[c2].value.lit, DoubleEq(40));
+}

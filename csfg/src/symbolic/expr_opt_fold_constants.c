@@ -2,10 +2,10 @@
 #include "csfg/symbolic/expr_opt.h"
 
 /* ------------------------------------------------------------------------- */
-static int eval_subtrees(struct csfg_expr_pool** pool, int* root)
+static int eval_subtrees(struct csfg_expr_pool** pool)
 {
     int n;
-    for (n = 0; n < (*pool)->count; ++n)
+    for (n = 0; n != (*pool)->count; ++n)
     {
         int left = (*pool)->nodes[n].child[0];
         int right = (*pool)->nodes[n].child[1];
@@ -18,7 +18,6 @@ static int eval_subtrees(struct csfg_expr_pool** pool, int* root)
             csfg_expr_set_lit(pool, n, csfg_expr_eval(*pool, n, NULL));
             csfg_expr_mark_deleted(*pool, left);
             csfg_expr_mark_deleted(*pool, right);
-            *root = csfg_expr_gc(*pool, *root);
             return 1;
         }
 
@@ -28,7 +27,6 @@ static int eval_subtrees(struct csfg_expr_pool** pool, int* root)
         {
             csfg_expr_set_lit(pool, n, csfg_expr_eval(*pool, n, NULL));
             csfg_expr_mark_deleted(*pool, left);
-            *root = csfg_expr_gc(*pool, *root);
             return 1;
         }
     }
@@ -58,10 +56,10 @@ static int find_constant_operand(
 
     return -1;
 }
-static int combine_constants(struct csfg_expr_pool** pool, int* root)
+static int combine_constants(struct csfg_expr_pool** pool)
 {
     int n;
-    for (n = 0; n < (*pool)->count; ++n)
+    for (n = 0; n != (*pool)->count; ++n)
     {
         enum csfg_expr_type type = (*pool)->nodes[n].type;
         int                 left = (*pool)->nodes[n].child[0];
@@ -102,7 +100,9 @@ static int combine_constants(struct csfg_expr_pool** pool, int* root)
 int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool, int* root)
 {
     int modified = 0;
-    while (eval_subtrees(pool, root) || combine_constants(pool, root))
+    while (eval_subtrees(pool) || combine_constants(pool))
         modified = 1;
+    if (modified)
+        *root = csfg_expr_gc(*pool, *root);
     return modified;
 }

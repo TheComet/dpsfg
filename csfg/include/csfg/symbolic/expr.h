@@ -92,9 +92,18 @@ int csfg_expr_set_add(struct csfg_expr_pool** pool, int n, int left, int right);
 int csfg_expr_set_mul(struct csfg_expr_pool** pool, int n, int left, int right);
 int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp);
 
+int csfg_expr_dup(struct csfg_expr_pool** pool, int n);
+
 void csfg_expr_mark_deleted(struct csfg_expr_pool* pool, int n);
 int  csfg_expr_gc(struct csfg_expr_pool* pool, int root);
+
 void csfg_expr_collapse_into_parent(
     struct csfg_expr_pool* pool, int child, int parent);
+
 int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n);
 int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n);
+int csfg_expr_equal(
+    const struct csfg_expr_pool* p1,
+    int                          root1,
+    const struct csfg_expr_pool* p2,
+    int                          root2);

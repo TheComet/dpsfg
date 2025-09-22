@@ -158,13 +158,7 @@ static int parse_exponent(struct parser* p, struct csfg_expr_pool** e)
     if (sign == 1)
         return parse_base(p, e);
     else
-    {
-        int zero = csfg_expr_lit(e, 0.0);
-        int expr = parse_base(p, e);
-        if (zero == -1 || expr == -1)
-            return -1;
-        return csfg_expr_sub(e, zero, expr);
-    }
+        return csfg_expr_neg(e, parse_base(p, e));
 }
 
 /* ------------------------------------------------------------------------- */
