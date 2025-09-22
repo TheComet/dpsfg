@@ -34,7 +34,8 @@ set (csfg_SOURCES
     "src/symbolic/expr.c"
     "src/symbolic/expr_eval.c"
     "src/symbolic/expr_parse.c"
-    "src/symbolic/expr_tf.c"
+    "src/symbolic/expr_op_tf.c"
+    "src/symbolic/expr_opt_fold_constants.c"
     "src/symbolic/var_table.c")
 
 if (CSFG_DEBUG_MEMORY)
@@ -69,7 +70,8 @@ if (CSFG_TESTS)
     target_sources (dpsfg-tests INTERFACE
         "tests/LogHelper.cpp"
         "tests/test_expr.cpp"
-        "tests/test_tf.cpp"
+        "tests/test_expr_op_tf.cpp"
+        "tests/test_expr_opt_fold_constants.cpp"
 
         "tests/test_hmap.cpp"
         "tests/test_hmap_full.cpp"

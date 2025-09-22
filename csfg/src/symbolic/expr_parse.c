@@ -197,14 +197,13 @@ static int parse_term(struct parser* p, struct csfg_expr_pool** e)
 
     while (p->tok == TOK_MUL || p->tok == TOK_DIV)
     {
-        enum csfg_expr_type op =
-            p->tok == TOK_MUL ? CSFG_EXPR_OP_MUL : CSFG_EXPR_OP_DIV;
-
+        enum token op = p->tok;
         scan_next(p);
         child = parse_factor(p, e);
         if (child == -1)
             return -1;
-        factor = csfg_expr_binop(e, op, factor, child);
+        factor = op == TOK_MUL ? csfg_expr_mul(e, factor, child)
+                               : csfg_expr_div(e, factor, child);
         if (factor == -1)
             return -1;
     }
@@ -221,14 +220,13 @@ static int parse_expr(struct parser* p, struct csfg_expr_pool** e)
 
     while (p->tok == TOK_ADD || p->tok == TOK_SUB)
     {
-        enum csfg_expr_type op =
-            p->tok == TOK_ADD ? CSFG_EXPR_OP_ADD : CSFG_EXPR_OP_SUB;
-
+        enum token op = p->tok;
         scan_next(p);
         child = parse_term(p, e);
         if (child == -1)
             return -1;
-        term = csfg_expr_binop(e, op, term, child);
+        term = op == TOK_ADD ? csfg_expr_add(e, term, child)
+                             : csfg_expr_sub(e, term, child);
         if (term == -1)
             return -1;
     }

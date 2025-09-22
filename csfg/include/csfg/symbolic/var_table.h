@@ -21,7 +21,7 @@ void csfg_var_table_deinit(struct csfg_var_table* vt);
  * parent operation is mul, div or pow, or 0.0 if anything else.
  */
 int csfg_var_table_populate(
-    struct csfg_var_table* vt, const struct csfg_expr_pool* pool, int expr);
+    struct csfg_var_table* vt, const struct csfg_expr_pool* pool, int root);
 
 /*!
  * @brief Adds a new entry to the table that maps "name" to the constant of
@@ -42,14 +42,14 @@ int csfg_var_table_set_expr(
     struct csfg_var_table* vt,
     struct strview         name,
     struct csfg_expr_pool* pool,
-    int                    expr);
+    int                    root);
 
 /*!
  * @brief Retrieves the expression the specified variable would be mapped to,
  * or NULL if no entry exists.
  */
 struct csfg_expr_pool* csfg_var_table_get(
-    const struct csfg_var_table* vt, struct strview name, int* expr);
+    const struct csfg_var_table* vt, struct strview name, int* root);
 
 /*!
  * @brief Recursively evaluates the expression the specified variable maps

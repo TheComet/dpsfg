@@ -2,10 +2,11 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/expr_tf.h"
 #include "csfg/symbolic/var_table.h"
 }
 
-#define NAME test_tf
+#define NAME test_op_tf
 
 using namespace testing;
 
@@ -13,30 +14,33 @@ struct NAME : public Test
 {
     void SetUp() override
     {
-        csfg_expr_pool_init(&p);
+        csfg_expr_pool_init(&num);
+        csfg_expr_pool_init(&den);
         csfg_var_table_init(&vt);
-        csfg_expr_vec_init(&num);
-        csfg_expr_vec_init(&den);
+        csfg_expr_vec_init(&num_roots);
+        csfg_expr_vec_init(&den_roots);
     }
     void TearDown() override
     {
-        csfg_expr_vec_deinit(den);
-        csfg_expr_vec_deinit(num);
+        csfg_expr_vec_deinit(den_roots);
+        csfg_expr_vec_deinit(num_roots);
         csfg_var_table_deinit(&vt);
-        csfg_expr_pool_deinit(p);
+        csfg_expr_pool_deinit(den);
+        csfg_expr_pool_deinit(num);
     }
 
-    struct csfg_expr_pool* p;
+    struct csfg_expr_pool* num;
+    struct csfg_expr_pool* den;
     struct csfg_var_table  vt;
-    struct csfg_expr_vec*  num;
-    struct csfg_expr_vec*  den;
+    struct csfg_expr_vec*  num_roots;
+    struct csfg_expr_vec*  den_roots;
 };
 
 TEST_F(NAME, compute_transfer_function_coefficient_expressions)
 {
-    int e = csfg_expr_parse(&p, "1/(1/s^3 - 4/(1+s)^2 - 8/(a+4))");
+    int num_root = csfg_expr_parse(&num, "1/(1/s^3 - 4/(1+s)^2 - 8/(a+4))");
     // int e = csfg_expr_parse(&p, "(s+a)^2 / (((s+b)^2 * s^2)*(a+b*s)*s)");
-    ASSERT_THAT(e, Ge(0));
+    ASSERT_THAT(num_root, Ge(0));
 
     /*
      *              1
@@ -46,6 +50,12 @@ TEST_F(NAME, compute_transfer_function_coefficient_expressions)
      *     s^3   (1+s)^2   a+4
      *
      *     ( s^-3 - 4(1+s)^-2 - 8(a+4)^-1 )^-1
+     *
+     *      1             1    x*s^3       1 + x*s^3
+     *     --- + x  >>>  --- + -----  >>>  ---------
+     *     s^3           s^3    s^3           s^3
+     *
+     *     s^-3 + x  >>>  s^-3 + x*s^3*s^-3  >>>
      *
      * Solved on paper:
      *                      s^3 + 2s^4 + s^5
@@ -67,10 +77,10 @@ TEST_F(NAME, compute_transfer_function_coefficient_expressions)
      * a4 = -16/(a+4)
      * a5 = -8/(a+4)
      */
-    int div = csfg_expr_to_standard_tf(&p, e, cstr_view("s"));
+    int den_root;
+    int div = csfg_expr_to_standard_tf(
+        &num, &num_root, &den, &den_root, cstr_view("s"));
     ASSERT_THAT(div, Ge(0));
-
-    csfg_expr_standard_tf_to_coeff(&p, div, cstr_view("s"), &num, &den);
 
 #if 0
     for (std::size_t i = 0; i != tfc.numerator.size(); ++i)
@@ -115,7 +125,7 @@ TEST_F(NAME, compute_transfer_function_coefficient_expressions)
 #endif
 }
 
-TEST(NAME, compute_transfer_function)
+TEST_F(NAME, compute_transfer_function)
 {
 #if 0
     Reference<Expression> e =
@@ -168,7 +178,7 @@ TEST(NAME, compute_transfer_function)
 #endif
 }
 
-TEST(NAME, active_lowpass_filter)
+TEST_F(NAME, active_lowpass_filter)
 {
     /*
      *                    C
