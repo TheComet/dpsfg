@@ -20,5 +20,14 @@ int csfg_expr_op_expand_exponent_products(struct csfg_expr_pool** pool);
  * */
 int csfg_expr_op_distribute_products(struct csfg_expr_pool** pool);
 
-/*! a + b*s^-c (c=const)  -->  s^-c(a*s^c + b) */
+/*!
+ * -(a*b)         --> -a*b
+ * -s^a           --> (-1)*s^a
+ */
+int csfg_expr_op_lower_negates(struct csfg_expr_pool** pool);
+
+/*!
+ * a + s^-c (c=const)    -->  s^-c(a*s^c + 1)
+ * a + b*s^-c (c=const)  -->  s^-c(a*s^c + b)
+ */
 int csfg_expr_op_factor_common_denominator(struct csfg_expr_pool** pool);

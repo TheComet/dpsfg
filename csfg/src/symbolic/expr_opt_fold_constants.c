@@ -97,11 +97,33 @@ static int combine_constants(struct csfg_expr_pool** pool)
 }
 
 /* ------------------------------------------------------------------------- */
+static int run_all_once(struct csfg_expr_pool** pool)
+{
+#define RUN(func, pool, modified)                                              \
+    switch (func(pool))                                                        \
+    {                                                                          \
+        case -1: return -1;                                                    \
+        case 0: break;                                                         \
+        case 1: modified = 1; break;                                           \
+    }
+    int modified = 0;
+    RUN(eval_subtrees, pool, modified);
+    RUN(combine_constants, pool, modified);
+    return modified;
+#undef RUN
+}
+
+/* ------------------------------------------------------------------------- */
 int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool, int* root)
 {
     int modified = 0;
-    while (eval_subtrees(pool) || combine_constants(pool))
-        modified = 1;
+again:
+    switch (run_all_once(pool))
+    {
+        case -1: return -1;
+        case 0: break;
+        case 1: modified = 1; goto again;
+    }
     if (modified)
         *root = csfg_expr_gc(*pool, *root);
     return modified;

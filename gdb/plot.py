@@ -13,47 +13,46 @@ def plot_expr_graph(pool, root):
             .string(length=span["len"])
         return string
     text = "digraph {\n"
-    def print_nodes(n):
+    def print_node(n):
         nonlocal text
-        left = pool["nodes"][n]["child"][0]
-        right = pool["nodes"][n]["child"][1]
-        if left != -1:
-            print_nodes(left)
-        if right != -1:
-            print_nodes(right)
-
         node = pool["nodes"][n]
         if node["type"] == 0:
-            text += f'  n{n} [label="deletem"];\n'
+            text += f'  n{n} [label="({n}) deletem"];\n'
         if node["type"] == 1:
-            text += f'  n{n} [label="{node['value']['lit']}"];\n'
+            text += f'  n{n} [label="({n}) {node['value']['lit']}"];\n'
         if node["type"] == 2:
             i = node["value"]["var_idx"]
-            text += f'  n{n} [label="{get_string(pool, i)}"];\n'
+            text += f'  n{n} [label="({n}) {get_string(pool, i)}"];\n'
         if node["type"] == 3:
-            text += f'  n{n} [label="oo"];\n'
+            text += f'  n{n} [label="({n}) oo"];\n'
         if node["type"] == 4:
-            text += f'  n{n} [label="neg"];\n'
+            text += f'  n{n} [label="({n}) neg"];\n'
         if node["type"] == 5:
-            text += f'  n{n} [label="+"];\n'
+            text += f'  n{n} [label="({n}) +"];\n'
         if node["type"] == 6:
-            text += f'  n{n} [label="*"];\n'
+            text += f'  n{n} [label="({n}) *"];\n'
         if node["type"] == 7:
-            text += f'  n{n} [label="^"];\n'
-    def print_edges(n):
-        if n == -1:
-            return
-        nonlocal text
+            text += f'  n{n} [label="({n}) ^"];\n'
+
         left = pool["nodes"][n]["child"][0]
         right = pool["nodes"][n]["child"][1]
         if left != -1:
             text += f'  n{n} -> n{left};\n'
         if right != -1:
             text += f'  n{n} -> n{right};\n'
-        print_edges(left)
-        print_edges(right)
-    print_nodes(root)
-    print_edges(root)
+    def print_nodes_recurse(n):
+        left = pool["nodes"][n]["child"][0]
+        right = pool["nodes"][n]["child"][1]
+        if left != -1:
+            print_nodes_recurse(left)
+        if right != -1:
+            print_nodes_recurse(right)
+        print_node(n)
+    def print_nodes():
+        for n in range(pool["count"]):
+            print_node(n)
+    #print_nodes_recurse(root)
+    print_nodes()
     text += "}\n"
     p = subprocess.Popen(
         ["dot", "-Tx11"],

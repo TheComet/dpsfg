@@ -129,8 +129,6 @@ static int parse_base(struct parser* p, struct csfg_expr_pool** e)
         case '(': {
             scan_next(p);
             n = parse_expr(p, e);
-            if (n == -1)
-                return -1;
             if (p->tok != ')')
                 return -1;
             scan_next(p);
@@ -146,6 +144,12 @@ static int parse_base(struct parser* p, struct csfg_expr_pool** e)
 /* ------------------------------------------------------------------------- */
 static int parse_exponent(struct parser* p, struct csfg_expr_pool** e)
 {
+    return parse_base(p, e);
+}
+
+/* ------------------------------------------------------------------------- */
+static int parse_unary(struct parser* p, struct csfg_expr_pool** e)
+{
     int sign = 1;
 
     while (p->tok == '+' || p->tok == '-')
@@ -156,27 +160,23 @@ static int parse_exponent(struct parser* p, struct csfg_expr_pool** e)
     }
 
     if (sign == 1)
-        return parse_base(p, e);
+        return parse_exponent(p, e);
     else
-        return csfg_expr_neg(e, parse_base(p, e));
+        return csfg_expr_neg(e, parse_exponent(p, e));
 }
 
 /* ------------------------------------------------------------------------- */
 static int parse_factor(struct parser* p, struct csfg_expr_pool** e)
 {
-    int child, pow = parse_exponent(p, e);
+    int child, pow = parse_unary(p, e);
     if (pow == -1)
         return -1;
 
     while (p->tok == '^')
     {
         scan_next(p);
-        child = parse_exponent(p, e);
-        if (child == -1)
-            return -1;
+        child = parse_unary(p, e);
         pow = csfg_expr_pow(e, pow, child);
-        if (pow == -1)
-            return -1;
     }
 
     return pow;
@@ -194,12 +194,8 @@ static int parse_term(struct parser* p, struct csfg_expr_pool** e)
         enum token op = p->tok;
         scan_next(p);
         child = parse_factor(p, e);
-        if (child == -1)
-            return -1;
         factor = op == TOK_MUL ? csfg_expr_mul(e, factor, child)
                                : csfg_expr_div(e, factor, child);
-        if (factor == -1)
-            return -1;
     }
 
     return factor;
@@ -217,12 +213,8 @@ static int parse_expr(struct parser* p, struct csfg_expr_pool** e)
         enum token op = p->tok;
         scan_next(p);
         child = parse_term(p, e);
-        if (child == -1)
-            return -1;
         term = op == TOK_ADD ? csfg_expr_add(e, term, child)
                              : csfg_expr_sub(e, term, child);
-        if (term == -1)
-            return -1;
     }
 
     return term;

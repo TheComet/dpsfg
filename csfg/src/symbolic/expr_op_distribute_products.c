@@ -45,7 +45,12 @@ static int distribute_products(struct csfg_expr_pool** pool)
 int csfg_expr_op_distribute_products(struct csfg_expr_pool** pool)
 {
     int modified = 0;
-    while (distribute_products(pool))
-        modified = 1;
+again:
+    switch (distribute_products(pool))
+    {
+        case -1: return -1;
+        case 0: break;
+        case 1: modified = 1; goto again;
+    }
     return modified;
 }

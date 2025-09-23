@@ -1,0 +1,47 @@
+#include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/expr_op.h"
+
+/* ------------------------------------------------------------------------- */
+static int lower_negates(struct csfg_expr_pool** pool)
+{
+    int n;
+    for (n = 0; n != (*pool)->count; ++n)
+    {
+        int child = (*pool)->nodes[n].child[0];
+        if ((*pool)->nodes[n].type != CSFG_EXPR_NEG)
+            continue;
+        if ((*pool)->nodes[child].type == CSFG_EXPR_OP_MUL)
+        {
+            csfg_expr_set_mul(
+                pool,
+                n,
+                csfg_expr_set_neg(pool, child, (*pool)->nodes[child].child[0]),
+                (*pool)->nodes[child].child[1]);
+            return 1;
+        }
+
+        if ((*pool)->nodes[child].type == CSFG_EXPR_OP_POW)
+        {
+            int neg_one = csfg_expr_lit(pool, -1.0);
+            if (csfg_expr_set_mul(pool, n, neg_one, child) == -1)
+                return -1;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_op_lower_negates(struct csfg_expr_pool** pool)
+{
+    int modified = 0;
+again:
+    switch (lower_negates(pool))
+    {
+        case -1: return -1;
+        case 0: break;
+        case 1: modified = 1; goto again;
+    }
+    return modified;
+}

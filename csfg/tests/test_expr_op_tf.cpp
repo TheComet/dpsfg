@@ -36,6 +36,29 @@ struct NAME : public Test
     struct csfg_expr_vec*  den_roots;
 };
 
+TEST_F(NAME, simple)
+{
+    int num_root = csfg_expr_parse(&num, "1/(1/s - 1/a)");
+    ASSERT_THAT(num_root, Ge(0));
+    /*
+     *       1
+     *   ---------         a * s
+     *    1     1   --->   -----
+     *   --- - ---         a - s
+     *    s     a
+     *
+     *      s
+     *  ---------
+     *   1 - s/a
+     *
+     *  s/(a-s)
+     */
+    int den_root;
+    int div = csfg_expr_to_standard_tf(
+        &num, &num_root, &den, &den_root, cstr_view("s"));
+    ASSERT_THAT(div, Ge(0));
+}
+
 TEST_F(NAME, compute_transfer_function_coefficient_expressions)
 {
     int num_root = csfg_expr_parse(&num, "1/(1/s^3 - 4/(1+s)^2 - 8/(a+4))");

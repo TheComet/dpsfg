@@ -40,7 +40,12 @@ static int expand_exponent_sums(struct csfg_expr_pool** pool)
 int csfg_expr_op_expand_exponent_sums(struct csfg_expr_pool** pool)
 {
     int modified = 0;
-    while (expand_exponent_sums(pool))
-        modified = 1;
+again:
+    switch (expand_exponent_sums(pool))
+    {
+        case -1: return -1;
+        case 0: break;
+        case 1: modified = 1; goto again;
+    }
     return modified;
 }

@@ -56,7 +56,12 @@ static int expand_constant_exponents(struct csfg_expr_pool** pool)
 int csfg_expr_op_expand_constant_exponents(struct csfg_expr_pool** pool)
 {
     int modified = 0;
-    while (expand_constant_exponents(pool))
-        modified = 1;
+again:
+    switch (expand_constant_exponents(pool))
+    {
+        case -1: return -1;
+        case 0: break;
+        case 1: modified = 1; goto again;
+    }
     return modified;
 }

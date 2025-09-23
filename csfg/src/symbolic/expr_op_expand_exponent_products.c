@@ -39,7 +39,12 @@ static int expand_exponent_products(struct csfg_expr_pool** pool)
 int csfg_expr_op_expand_exponent_products(struct csfg_expr_pool** pool)
 {
     int modified = 0;
-    while (expand_exponent_products(pool))
-        modified = 1;
+again:
+    switch (expand_exponent_products(pool))
+    {
+        case -1: return -1;
+        case 0: break;
+        case 1: modified = 1; goto again;
+    }
     return modified;
 }

@@ -121,7 +121,7 @@ int csfg_expr_set_lit(struct csfg_expr_pool** pool, int n, double value)
 /* ------------------------------------------------------------------------- */
 int csfg_expr_set_neg(struct csfg_expr_pool** pool, int n, int child)
 {
-    if (n == -1)
+    if (n == -1 || child == -1)
         return -1;
 
     (*pool)->nodes[n].type = CSFG_EXPR_NEG;
@@ -135,6 +135,8 @@ int csfg_expr_set_neg(struct csfg_expr_pool** pool, int n, int child)
 int csfg_expr_binop(
     struct csfg_expr_pool** pool, enum csfg_expr_type type, int left, int right)
 {
+    if (left == -1 || right == -1)
+        return -1;
     return new_expr(pool, type, left, right);
 }
 /* clang-format off */
@@ -265,7 +267,8 @@ int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n)
     int p;
     for (p = 0; p != pool->count; ++p)
         if (pool->nodes[p].child[0] == n || pool->nodes[p].child[1] == n)
-            return p;
+            if (pool->nodes[p].type != CSFG_EXPR_GC)
+                return p;
     return -1;
 }
 

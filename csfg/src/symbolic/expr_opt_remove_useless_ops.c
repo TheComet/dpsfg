@@ -56,6 +56,46 @@ static int remove_negated_products(struct csfg_expr_pool** pool)
 }
 
 /* ------------------------------------------------------------------------- */
+static int remove_double_reciprocs(struct csfg_expr_pool** pool)
+{
+    int n;
+    for (n = 0; n != (*pool)->count; ++n)
+    {
+        int base2, exp2;
+        int exp1 = (*pool)->nodes[n].child[1];
+        int base1 = (*pool)->nodes[n].child[0];
+        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_POW ||
+            (*pool)->nodes[base1].type != CSFG_EXPR_OP_POW)
+        {
+            continue;
+        }
+
+        base2 = (*pool)->nodes[base1].child[0];
+        exp2 = (*pool)->nodes[base1].child[1];
+        if ((*pool)->nodes[exp1].type != CSFG_EXPR_LIT ||
+            (*pool)->nodes[exp2].type != CSFG_EXPR_LIT)
+        {
+            continue;
+        }
+
+        if (!floats_equal((*pool)->nodes[exp1].value.lit, -1.0, 0.0000001) ||
+            !floats_equal((*pool)->nodes[exp2].value.lit, -1.0, 0.0000001))
+        {
+            continue;
+        }
+
+        (*pool)->nodes[n] = (*pool)->nodes[base2];
+        csfg_expr_mark_deleted(*pool, base2);
+        csfg_expr_mark_deleted(*pool, exp2);
+        csfg_expr_mark_deleted(*pool, base1);
+        csfg_expr_mark_deleted(*pool, exp1);
+        return 1;
+    }
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
 static int remove_zero_summands(struct csfg_expr_pool** pool)
 {
     int n;
@@ -152,13 +192,37 @@ static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
 }
 
 /* ------------------------------------------------------------------------- */
+static int run_all_once(struct csfg_expr_pool** pool)
+{
+#define RUN(func, pool, modified)                                              \
+    switch (func(pool))                                                        \
+    {                                                                          \
+        case -1: return -1;                                                    \
+        case 0: break;                                                         \
+        case 1: modified = 1; break;                                           \
+    }
+    int modified = 0;
+    RUN(remove_chained_negates, pool, modified);
+    RUN(remove_negated_products, pool, modified);
+    RUN(remove_zero_summands, pool, modified);
+    RUN(remove_one_products, pool, modified);
+    RUN(remove_one_and_zero_exponents, pool, modified);
+    RUN(remove_double_reciprocs, pool, modified);
+    return modified;
+#undef RUN
+}
+
+/* ------------------------------------------------------------------------- */
 int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool, int* root)
 {
     int modified = 0;
-    while (remove_chained_negates(pool) || remove_negated_products(pool) ||
-           remove_zero_summands(pool) || remove_one_products(pool) ||
-           remove_one_and_zero_exponents(pool))
-        modified = 1;
+again:
+    switch (run_all_once(pool))
+    {
+        case -1: return -1;
+        case 0: break;
+        case 1: modified = 1; goto again;
+    }
     if (modified)
         *root = csfg_expr_gc(*pool, *root);
     return modified;
