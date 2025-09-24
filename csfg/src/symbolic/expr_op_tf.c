@@ -61,19 +61,20 @@ int csfg_expr_to_standard_tf(
     while (1)
     {
         int done = 0;
-        switch (run_factorizations(num_pool))
-        {
-            case -1: return -1;
-            case 0: done = 1; break;
-            case 1: break;
-        }
+        if (run_factorizations(num_pool) == -1)
+            return -1;
         if (run_expansions(num_pool) == -1)
             return -1;
         if (run_optimizations(num_pool, num_root) == -1)
             return -1;
 
-        /* TODO: rebalance_fraction(num_pool, num_root, den_pool, den_root) == 1
-         */
+        switch (csfg_expr_op_rebalance_fraction(
+            num_pool, num_root, den_pool, den_root))
+        {
+            case -1: return -1;
+            case 0: done = 1; break;
+            case 1: break; ;
+        }
 
         if (done)
             break;

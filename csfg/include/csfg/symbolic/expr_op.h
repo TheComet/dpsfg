@@ -31,3 +31,9 @@ int csfg_expr_op_lower_negates(struct csfg_expr_pool** pool);
  * a + b*s^-c (c=const)  -->  s^-c(a*s^c + b)
  */
 int csfg_expr_op_factor_common_denominator(struct csfg_expr_pool** pool);
+
+int csfg_expr_op_rebalance_fraction(
+    struct csfg_expr_pool** num_pool,
+    int*                    num_root,
+    struct csfg_expr_pool** den_pool,
+    int*                    den_root);

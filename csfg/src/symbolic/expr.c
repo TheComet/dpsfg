@@ -27,30 +27,30 @@ void csfg_expr_pool_clear(struct csfg_expr_pool* pool)
 }
 
 /* ------------------------------------------------------------------------- */
-static void expr_init(struct csfg_expr_pool* pool, int capacity)
+static void expr_init(struct csfg_expr_pool* pool)
 {
     pool->count = 0;
-    pool->capacity = capacity;
     strlist_init(&pool->var_names);
 }
 static int new_expr(
     struct csfg_expr_pool** pool, enum csfg_expr_type type, int left, int right)
 {
     int                    n;
-    struct csfg_expr_pool* new_expr;
+    struct csfg_expr_pool* new_pool;
 
     if (*pool == NULL || (*pool)->count == (*pool)->capacity)
     {
         int header, data, new_cap;
         new_cap = *pool ? (*pool)->capacity * 2 : 16;
         header = offsetof(struct csfg_expr_pool, nodes);
-        data = sizeof(struct csfg_expr_pool) * new_cap;
-        new_expr = mem_realloc(*pool, header + data);
-        if (new_expr == NULL)
+        data = sizeof(struct csfg_expr_node) * new_cap;
+        new_pool = mem_realloc(*pool, header + data);
+        if (new_pool == NULL)
             return -1;
         if (*pool == NULL)
-            expr_init(new_expr, new_cap);
-        *pool = new_expr;
+            expr_init(new_pool);
+        new_pool->capacity = new_cap;
+        *pool = new_pool;
     }
 
     n = (*pool)->count++;
@@ -188,9 +188,12 @@ int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp)
 /* ------------------------------------------------------------------------- */
 int csfg_expr_dup(struct csfg_expr_pool** pool, int n)
 {
-    int dup;
-    int left = (*pool)->nodes[n].child[0];
-    int right = (*pool)->nodes[n].child[1];
+    int dup, left, right;
+    if (n == -1)
+        return -1;
+
+    left = (*pool)->nodes[n].child[0];
+    right = (*pool)->nodes[n].child[1];
 
     if (left != -1)
         if ((left = csfg_expr_dup(pool, left)) == -1)
