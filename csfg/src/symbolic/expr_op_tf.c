@@ -38,7 +38,8 @@ static int run_optimizations(struct csfg_expr_pool** pool, int* root)
     RUN2(csfg_expr_opt_fold_constants, pool, root, modified);
     RUN2(csfg_expr_opt_remove_useless_ops, pool, root, modified);
     RUN1(csfg_expr_op_lower_negates, pool, modified);
-    /* TODO: csfg_expr_opt_combine_common_factors */
+    RUN1(csfg_expr_op_simplify_products, pool, modified);
+    RUN1(csfg_expr_op_simplify_sums, pool, modified);
     return modified;
 }
 
@@ -58,38 +59,47 @@ int csfg_expr_to_standard_tf(
     int*                    den_root,
     struct strview          variable)
 {
+    /* Init the denominator by dividing by 1.0 */
+    csfg_expr_pool_clear(*den_pool);
+    *den_root = csfg_expr_lit(den_pool, 1.0);
+    if (*den_root == -1)
+        return -1;
+
     while (1)
     {
         int done = 0;
-        if (run_factorizations(num_pool) == -1)
+
+        if (run_factorizations(num_pool) == -1 ||
+            run_factorizations(den_pool) == -1 ||
+            run_expansions(num_pool) == -1 ||
+            run_expansions(den_pool) == -1 || /* make clang-format happy */
+            run_optimizations(num_pool, num_root) == -1 ||
+            run_optimizations(den_pool, den_root) == -1)
+        {
             return -1;
-        if (run_expansions(num_pool) == -1)
-            return -1;
-        if (run_optimizations(num_pool, num_root) == -1)
-            return -1;
+        }
 
         switch (csfg_expr_op_rebalance_fraction(
             num_pool, num_root, den_pool, den_root))
         {
             case -1: return -1;
             case 0: done = 1; break;
-            case 1: break; ;
+            case 1: break;
         }
 
         if (done)
             break;
     }
 
-#if 0
+    if (run_expansions(num_pool) == -1 ||
+        run_expansions(den_pool) == -1 || /* make clang-format happy */
+        run_optimizations(num_pool, num_root) == -1 ||
+        run_optimizations(den_pool, den_root) == -1)
+    {
+        return -1;
+    }
 
-    csfg_expr_opt_fold_constants();
-    csfg_expr_opt_remove_useless_ops();
-
-    csfg_expr_op_factor_negative_exponents();
-    csfg_expr_op_eliminate_negative_exponents_in_fraction();
-#endif
-
-    return -1;
+    return 0;
 }
 
 /* ------------------------------------------------------------------------- */

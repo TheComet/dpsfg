@@ -40,7 +40,7 @@ static int expand_constant_exponents(struct csfg_expr_pool** pool)
         if (reps < 2)
             continue;
 
-        chain = csfg_expr_mul(pool, base, csfg_expr_dup(pool, base));
+        chain = csfg_expr_set_mul(pool, exp, base, csfg_expr_dup(pool, base));
         for (; reps > 2; --reps)
             chain = csfg_expr_mul(pool, chain, csfg_expr_dup(pool, base));
         if (csfg_expr_set_pow(pool, n, chain, csfg_expr_lit(pool, sign)) == -1)

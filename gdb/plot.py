@@ -12,7 +12,6 @@ def plot_expr_graph(pool, root):
             .cast(gdb.lookup_type("char").pointer())\
             .string(length=span["len"])
         return string
-    text = "digraph {\n"
     def print_node(n):
         nonlocal text
         node = pool["nodes"][n]
@@ -33,26 +32,38 @@ def plot_expr_graph(pool, root):
             text += f'  n{n} [label="({n}) *"];\n'
         if node["type"] == 7:
             text += f'  n{n} [label="({n}) ^"];\n'
-
+    def print_edge(n):
+        nonlocal text
         left = pool["nodes"][n]["child"][0]
         right = pool["nodes"][n]["child"][1]
         if left != -1:
             text += f'  n{n} -> n{left};\n'
         if right != -1:
             text += f'  n{n} -> n{right};\n'
-    def print_nodes_recurse(n):
+    def print_edges(n):
+        print_edge(n)
         left = pool["nodes"][n]["child"][0]
         right = pool["nodes"][n]["child"][1]
         if left != -1:
-            print_nodes_recurse(left)
+            print_edges(left)
         if right != -1:
-            print_nodes_recurse(right)
+            print_edges(right)
+    def print_nodes(n):
+        nonlocal unvisited
+        unvisited.remove(int(n))
+        left = pool["nodes"][n]["child"][0]
+        right = pool["nodes"][n]["child"][1]
+        if left != -1:
+            print_nodes(left)
+        if right != -1:
+            print_nodes(right)
         print_node(n)
-    def print_nodes():
-        for n in range(pool["count"]):
-            print_node(n)
-    #print_nodes_recurse(root)
-    print_nodes()
+    unvisited = set(range(pool["count"]))
+    text = "digraph {\n"
+    print_nodes(root)
+    print_edges(root)
+    for n in unvisited:
+        print_node(n)
     text += "}\n"
     p = subprocess.Popen(
         ["dot", "-Tx11"],

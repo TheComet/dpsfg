@@ -17,4 +17,3 @@ endif ()
 
 add_subdirectory ("csfg")
 add_subdirectory ("ui")
-

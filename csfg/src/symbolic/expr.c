@@ -22,8 +22,11 @@ void csfg_expr_pool_deinit(struct csfg_expr_pool* pool)
 /* ------------------------------------------------------------------------- */
 void csfg_expr_pool_clear(struct csfg_expr_pool* pool)
 {
-    pool->count = 0;
-    strlist_clear(pool->var_names);
+    if (pool != NULL)
+    {
+        pool->count = 0;
+        strlist_clear(pool->var_names);
+    }
 }
 
 /* ------------------------------------------------------------------------- */
@@ -32,7 +35,9 @@ static void expr_init(struct csfg_expr_pool* pool)
     pool->count = 0;
     strlist_init(&pool->var_names);
 }
-static int new_expr(
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_new(
     struct csfg_expr_pool** pool, enum csfg_expr_type type, int left, int right)
 {
     int                    n;
@@ -65,7 +70,7 @@ static int new_expr(
 /* ------------------------------------------------------------------------- */
 int csfg_expr_lit(struct csfg_expr_pool** pool, double value)
 {
-    int n = new_expr(pool, CSFG_EXPR_LIT, -1, -1);
+    int n = csfg_expr_new(pool, CSFG_EXPR_LIT, -1, -1);
     if (n == -1)
         return -1;
 
@@ -77,12 +82,11 @@ int csfg_expr_lit(struct csfg_expr_pool** pool, double value)
 /* ------------------------------------------------------------------------- */
 int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name)
 {
-    int n = new_expr(pool, CSFG_EXPR_VAR, -1, -1);
+    int n = csfg_expr_new(pool, CSFG_EXPR_VAR, -1, -1);
     if (n == -1)
         return -1;
 
-    (*pool)->nodes[n].value.var_idx = strlist_count((*pool)->var_names);
-    if (strlist_add_view(&(*pool)->var_names, name) != 0)
+    if (csfg_expr_set_var(pool, n, name) == -1)
         return -1;
 
     return n;
@@ -91,13 +95,13 @@ int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name)
 /* ------------------------------------------------------------------------- */
 int csfg_expr_inf(struct csfg_expr_pool** pool)
 {
-    return new_expr(pool, CSFG_EXPR_INF, -1, -1);
+    return csfg_expr_new(pool, CSFG_EXPR_INF, -1, -1);
 }
 
 /* ------------------------------------------------------------------------- */
 int csfg_expr_neg(struct csfg_expr_pool** pool, int child)
 {
-    int n = new_expr(pool, CSFG_EXPR_NEG, child, -1);
+    int n = csfg_expr_new(pool, CSFG_EXPR_NEG, child, -1);
     if (n == -1 || child == -1)
         return -1;
 
@@ -119,6 +123,26 @@ int csfg_expr_set_lit(struct csfg_expr_pool** pool, int n, double value)
 }
 
 /* ------------------------------------------------------------------------- */
+int csfg_expr_set_var(struct csfg_expr_pool** pool, int n, struct strview name)
+{
+    int            i;
+    struct strview str;
+
+    strlist_for_each ((*pool)->var_names, i, str)
+        if (strview_eq(str, name))
+        {
+            (*pool)->nodes[n].value.var_idx = i;
+            return 0;
+        }
+
+    (*pool)->nodes[n].value.var_idx = strlist_count((*pool)->var_names);
+    if (strlist_add_view(&(*pool)->var_names, name) != 0)
+        return -1;
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
 int csfg_expr_set_neg(struct csfg_expr_pool** pool, int n, int child)
 {
     if (n == -1 || child == -1)
@@ -137,7 +161,7 @@ int csfg_expr_binop(
 {
     if (left == -1 || right == -1)
         return -1;
-    return new_expr(pool, type, left, right);
+    return csfg_expr_new(pool, type, left, right);
 }
 /* clang-format off */
 int csfg_expr_add(struct csfg_expr_pool** pool, int left, int right)
@@ -186,6 +210,50 @@ int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp)
 /* clang-format on */
 
 /* ------------------------------------------------------------------------- */
+int csfg_expr_dup_from(
+    struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n)
+{
+    int dup, left, right;
+    if (n == -1)
+        return -1;
+
+    left = src->nodes[n].child[0];
+    right = src->nodes[n].child[1];
+    if (left != -1)
+        if ((left = csfg_expr_dup_from(dst, src, left)) == -1)
+            return -1;
+    if (right != -1)
+        if ((right = csfg_expr_dup_from(dst, src, right)) == -1)
+            return -1;
+
+    dup = csfg_expr_new(dst, src->nodes[n].type, left, right);
+    if (dup == -1)
+        return -1;
+
+    switch ((*dst)->nodes[dup].type)
+    {
+        case CSFG_EXPR_GC: break;
+        case CSFG_EXPR_LIT:
+            (*dst)->nodes[dup].value = src->nodes[n].value;
+            break;
+        case CSFG_EXPR_VAR: {
+            int            orig_idx = src->nodes[n].value.var_idx;
+            struct strview orig = strlist_view(src->var_names, orig_idx);
+            if (csfg_expr_set_var(dst, dup, orig) == -1)
+                return -1;
+            break;
+        }
+        case CSFG_EXPR_INF: break;
+        case CSFG_EXPR_NEG: break;
+        case CSFG_EXPR_OP_ADD: break;
+        case CSFG_EXPR_OP_MUL: break;
+        case CSFG_EXPR_OP_POW: break;
+    }
+
+    return dup;
+}
+
+/* ------------------------------------------------------------------------- */
 int csfg_expr_dup(struct csfg_expr_pool** pool, int n)
 {
     int dup, left, right;
@@ -194,16 +262,14 @@ int csfg_expr_dup(struct csfg_expr_pool** pool, int n)
 
     left = (*pool)->nodes[n].child[0];
     right = (*pool)->nodes[n].child[1];
-
     if (left != -1)
         if ((left = csfg_expr_dup(pool, left)) == -1)
             return -1;
-
     if (right != -1)
         if ((right = csfg_expr_dup(pool, right)) == -1)
             return -1;
 
-    dup = new_expr(pool, (*pool)->nodes[n].type, left, right);
+    dup = csfg_expr_new(pool, (*pool)->nodes[n].type, left, right);
     if (dup == -1)
         return -1;
 
@@ -213,9 +279,32 @@ int csfg_expr_dup(struct csfg_expr_pool** pool, int n)
 }
 
 /* ------------------------------------------------------------------------- */
+int csfg_expr_copy(struct csfg_expr_pool** pool, int n)
+{
+    int dup = csfg_expr_new(pool, CSFG_EXPR_GC, -1, -1);
+    if (n == -1 || dup == -1)
+        return -1;
+    (*pool)->nodes[dup] = (*pool)->nodes[n];
+    return dup;
+}
+
+/* ------------------------------------------------------------------------- */
 void csfg_expr_mark_deleted(struct csfg_expr_pool* pool, int n)
 {
     pool->nodes[n].type = CSFG_EXPR_GC;
+}
+
+/* ------------------------------------------------------------------------- */
+void csfg_expr_mark_deleted_recursive(struct csfg_expr_pool* pool, int n)
+{
+    int left = pool->nodes[n].child[0];
+    int right = pool->nodes[n].child[1];
+    if (left != -1)
+        csfg_expr_mark_deleted_recursive(pool, left);
+    if (right != -1)
+        csfg_expr_mark_deleted_recursive(pool, right);
+
+    csfg_expr_mark_deleted(pool, n);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -261,7 +350,21 @@ void csfg_expr_collapse_into_parent(
     pool->nodes[parent] = pool->nodes[child];
 
     csfg_expr_mark_deleted(pool, child);
-    csfg_expr_mark_deleted(pool, dangling_child);
+    csfg_expr_mark_deleted_recursive(pool, dangling_child);
+}
+
+/* ------------------------------------------------------------------------- */
+void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n)
+{
+    int sibling;
+    int parent = csfg_expr_find_parent(pool, n);
+    assert(parent > -1);
+    sibling = pool->nodes[parent].child[0] == n ? pool->nodes[parent].child[1]
+                                                : pool->nodes[parent].child[0];
+
+    pool->nodes[parent] = pool->nodes[sibling];
+    csfg_expr_mark_deleted(pool, sibling);
+    csfg_expr_mark_deleted_recursive(pool, n);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -276,16 +379,14 @@ int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n)
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n)
+int csfg_expr_find_sibling(const struct csfg_expr_pool* pool, int n)
 {
-    enum csfg_expr_type type = pool->nodes[n].type;
-    while (1)
-    {
-        int parent = csfg_expr_find_parent(pool, n);
-        if (parent == -1 || pool->nodes[parent].type != type)
-            return n;
-        n = parent;
-    }
+    int parent = csfg_expr_find_parent(pool, n);
+    if (parent == -1)
+        return -1;
+    if (pool->nodes[parent].child[0] == n)
+        return pool->nodes[parent].child[1];
+    return pool->nodes[parent].child[0];
 }
 
 /* ------------------------------------------------------------------------- */

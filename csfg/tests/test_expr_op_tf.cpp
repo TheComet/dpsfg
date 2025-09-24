@@ -16,6 +16,8 @@ struct NAME : public Test
     {
         csfg_expr_pool_init(&num);
         csfg_expr_pool_init(&den);
+        csfg_expr_pool_init(&num_expected);
+        csfg_expr_pool_init(&den_expected);
         csfg_var_table_init(&vt);
         csfg_expr_vec_init(&num_roots);
         csfg_expr_vec_init(&den_roots);
@@ -25,12 +27,16 @@ struct NAME : public Test
         csfg_expr_vec_deinit(den_roots);
         csfg_expr_vec_deinit(num_roots);
         csfg_var_table_deinit(&vt);
+        csfg_expr_pool_deinit(num_expected);
+        csfg_expr_pool_deinit(den_expected);
         csfg_expr_pool_deinit(den);
         csfg_expr_pool_deinit(num);
     }
 
     struct csfg_expr_pool* num;
     struct csfg_expr_pool* den;
+    struct csfg_expr_pool* num_expected;
+    struct csfg_expr_pool* den_expected;
     struct csfg_var_table  vt;
     struct csfg_expr_vec*  num_roots;
     struct csfg_expr_vec*  den_roots;
@@ -38,78 +44,131 @@ struct NAME : public Test
 
 TEST_F(NAME, simple)
 {
-    int num_root = csfg_expr_parse(&num, "1/(1/s - 1/a)");
-    ASSERT_THAT(num_root, Ge(0));
     /*
      *       1
      *   ---------         a * s
      *    1     1   --->   -----
      *   --- - ---         a - s
      *    s     a
-     *
-     *      s
-     *  ---------
-     *   1 - s/a
-     *
-     *  s/(a-s)
      */
+    int num_root = csfg_expr_parse(&num, "1/(1/s - 1/a)");
     int den_root;
-    int div = csfg_expr_to_standard_tf(
-        &num, &num_root, &den, &den_root, cstr_view("s"));
-    ASSERT_THAT(div, Ge(0));
+    int num_expected_root = csfg_expr_parse(&num_expected, "a*s");
+    int den_expected_root = csfg_expr_parse(&den_expected, "a-s");
+    ASSERT_THAT(num_root, Ge(0));
+    ASSERT_THAT(num_expected_root, Ge(0));
+    ASSERT_THAT(den_expected_root, Ge(0));
+    ASSERT_THAT(
+        csfg_expr_to_standard_tf(
+            &num, &num_root, &den, &den_root, cstr_view("s")),
+        Eq(0));
+    ASSERT_THAT(
+        csfg_expr_equal(num, num_root, num_expected, num_expected_root),
+        IsTrue());
+    ASSERT_THAT(
+        csfg_expr_equal(den, den_root, den_expected, den_expected_root),
+        IsTrue());
 }
 
-TEST_F(NAME, compute_transfer_function_coefficient_expressions)
+TEST_F(NAME, light)
+{
+    /*
+     *       1
+     *   ---------         (s-1)*(a+4)        as + 4s - a - 4
+     *    1     1   --->   -----------  --->  ---------------
+     *   --- - ---          a+4 - s+1            a - s + 5
+     *   s-1   a+4
+     */
+    int num_root = csfg_expr_parse(&num, "1/(1/(s-1)-1/(a+4))");
+    int den_root;
+    int num_expected_root = csfg_expr_parse(&num_expected, "a*s");
+    int den_expected_root = csfg_expr_parse(&den_expected, "a-s");
+    ASSERT_THAT(num_root, Ge(0));
+    ASSERT_THAT(num_expected_root, Ge(0));
+    ASSERT_THAT(den_expected_root, Ge(0));
+    ASSERT_THAT(
+        csfg_expr_to_standard_tf(
+            &num, &num_root, &den, &den_root, cstr_view("s")),
+        Eq(0));
+    ASSERT_THAT(
+        csfg_expr_equal(num, num_root, num_expected, num_expected_root),
+        IsTrue());
+    ASSERT_THAT(
+        csfg_expr_equal(den, den_root, den_expected, den_expected_root),
+        IsTrue());
+}
+
+TEST_F(NAME, medium)
+{
+    /*
+     *       1
+     *   -------------        (s-1)^2*(a+4)        (s^2-2s+1)(a+4)
+     *    1         1   --->  -------------  --->  ----------------
+     *   ------- - ---        a+4 - (s-1)^2        a+4 - (s^2-2s+1)
+     *   (s-1)^2   a+4
+     *
+     *       as^2 - 2as + a + 4s^2 -8s + 4        (a+4)s^2 - (2a+8)s + (a+4)
+     * --->  -----------------------------  --->  --------------------------
+     *            s^2 + 2s + a + 3                    s^2 + 2s + a + 3
+     *
+     *   a + 3 + 2s - s^2
+     */
+    int num_root = csfg_expr_parse(&num, "1/(1/(s-1)^2-1/(a+4))");
+    int den_root;
+    int num_expected_root = csfg_expr_parse(&num_expected, "(a+4)*s^2 - (2*a+8)*s + a + 4");
+    int den_expected_root = csfg_expr_parse(&den_expected, "s^2 + 2*s + a + 3");
+    ASSERT_THAT(num_root, Ge(0));
+    ASSERT_THAT(num_expected_root, Ge(0));
+    ASSERT_THAT(den_expected_root, Ge(0));
+    ASSERT_THAT(
+        csfg_expr_to_standard_tf(
+            &num, &num_root, &den, &den_root, cstr_view("s")),
+        Eq(0));
+    ASSERT_THAT(
+        csfg_expr_equal(num, num_root, num_expected, num_expected_root),
+        IsTrue());
+    ASSERT_THAT(
+        csfg_expr_equal(den, den_root, den_expected, den_expected_root),
+        IsTrue());
+}
+
+TEST_F(NAME, harder)
 {
     int num_root = csfg_expr_parse(&num, "1/(1/s^3 - 4/(1+s)^2 - 8/(a+4))");
     // int e = csfg_expr_parse(&p, "(s+a)^2 / (((s+b)^2 * s^2)*(a+b*s)*s)");
     ASSERT_THAT(num_root, Ge(0));
 
     /*
-     *              1
-     *     -------------------
-     *      1       4       8
-     *     --- - ------- - ---
-     *     s^3   (1+s)^2   a+4
+     *              1                            1
+     *     -------------------       -----------------------
+     *      1       4       8  --->   1    4(a+4) - 8(1+s)^2
+     *     --- - ------- - ---       --- - -----------------
+     *     s^3   (1+s)^2   a+4       s^3     (a+4)(1+s)^2
      *
-     *     ( s^-3 - 4(1+s)^-2 - 8(a+4)^-1 )^-1
-     *     (a+4)^-1*(4(1+s)^-2*(a+4)^1 - 8)
-     *     (1+s)^-2*(a+4)^-1*(4*(a+4) - (1+s)^2*8)
+     *                   s^3(1+s)^2(a+4)
+     * --->  --------------------------------------
+     *       (a+4)(1+s)^2 - s^3(4(a+4) - 8(1+s)^2)
      *
-     *     4*(a+4) - 8*(1+s)^2
-     *     -------------------
-     *       (1+s)^2 * (a+4)
+     *                     s^3(s^2+2s+1)(a+4)
+     * --->  --------------------------------------------
+     *       (a+4)(s^2+2s+1) - 4s^3(a+4) + 8s^3(s^2+2s+1)
      *
-     *      1             1    x*s^3       1 + x*s^3
-     *     --- + x  >>>  --- + -----  >>>  ---------
-     *     s^3           s^3    s^3           s^3
+     *                  as^5 + 2as^4 + as^3 + 4s^5 + 8s^4 + 4s^3
+     * --->  ------------------------------------------------------------------
+     *      as^2 + 2as + a + 4s^2 + 8s + 4 - 4as^3 - 16s^3 + 8s^5 + 16s^4 + 8s^3
      *
-     *     s^-3 + x  >>>  s^-3 + x*s^3*s^-3  >>>
+     *                  (a+4)s^5 + (2a+8)s^4 + (a+4)s^3
+     * --->  ----------------------------------------------------------
+     *       (8)s^5 + (16)s^4 + (-4a-8)s^3 + (a+4)s^2 + (2a+8)s + (a+4)
      *
-     * Solved on paper:
-     *                      s^3 + 2s^4 + s^5
-     *  G(s) = ---------------------------------------------
-     *         1 + 2s + s^2 + (-4-x)s^3 + (-2x)s^4 + (-x)s^5
-     * where:
-     *     x = 8/(a+4)
-     *
-     * b0 = 0
-     * b1 = 0
-     * b2 = 0
-     * b3 = 1
-     * b4 = 2
-     * b5 = 1
-     * a0 = 1
-     * a1 = 2
-     * a2 = 1
-     * a3 = -4-8/(a+4)
-     * a4 = -16/(a+4)
-     * a5 = -8/(a+4)
+     *       -8as^3 + 8s^5 + 16s^4 + 8s^3
      */
     int den_root;
-    int div = csfg_expr_to_standard_tf(
-        &num, &num_root, &den, &den_root, cstr_view("s"));
-    ASSERT_THAT(div, Ge(0));
+    ASSERT_THAT(
+        csfg_expr_to_standard_tf(
+            &num, &num_root, &den, &den_root, cstr_view("s")),
+        Eq(0));
+    ASSERT_TRUE(false);
 
 #if 0
     for (std::size_t i = 0; i != tfc.numerator.size(); ++i)
