@@ -43,15 +43,6 @@ static int move_reciprocs(
     if (value >= 0.0)
         return 0;
 
-    new_root = csfg_expr_new(
-        to,
-        (*to)->nodes[to_root].type,
-        (*to)->nodes[to_root].child[0],
-        (*to)->nodes[to_root].child[1]);
-    if (new_root == -1)
-        return -1;
-    (*to)->nodes[new_root].value = (*to)->nodes[to_root].value;
-
     if (csfg_expr_set_mul(
             to,
             to_root,
@@ -59,7 +50,7 @@ static int move_reciprocs(
                 to,
                 csfg_expr_dup_from(to, *from, base),
                 csfg_expr_lit(to, -value)),
-            new_root) == -1)
+            csfg_expr_copy(to, to_root)) == -1)
     {
         return -1;
     }
@@ -74,28 +65,22 @@ static int move_reciprocs(
 /* ------------------------------------------------------------------------- */
 int csfg_expr_op_rebalance_fraction(
     struct csfg_expr_pool** num_pool,
-    int*                    num_root,
+    int                     num_root,
     struct csfg_expr_pool** den_pool,
-    int*                    den_root)
+    int                     den_root)
 {
     int modified = 0;
-    switch (move_reciprocs(num_pool, *num_root, den_pool, *den_root))
+    switch (move_reciprocs(num_pool, num_root, den_pool, den_root))
     {
         case -1: return -1;
         case 0: break;
-        case 1:
-            modified = 1;
-            *num_root = csfg_expr_gc(*num_pool, *num_root);
-            break;
+        case 1: modified = 1; break;
     }
-    switch (move_reciprocs(den_pool, *den_root, num_pool, *num_root))
+    switch (move_reciprocs(den_pool, den_root, num_pool, num_root))
     {
         case -1: return -1;
         case 0: break;
-        case 1:
-            modified = 1;
-            *den_root = csfg_expr_gc(*den_pool, *den_root);
-            break;
+        case 1: modified = 1; break;
     }
     return modified;
 }

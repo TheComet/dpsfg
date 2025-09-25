@@ -8,7 +8,7 @@ struct csfg_expr_pool;
  * 2+a+3           -->  5+a
  * 2*a*3           -->  6*a
  */
-int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool, int* root);
+int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool);
 
 /*!
  * -(-c)           -->  c
@@ -20,4 +20,4 @@ int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool, int* root);
  * a*a^-1          -->  1
  * a^-1^-1         -->  a
  */
-int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool, int* root);
+int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool);

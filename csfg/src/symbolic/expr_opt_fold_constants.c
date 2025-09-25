@@ -10,14 +10,17 @@ static int eval_subtrees(struct csfg_expr_pool** pool)
         int left = (*pool)->nodes[n].child[0];
         int right = (*pool)->nodes[n].child[1];
 
+        if ((*pool)->nodes[n].type == CSFG_EXPR_GC)
+            continue;
+
         /* binary operator */
-        if (left != -1 && right != 0 &&
+        if (left != -1 && right != -1 &&
             (*pool)->nodes[left].type == CSFG_EXPR_LIT &&
             (*pool)->nodes[right].type == CSFG_EXPR_LIT)
         {
             csfg_expr_set_lit(pool, n, csfg_expr_eval(*pool, n, NULL));
-            csfg_expr_mark_deleted(*pool, left);
-            csfg_expr_mark_deleted(*pool, right);
+            csfg_expr_mark_deleted_recursive(*pool, left);
+            csfg_expr_mark_deleted_recursive(*pool, right);
             return 1;
         }
 
@@ -26,7 +29,7 @@ static int eval_subtrees(struct csfg_expr_pool** pool)
             (*pool)->nodes[left].type == CSFG_EXPR_LIT)
         {
             csfg_expr_set_lit(pool, n, csfg_expr_eval(*pool, n, NULL));
-            csfg_expr_mark_deleted(*pool, left);
+            csfg_expr_mark_deleted_recursive(*pool, left);
             return 1;
         }
     }
@@ -97,7 +100,7 @@ static int combine_constants(struct csfg_expr_pool** pool)
 }
 
 /* ------------------------------------------------------------------------- */
-static int run_all_once(struct csfg_expr_pool** pool)
+int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool)
 {
 #define RUN(func, pool, modified)                                              \
     switch (func(pool))                                                        \
@@ -111,20 +114,4 @@ static int run_all_once(struct csfg_expr_pool** pool)
     RUN(combine_constants, pool, modified);
     return modified;
 #undef RUN
-}
-
-/* ------------------------------------------------------------------------- */
-int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool, int* root)
-{
-    int modified = 0;
-again:
-    switch (run_all_once(pool))
-    {
-        case -1: return -1;
-        case 0: break;
-        case 1: modified = 1; goto again;
-    }
-    if (modified)
-        *root = csfg_expr_gc(*pool, *root);
-    return modified;
 }

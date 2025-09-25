@@ -2,6 +2,8 @@
 
 struct csfg_expr_pool;
 
+int csfg_expr_op_run_until_complete(struct csfg_expr_pool** pool, ...);
+
 /*!
  * s^c  (c=const)  -->  (s*s*s*...)^1
  * s^-c (c=const)  -->  (s*s*s*...)^-1
@@ -53,6 +55,6 @@ int csfg_expr_op_simplify_sums(struct csfg_expr_pool** pool);
  */
 int csfg_expr_op_rebalance_fraction(
     struct csfg_expr_pool** num_pool,
-    int*                    num_root,
+    int                     num_root,
     struct csfg_expr_pool** den_pool,
-    int*                    den_root);
+    int                     den_root);

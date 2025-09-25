@@ -30,7 +30,7 @@ static int find_power_with_negative_constant_exponent(
 }
 
 /* ------------------------------------------------------------------------- */
-static int factor_common_denominator(struct csfg_expr_pool** pool)
+int csfg_expr_op_factor_common_denominator(struct csfg_expr_pool** pool)
 {
     int n;
     for (n = 0; n != (*pool)->count; ++n)
@@ -110,18 +110,4 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
     }
 
     return 0;
-}
-
-/* ------------------------------------------------------------------------- */
-int csfg_expr_op_factor_common_denominator(struct csfg_expr_pool** pool)
-{
-    int modified = 0;
-again:
-    switch (factor_common_denominator(pool))
-    {
-        case -1: return -1;
-        case 0: break;
-        case 1: modified = 1; goto again;
-    }
-    return modified;
 }

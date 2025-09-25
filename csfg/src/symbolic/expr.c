@@ -350,7 +350,8 @@ void csfg_expr_collapse_into_parent(
     pool->nodes[parent] = pool->nodes[child];
 
     csfg_expr_mark_deleted(pool, child);
-    csfg_expr_mark_deleted_recursive(pool, dangling_child);
+    if (dangling_child > -1)
+        csfg_expr_mark_deleted_recursive(pool, dangling_child);
 }
 
 /* ------------------------------------------------------------------------- */

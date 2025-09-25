@@ -81,8 +81,8 @@ TEST_F(NAME, light)
      */
     int num_root = csfg_expr_parse(&num, "1/(1/(s-1)-1/(a+4))");
     int den_root;
-    int num_expected_root = csfg_expr_parse(&num_expected, "a*s");
-    int den_expected_root = csfg_expr_parse(&den_expected, "a-s");
+    int num_expected_root = csfg_expr_parse(&num_expected, "s*a + s*4 -(a+4)");
+    int den_expected_root = csfg_expr_parse(&den_expected, "a+4-s");
     ASSERT_THAT(num_root, Ge(0));
     ASSERT_THAT(num_expected_root, Ge(0));
     ASSERT_THAT(den_expected_root, Ge(0));

@@ -43,7 +43,7 @@ TEST_F(NAME, power)
     int r2 = csfg_expr_parse(&p2, "(-1)*s^a");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     ASSERT_THAT(csfg_expr_op_lower_negates(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }

@@ -33,6 +33,27 @@ TEST_F(NAME, add_and_sub)
     ASSERT_THAT(csfg_expr_eval(p, e, NULL), DoubleEq(4));
 }
 
+TEST_F(NAME, mul_and_negate)
+{
+    int e;
+    ASSERT_THAT(e = csfg_expr_parse(&p, "1*-2*3-5"), Ge(0));
+    ASSERT_THAT(csfg_expr_eval(p, e, NULL), DoubleEq(-11));
+}
+
+TEST_F(NAME, exp_with_negate)
+{
+    int e;
+    ASSERT_THAT(e = csfg_expr_parse(&p, "4^-2"), Ge(0));
+    ASSERT_THAT(csfg_expr_eval(p, e, NULL), DoubleEq(1.0 / 16));
+}
+
+TEST_F(NAME, exp_with_negate2)
+{
+    int e;
+    ASSERT_THAT(e = csfg_expr_parse(&p, "4^-2^3"), Ge(0));
+    ASSERT_THAT(csfg_expr_eval(p, e, NULL), DoubleEq(1.0 / 65536));
+}
+
 TEST_F(NAME, eval_constant_expression)
 {
     int e;

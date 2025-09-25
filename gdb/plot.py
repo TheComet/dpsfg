@@ -1,6 +1,39 @@
 import gdb
 import subprocess
 
+catpuccin = dict(
+    bgcolor      = "#1e1e2e",
+    edgecolor    = "#6c7086",
+    gc           = ["doubleoctagon", "#e39aa6", "#e39aa6",],
+    literal      = ["record",        "#fab387", "#fab387",],
+    variable     = ["record",        "#b4befe", "#b4befe",],
+    inf          = ["record",        "#cba6f7", "#cba6f7",],
+    neg          = ["oval",          "#f8f0e3", "#f8f0e3",],
+    op           = ["oval",          "#f9e2af", "#f9e2af",],
+    func         = ["octagon",       "#89b4fa", "#89b4fa",],
+    constant     = ["record",        "#a6e3a1", "#a6e3a1",],
+    unused1      = ["circle",        "#89dceb", "#89dceb",],
+    unused2      = ["record",        "#cba6f7", "#cba6f7",],
+    unused3      = ["house",         "#ecea8d", "#ecea8d",],
+)
+dark_nightfly = dict(
+    bgcolor      = "#011627",
+    edgecolor    = "#8792a7",
+    gc           = ["doubleoctagon", "#f95772", "#f95772",],
+    literal      = ["record",        "#f78c6c", "#f78c6c",],
+    variable     = ["record",        "#b0b2f4", "#b0b2f4",],
+    inf          = ["record",        "#21c7a8", "#21c7a8",],
+    neg          = ["oval",          "#ecc48d", "#ecc48d",],
+    op           = ["oval",          "#ecea8d", "#ecea8d",],
+    func         = ["octagon",       "#82aaff", "#82aaff",],
+    constant     = ["record",        "#a57dc9", "#a57dc9",],
+    unused1      = ["octagon",       "#e39aa6", "#e39aa6",],
+    unused2      = ["doubleoctagon", "#82aaff", "#82aaff",],
+    unused3      = ["box3d",         "#c3ccdc", "#c3ccdc",],
+)
+
+style = catpuccin
+
 def plot_expr_graph(pool, root):
     def get_string(pool, i):
         strlist = pool["var_names"].dereference()
@@ -12,34 +45,37 @@ def plot_expr_graph(pool, root):
             .cast(gdb.lookup_type("char").pointer())\
             .string(length=span["len"])
         return string
-    def print_node(n):
+    def print_node_style(n, node_style, name):
         nonlocal text
+        s = style[node_style]
+        text += f'  n{n} [label="[{n}] {name}", shape="{s[0]}", color="{s[1]}", fontcolor="{s[2]}"];\n'
+    def print_node(n):
         node = pool["nodes"][n]
         if node["type"] == 0:
-            text += f'  n{n} [label="({n}) deletem"];\n'
+            print_node_style(n, "gc", "gc")
         if node["type"] == 1:
-            text += f'  n{n} [label="({n}) {node['value']['lit']}"];\n'
+            print_node_style(n, "literal", node['value']['lit'])
         if node["type"] == 2:
             i = node["value"]["var_idx"]
-            text += f'  n{n} [label="({n}) {get_string(pool, i)}"];\n'
+            print_node_style(n, "variable", get_string(pool, i))
         if node["type"] == 3:
-            text += f'  n{n} [label="({n}) oo"];\n'
+            print_node_style(n, "inf", "oo")
         if node["type"] == 4:
-            text += f'  n{n} [label="({n}) neg"];\n'
+            print_node_style(n, "neg", "neg")
         if node["type"] == 5:
-            text += f'  n{n} [label="({n}) +"];\n'
+            print_node_style(n, "op", "+")
         if node["type"] == 6:
-            text += f'  n{n} [label="({n}) *"];\n'
+            print_node_style(n, "op", "*")
         if node["type"] == 7:
-            text += f'  n{n} [label="({n}) ^"];\n'
+            print_node_style(n, "op", "^")
     def print_edge(n):
         nonlocal text
         left = pool["nodes"][n]["child"][0]
         right = pool["nodes"][n]["child"][1]
         if left != -1:
-            text += f'  n{n} -> n{left};\n'
+            text += f'  n{n} -> n{left} [color="{style['edgecolor']}", fontcolor="{style['edgecolor']}"];\n'
         if right != -1:
-            text += f'  n{n} -> n{right};\n'
+            text += f'  n{n} -> n{right} [color="{style['edgecolor']}", fontcolor="{style['edgecolor']}"];\n'
     def print_edges(n):
         print_edge(n)
         left = pool["nodes"][n]["child"][0]
@@ -60,6 +96,7 @@ def plot_expr_graph(pool, root):
         print_node(n)
     unvisited = set(range(pool["count"]))
     text = "digraph {\n"
+    text += f'  bgcolor="{style['bgcolor']}";\n'
     print_nodes(root)
     print_edges(root)
     for n in unvisited:

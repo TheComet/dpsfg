@@ -33,8 +33,8 @@ TEST_F(NAME, case1)
     int r2 = csfg_expr_parse(&p2, "s^-1*(a*s^1+1)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -45,8 +45,8 @@ TEST_F(NAME, case2)
     int r2 = csfg_expr_parse(&p2, "s^-1*(a*s^1+b)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -57,8 +57,8 @@ TEST_F(NAME, case1_mirror)
     int r2 = csfg_expr_parse(&p2, "s^-1*(b+a*s^1)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -69,8 +69,8 @@ TEST_F(NAME, case2_mirror)
     int r2 = csfg_expr_parse(&p2, "s^-1*(b+a*s^1)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -81,8 +81,8 @@ TEST_F(NAME, case1_negated)
     int r2 = csfg_expr_parse(&p2, "s^-1*(a*s^1-1)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     csfg_expr_op_lower_negates(&p1);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
@@ -94,8 +94,8 @@ TEST_F(NAME, case2_negated)
     int r2 = csfg_expr_parse(&p2, "s^-1*(a*s^1-b)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     csfg_expr_op_lower_negates(&p1);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
@@ -107,8 +107,8 @@ TEST_F(NAME, multiple_summands1)
     int r2 = csfg_expr_parse(&p2, "s^-1*((a+b)*s^1+1)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -119,8 +119,9 @@ TEST_F(NAME, multiple_summands2)
     int r2 = csfg_expr_parse(&p2, "s^-1*(a*s^1 + 1 + b*s^1)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
+    ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -131,8 +132,8 @@ TEST_F(NAME, multiple_summands1_negated)
     int r2 = csfg_expr_parse(&p2, "s^-1*((a-b)*s^1-1)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     csfg_expr_op_lower_negates(&p1);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
@@ -144,9 +145,10 @@ TEST_F(NAME, multiple_summands2_negated)
     int r2 = csfg_expr_parse(&p2, "s^-1*(a*s^1 - 1 + (-b)*s^1)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     csfg_expr_op_lower_negates(&p1);
+    ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -157,8 +159,8 @@ TEST_F(NAME, multiple_products1)
     int r2 = csfg_expr_parse(&p2, "s^-1*(a*s^1 + b*c)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -169,8 +171,8 @@ TEST_F(NAME, multiple_products2)
     int r2 = csfg_expr_parse(&p2, "s^-1*(a*s^1 + b*c)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_opt_fold_constants(&p1, &r1);
-    csfg_expr_opt_fold_constants(&p2, &r2);
+    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
     ASSERT_THAT(csfg_expr_op_factor_common_denominator(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }

@@ -34,6 +34,7 @@ set (csfg_SOURCES
     "src/symbolic/expr.c"
     "src/symbolic/expr_eval.c"
     "src/symbolic/expr_parse.c"
+    "src/symbolic/expr_op.c"
     "src/symbolic/expr_op_distribute_products.c"
     "src/symbolic/expr_op_expand_constant_exponents.c"
     "src/symbolic/expr_op_expand_exponent_products.c"

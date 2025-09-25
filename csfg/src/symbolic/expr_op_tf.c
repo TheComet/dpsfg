@@ -5,50 +5,35 @@
 
 VEC_DEFINE(csfg_expr_vec, int, 8)
 
-#define RUN1(func, pool, modified)                                             \
-    switch (func(pool))                                                        \
-    {                                                                          \
-        case -1: return -1;                                                    \
-        case 0: break;                                                         \
-        case 1: modified = 1; break;                                           \
-    }
-#define RUN2(func, pool, root, modified)                                       \
-    switch (func(pool, root))                                                  \
-    {                                                                          \
-        case -1: return -1;                                                    \
-        case 0: break;                                                         \
-        case 1: modified = 1; break;                                           \
-    }
-
 /* ------------------------------------------------------------------------- */
 static int run_expansions(struct csfg_expr_pool** pool)
 {
-    int modified = 0;
-    RUN1(csfg_expr_op_expand_constant_exponents, pool, modified);
-    RUN1(csfg_expr_op_expand_exponent_sums, pool, modified);
-    RUN1(csfg_expr_op_expand_exponent_products, pool, modified);
-    RUN1(csfg_expr_op_distribute_products, pool, modified);
-    return modified;
+    return csfg_expr_op_run_until_complete(
+        pool,
+        csfg_expr_op_expand_constant_exponents,
+        csfg_expr_op_expand_exponent_sums,
+        csfg_expr_op_expand_exponent_products,
+        csfg_expr_op_distribute_products,
+        NULL);
 }
 
 /* ------------------------------------------------------------------------- */
-static int run_optimizations(struct csfg_expr_pool** pool, int* root)
+static int run_optimizations(struct csfg_expr_pool** pool)
 {
-    int modified = 0;
-    RUN2(csfg_expr_opt_fold_constants, pool, root, modified);
-    RUN2(csfg_expr_opt_remove_useless_ops, pool, root, modified);
-    RUN1(csfg_expr_op_lower_negates, pool, modified);
-    RUN1(csfg_expr_op_simplify_products, pool, modified);
-    RUN1(csfg_expr_op_simplify_sums, pool, modified);
-    return modified;
+    return csfg_expr_op_run_until_complete(
+        pool,
+        csfg_expr_opt_fold_constants,
+        csfg_expr_opt_remove_useless_ops,
+        csfg_expr_op_simplify_products,
+        csfg_expr_op_simplify_sums,
+        NULL);
 }
 
 /* ------------------------------------------------------------------------- */
 static int run_factorizations(struct csfg_expr_pool** pool)
 {
-    int modified = 0;
-    RUN1(csfg_expr_op_factor_common_denominator, pool, modified);
-    return modified;
+    return csfg_expr_op_run_until_complete(
+        pool, csfg_expr_op_factor_common_denominator, NULL);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -71,33 +56,44 @@ int csfg_expr_to_standard_tf(
 
         if (run_factorizations(num_pool) == -1 ||
             run_factorizations(den_pool) == -1 ||
-            run_expansions(num_pool) == -1 ||
-            run_expansions(den_pool) == -1 || /* make clang-format happy */
-            run_optimizations(num_pool, num_root) == -1 ||
-            run_optimizations(den_pool, den_root) == -1)
+            run_expansions(num_pool) == -1 || run_expansions(den_pool) == -1)
         {
             return -1;
         }
+        *num_root = csfg_expr_gc(*num_pool, *num_root);
+        *den_root = csfg_expr_gc(*den_pool, *den_root);
+
+        /* rebalance fraction requires this pass */
+        if (csfg_expr_op_run_until_complete(
+                num_pool, csfg_expr_op_lower_negates, NULL) == -1)
+            return -1;
+        if (csfg_expr_op_run_until_complete(
+                den_pool, csfg_expr_op_lower_negates, NULL) == -1)
+            return -1;
 
         switch (csfg_expr_op_rebalance_fraction(
-            num_pool, num_root, den_pool, den_root))
+            num_pool, *num_root, den_pool, *den_root))
         {
             case -1: return -1;
             case 0: done = 1; break;
             case 1: break;
         }
+        *num_root = csfg_expr_gc(*num_pool, *num_root);
+        *den_root = csfg_expr_gc(*den_pool, *den_root);
 
         if (done)
             break;
     }
 
     if (run_expansions(num_pool) == -1 ||
-        run_expansions(den_pool) == -1 || /* make clang-format happy */
-        run_optimizations(num_pool, num_root) == -1 ||
-        run_optimizations(den_pool, den_root) == -1)
+        run_expansions(den_pool) == -1 ||    /* make clang-format happy */
+        run_optimizations(num_pool) == -1 || /* make clang-format happy */
+        run_optimizations(den_pool) == -1)
     {
         return -1;
     }
+    *num_root = csfg_expr_gc(*num_pool, *num_root);
+    *den_root = csfg_expr_gc(*den_pool, *den_root);
 
     return 0;
 }

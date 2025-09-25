@@ -181,7 +181,7 @@ static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
         }
         if (floats_equal(value, 0.0, 0.0000001))
         {
-            csfg_expr_mark_deleted(*pool, left);
+            csfg_expr_mark_deleted_recursive(*pool, left);
             csfg_expr_mark_deleted(*pool, right);
             csfg_expr_set_lit(pool, n, 1.0);
             return 1;
@@ -192,7 +192,7 @@ static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
 }
 
 /* ------------------------------------------------------------------------- */
-static int run_all_once(struct csfg_expr_pool** pool)
+int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool)
 {
 #define RUN(func, pool, modified)                                              \
     switch (func(pool))                                                        \
@@ -210,20 +210,4 @@ static int run_all_once(struct csfg_expr_pool** pool)
     RUN(remove_double_reciprocs, pool, modified);
     return modified;
 #undef RUN
-}
-
-/* ------------------------------------------------------------------------- */
-int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool, int* root)
-{
-    int modified = 0;
-again:
-    switch (run_all_once(pool))
-    {
-        case -1: return -1;
-        case 0: break;
-        case 1: modified = 1; goto again;
-    }
-    if (modified)
-        *root = csfg_expr_gc(*pool, *root);
-    return modified;
 }

@@ -47,6 +47,14 @@ void csfg_expr_pool_clear(struct csfg_expr_pool* pool);
 /*!
  * @brief Parses a string into a syntax tree. The resulting expression can be
  * evaluated using @see csfg_expr_eval();
+ *
+ * Grammar:
+ *    <expr>   = <term> {("+" | "-") <term>}
+ *    <term>   = <unary> {("*" | "/") <unary>}
+ *    <unary>  = {("-" | "+")} <factor>
+ *    <factor> = <base> {"^" <unary>}
+ *    <base>   = <constant> | <variable> | "(" <expr> ")"
+ *
  * @return Returns the root node index of the expression tree, or a negative
  * error code if an error occurred.
  */

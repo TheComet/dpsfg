@@ -53,6 +53,8 @@ TEST_F(NAME, binomial_expansion)
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_distribute_products(&p1), Gt(0));
+    ASSERT_THAT(csfg_expr_op_distribute_products(&p1), Gt(0));
+    ASSERT_THAT(csfg_expr_op_distribute_products(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
 

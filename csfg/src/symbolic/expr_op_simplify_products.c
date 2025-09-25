@@ -2,30 +2,36 @@
 #include "csfg/symbolic/expr_op.h"
 
 /* ------------------------------------------------------------------------- */
+/* Searches the subtree "n" recursively until it matches the node "search". The
+ * returned node can either be the node that matched, or if the matching subtree
+ * already has a constant exponent, returns the power operator where the base is
+ * the matching node. */
 static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
 {
-    if (pool->nodes[search].type == CSFG_EXPR_OP_MUL)
+    if (pool->nodes[n].type == CSFG_EXPR_OP_MUL)
     {
-        int left = pool->nodes[search].child[0];
-        int right = pool->nodes[search].child[1];
-        search = find_same_expr(pool, n, left);
-        if (search > -1)
-            return search;
-        search = find_same_expr(pool, n, right);
-        if (search > -1)
-            return search;
+        int left = pool->nodes[n].child[0];
+        int right = pool->nodes[n].child[1];
+        n = find_same_expr(pool, left, search);
+        if (n > -1)
+            return n;
+        n = find_same_expr(pool, right, search);
+        if (n > -1)
+            return n;
         return -1;
     }
 
-    if (pool->nodes[search].type == CSFG_EXPR_OP_POW)
+    if (pool->nodes[n].type == CSFG_EXPR_OP_POW &&
+        pool->nodes[pool->nodes[n].child[1]].type == CSFG_EXPR_LIT)
     {
-        int base = pool->nodes[search].child[0];
-        return find_same_expr(pool, n, base);
+        int base = pool->nodes[n].child[0];
+        if (search != base && csfg_expr_equal(pool, search, pool, base))
+            return n;
+        return -1;
     }
 
-    /* Ignore self */
-    if (n != search && csfg_expr_equal(pool, n, pool, search))
-        return search;
+    if (search != n && csfg_expr_equal(pool, search, pool, n))
+        return n;
 
     return -1;
 }
@@ -33,49 +39,52 @@ static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
 /* ------------------------------------------------------------------------- */
 static int process_chain(struct csfg_expr_pool** pool, int n, int top)
 {
-    int match, sibling, parent = top;
     for (; top > -1 && (*pool)->nodes[top].type == CSFG_EXPR_OP_MUL;
          top = csfg_expr_find_parent((*pool), top))
     {
-        match = find_same_expr((*pool), n, top);
+        int match = find_same_expr(
+            (*pool),
+            top,
+            /* If the product is raised to a power, want to search only for the
+               product and not the whole power */
+            (*pool)->nodes[n].type == CSFG_EXPR_OP_POW
+                ? (*pool)->nodes[n].child[0]
+                : n);
         if (match == -1)
             continue;
 
-        sibling = (*pool)->nodes[parent].child[0] == n
-                      ? (*pool)->nodes[parent].child[1]
-                      : (*pool)->nodes[parent].child[0];
-
-        /* "match" might be the sibling of "n" */
-        if (match == sibling)
+        if ((*pool)->nodes[n].type == CSFG_EXPR_OP_POW)
         {
-            int result;
-            if ((*pool)->nodes[sibling].child[0] != -1)
-                csfg_expr_mark_deleted_recursive(
-                    *pool, (*pool)->nodes[sibling].child[0]);
-            if ((*pool)->nodes[sibling].child[1] != -1)
-                csfg_expr_mark_deleted_recursive(
-                    *pool, (*pool)->nodes[sibling].child[1]);
-
-            result = csfg_expr_set_pow(
-                pool, parent, n, csfg_expr_set_lit(pool, sibling, 2.0));
-            if (result == -1)
+            int exp = (*pool)->nodes[n].child[1];
+            int sum1 = csfg_expr_copy(pool, exp);
+            int sum2 =
+                (*pool)->nodes[match].type == CSFG_EXPR_OP_POW
+                    ? csfg_expr_copy(pool, (*pool)->nodes[match].child[1])
+                    : csfg_expr_lit(pool, 1.0);
+            if (csfg_expr_set_add(pool, exp, sum1, sum2) == -1)
                 return -1;
-            return 1;
         }
-        else /* match is in another subtree */
+        else
         {
-            csfg_expr_collapse_sibling_into_parent(*pool, match);
-            csfg_expr_set_pow(
-                pool, n, csfg_expr_copy(pool, n), csfg_expr_lit(pool, 2.0));
-            return 1;
+            int exp =
+                (*pool)->nodes[match].type == CSFG_EXPR_OP_POW
+                    ? csfg_expr_add(
+                          pool,
+                          csfg_expr_copy(pool, (*pool)->nodes[match].child[1]),
+                          csfg_expr_lit(pool, 1.0))
+                    : csfg_expr_lit(pool, 2.0);
+            if (csfg_expr_set_pow(pool, n, csfg_expr_copy(pool, n), exp) == -1)
+                return -1;
         }
+        csfg_expr_collapse_sibling_into_parent(*pool, match);
+        return 1;
     }
 
     return 0;
 }
 
 /* ------------------------------------------------------------------------- */
-static int simplify_products(struct csfg_expr_pool** pool)
+int csfg_expr_op_simplify_products(struct csfg_expr_pool** pool)
 {
     int n, top, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
@@ -99,19 +108,5 @@ static int simplify_products(struct csfg_expr_pool** pool)
         }
     }
 
-    return modified;
-}
-
-/* ------------------------------------------------------------------------- */
-int csfg_expr_op_simplify_products(struct csfg_expr_pool** pool)
-{
-    int modified = 0;
-again:
-    switch (simplify_products(pool))
-    {
-        case -1: return -1;
-        case 0: break;
-        case 1: modified = 1; goto again;
-    }
     return modified;
 }
