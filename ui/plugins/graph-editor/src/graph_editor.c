@@ -10,6 +10,7 @@ typedef struct
 typedef struct
 {
     GraphNode *src, *dst;
+    double     control_x, control_y;
 } GraphEdge;
 
 struct _GraphEditor
@@ -108,14 +109,82 @@ static void draw_node(cairo_t* cr, GraphNode* n, double r, double g, double b)
 static void
 draw_edge(cairo_t* cr, GraphEdge* e, double r, double g, double b, double zoom)
 {
-    double cx = (e->src->x + e->dst->x) / 2;
-    double cy = (e->src->y + e->dst->y) / 2;
-    double dx = e->src->x - e->dst->x;
-    double dy = e->src->y - e->dst->y;
-    double a = atan2(dy, dx);
-    cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
+    // Extract the three points
+    double x1 = e->src->x, y1 = e->src->y;
+    double x2 = e->dst->x, y2 = e->dst->y;
+    double x3 = e->control_x, y3 = e->control_y;
+
+    // Check for collinearity (area of triangle = 0)
+    double area = (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+    if (fabs(area) < 1e-5)
+    {
+        // Nearly collinear — draw straight line
+        cairo_set_source_rgb(cr, r, g, b);
+        cairo_set_line_width(cr, 2.0 / zoom);
+        cairo_move_to(cr, x1, y1);
+        cairo_line_to(cr, x2, y2);
+        cairo_stroke(cr);
+        return;
+    }
+
+    // Compute circumcenter (cx, cy)
+    double A = x1 - x2;
+    double B = y1 - y2;
+    double C = x1 - x3;
+    double D = y1 - y3;
+
+    double E = ((x1 * x1 - x2 * x2) + (y1 * y1 - y2 * y2)) / 2.0;
+    double F = ((x1 * x1 - x3 * x3) + (y1 * y1 - y3 * y3)) / 2.0;
+
+    double denom = A * D - B * C;
+    if (fabs(denom) < 1e-5)
+    {
+        cairo_set_source_rgb(cr, r, g, b);
+        cairo_set_line_width(cr, 2.0 / zoom);
+        cairo_move_to(cr, x1, y1);
+        cairo_line_to(cr, x2, y2);
+        cairo_stroke(cr);
+        return;
+    }
+
+    double cx = (D * E - B * F) / denom;
+    double cy = (-C * E + A * F) / denom;
+
+    // Compute radius
+    double radius = hypot(cx - x1, cy - y1);
+    if (radius > 1000)
+    {
+        cairo_set_source_rgb(cr, r, g, b);
+        cairo_set_line_width(cr, 2.0 / zoom);
+        cairo_move_to(cr, x1, y1);
+        cairo_line_to(cr, x2, y2);
+        cairo_stroke(cr);
+        return;
+    }
+
+    // Compute angles from center to src, dst, control
+    double angle1 = atan2(y1 - cy, x1 - cx);
+    double angle2 = atan2(y2 - cy, x2 - cx);
+    double angle_control = atan2(y3 - cy, x3 - cx);
+
+    // Convert angles into unit vectors
+    double vx1 = cos(angle1), vy1 = sin(angle1);
+    double vx2 = cos(angle2), vy2 = sin(angle2);
+    double vx3 = cos(angle_control), vy3 = sin(angle_control);
+
+    // 2D cross product to determine orientation
+    double cross = (vx1 * vy2 - vy1 * vx2);
+    double cross_control = (vx1 * vy3 - vy1 * vx3);
+
+    cairo_set_source_rgb(cr, r, g, b);
     cairo_set_line_width(cr, 2.0 / zoom);
-    cairo_arc(cr, cx, cy, sqrt(dx * dx + dy * dy) / 2, a, a + M_PI);
+
+    // Determine arc direction so it passes through control point
+    if ((cross > 0 && cross_control > 0) || (cross < 0 && cross_control < 0))
+        cairo_arc(cr, cx, cy, radius, angle1, angle2); // CCW
+    else
+        cairo_arc_negative(cr, cx, cy, radius, angle1, angle2); // CW
+
     cairo_stroke(cr);
 }
 
@@ -314,7 +383,6 @@ static gboolean scroll_cb(
     /* Convert mouse coordinates to graph space */
     gx = (editor->mouse_x - editor->pan_x) / editor->zoom;
     gy = (editor->mouse_y - editor->pan_y) / editor->zoom;
-    log_dbg("%f, %f\n", gx, gy);
 
     /* Adjust pan so we zoom around the mouse coordinates and not 0,0 */
     editor->pan_x = editor->mouse_x - gx * new_zoom;
@@ -352,6 +420,8 @@ static void graph_editor_init(GraphEditor* self)
 
     self->edge.src = &self->node1;
     self->edge.dst = &self->node2;
+    self->edge.control_x = 50;
+    self->edge.control_y = 10;
 
     self->zoom = 1.0;
     self->pan_x = 500.0;

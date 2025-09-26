@@ -5,9 +5,22 @@
 struct csfg_expr_pool;
 typedef int (*csfg_expr_pass_func)(struct csfg_expr_pool**);
 
+/*!
+ * Use this if you want to run multiple operations and combine their results.
+ *
+ * Will call each pass in sequence repeatedly until all return "0".
+ * If any ops return 1, then this function will return 1.
+ * If all ops return 0 initially, then this function will return 0.
+ * If any ops return -1 at any point, this function returns -1 immediately.
+ *
+ * @param[in] ... List of @see csfg_expr_op_func function pointers. Must be
+ * terminated by NULL.
+ */
 int csfg_expr_op_run(struct csfg_expr_pool** pool, ...);
 int csfg_expr_op_runv(struct csfg_expr_pool** pool, va_list ap);
 
+/*! This is used interally by all of the proceeding op functions as a
+ * convenience. You shouldn't need to use this function externally ever */
 int csfg_expr_op_run_pass(
     struct csfg_expr_pool** pool, csfg_expr_pass_func pass);
 

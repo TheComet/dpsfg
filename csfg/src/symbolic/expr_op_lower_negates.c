@@ -2,7 +2,7 @@
 #include "csfg/symbolic/expr_op.h"
 
 /* ------------------------------------------------------------------------- */
-int lower_negates(struct csfg_expr_pool** pool)
+static int lower_negates(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
