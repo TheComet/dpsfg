@@ -48,7 +48,7 @@ def plot_expr_graph(pool, root):
     def print_node_style(n, node_style, name):
         nonlocal text
         s = style[node_style]
-        text += f'  n{n} [label="[{n}] {name}", shape="{s[0]}", color="{s[1]}", fontcolor="{s[2]}"];\n'
+        text += f'  n{n} [label="{name}", shape="{s[0]}", color="{s[1]}", fontcolor="{s[2]}"];\n'
     def print_node(n):
         node = pool["nodes"][n]
         if node["type"] == 0:

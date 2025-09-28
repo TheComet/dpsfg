@@ -4,6 +4,7 @@
 
 #cmakedefine CSFG_BACKTRACE
 #cmakedefine CSFG_DEBUG_MEMORY
+#cmakedefine CSFG_LOG_DEBUG
 #cmakedefine CSFG_TESTS
 
 #define CSFG_SIZEOF_VOID_P ${CMAKE_SIZEOF_VOID_P}

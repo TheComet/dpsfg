@@ -1,7 +1,7 @@
 #include "csfg/config.h"
 #include "csfg/util/cli_colors.h"
 #include "csfg/util/log.h"
-#include "ui/args.h"
+#include "dpsfg/args.h"
 #include <string.h>
 
 #define SECTION        COL_B_WHITE

@@ -1,4 +1,4 @@
-project ("csfg"
+project ("dpsfg-csfg"
     VERSION 0.0.1
     LANGUAGES C)
 
@@ -6,8 +6,9 @@ project ("csfg"
 # Config and options
 ###############################################################################
 
-option (CSFG_DEBUG_MEMORY "Enable tracking malloc() and free() calls to detect memory leaks" ON)
 option (CSFG_BACKTRACE "Enable generating backtraces to all resources. Adds a significant performance penalty" ON)
+option (CSFG_DEBUG_MEMORY "Enable tracking malloc() and free() calls to detect memory leaks" ON)
+option (CSFG_LOG_DEBUG "Make log_dbg() do something" ON)
 
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "MSVC")
     set (CSFG_THREADLOCAL "__declspec(thread)")
@@ -71,11 +72,13 @@ elseif (LINUX)
     endif ()
 endif ()
 
-add_library (csfg STATIC
+add_library (dpsfg-csfg SHARED
     ${csfg_SOURCES})
-target_include_directories (csfg PUBLIC
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_BINARY_DIR}/include")
+target_include_directories (dpsfg-csfg PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>")
+add_library (DPSFG::csfg ALIAS dpsfg-csfg)
 
 if (CSFG_TESTS)
     target_sources (dpsfg-tests INTERFACE
@@ -105,3 +108,16 @@ if (CSFG_TESTS)
         "${PROJECT_SOURCE_DIR}/tests/include")
 endif ()
 
+install (
+    TARGETS dpsfg-csfg
+    EXPORT DPSFGTargets
+    INCLUDES DESTINATION "include"
+    ARCHIVE DESTINATION "lib"
+    LIBRARY DESTINATION "lib"
+    RUNTIME DESTINATION ".")
+install (
+    DIRECTORY "include/csfg"
+    DESTINATION "include")
+install (
+    DIRECTORY "${PROJECT_BINARY_DIR}/include/csfg"
+    DESTINATION "include")

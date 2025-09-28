@@ -1,10 +1,11 @@
 #include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
 
 /* ------------------------------------------------------------------------- */
 static int eval_subtrees(struct csfg_expr_pool** pool)
 {
-    int n;
+    int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
         int left = (*pool)->nodes[n].child[0];
@@ -21,97 +22,103 @@ static int eval_subtrees(struct csfg_expr_pool** pool)
             csfg_expr_set_lit(pool, n, csfg_expr_eval(*pool, n, NULL));
             csfg_expr_mark_deleted_recursive(*pool, left);
             csfg_expr_mark_deleted_recursive(*pool, right);
-            return 1;
+            modified = 1;
         }
 
         /* unary operator */
-        if (right == -1 && left != -1 &&
+        else if (
+            right == -1 && left != -1 &&
             (*pool)->nodes[left].type == CSFG_EXPR_LIT)
         {
             csfg_expr_set_lit(pool, n, csfg_expr_eval(*pool, n, NULL));
             csfg_expr_mark_deleted_recursive(*pool, left);
-            return 1;
+            modified = 1;
         }
     }
 
-    return 0;
+    return modified;
 }
 
 /* ------------------------------------------------------------------------- */
-static int find_constant_operand(
-    const struct csfg_expr_pool* pool, int n, enum csfg_expr_type type)
+static int find_other_constant_operand(
+    const struct csfg_expr_pool* pool,
+    enum csfg_expr_type          type,
+    int                          n,
+    int                          exclude)
 {
-    int child, result;
+    int left, right, result;
 
-    if (n == -1)
+    if (n == exclude || n == -1)
         return -1;
     if (pool->nodes[n].type == CSFG_EXPR_LIT)
         return n;
     if (pool->nodes[n].type != type)
         return -1;
 
-    result = find_constant_operand(pool, pool->nodes[n].child[0], type);
+    left = pool->nodes[n].child[0];
+    right = pool->nodes[n].child[1];
+
+    result = find_other_constant_operand(pool, type, left, exclude);
     if (result > -1)
         return result;
-    result = find_constant_operand(pool, pool->nodes[n].child[1], type);
+    result = find_other_constant_operand(pool, type, right, exclude);
     if (result > -1)
         return result;
 
     return -1;
 }
+
+/* ------------------------------------------------------------------------- */
 static int combine_constants(struct csfg_expr_pool** pool)
 {
-    int n;
+    int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
-        enum csfg_expr_type type = (*pool)->nodes[n].type;
+        enum csfg_expr_type op_type = (*pool)->nodes[n].type;
         int                 left = (*pool)->nodes[n].child[0];
         int                 right = (*pool)->nodes[n].child[1];
-        int                 constant, subtree, child_constant;
+        int                 constant, top, match;
         double              combined_value;
 
-        if (type != CSFG_EXPR_OP_ADD && type != CSFG_EXPR_OP_MUL)
+        if (op_type != CSFG_EXPR_OP_ADD && op_type != CSFG_EXPR_OP_MUL)
             continue;
 
-        /* Select which child is the literal and which is the subtree */
         if ((*pool)->nodes[left].type == CSFG_EXPR_LIT)
-            constant = left, subtree = right;
+            constant = left;
         else if ((*pool)->nodes[right].type == CSFG_EXPR_LIT)
-            constant = right, subtree = left;
+            constant = right;
         else
             continue; /* No child is constant */
 
-        child_constant = find_constant_operand(*pool, subtree, type);
-        if (child_constant == -1)
+        top = n;
+        while (1)
+        {
+            match = find_other_constant_operand(*pool, op_type, top, constant);
+            if (match > -1)
+                break;
+            top = csfg_expr_find_parent(*pool, top);
+            if (top == -1 || (*pool)->nodes[top].type != op_type)
+                break;
+        }
+        if (match == -1)
             continue;
 
-        if (type == CSFG_EXPR_OP_ADD)
+        if (op_type == CSFG_EXPR_OP_ADD)
             combined_value = (*pool)->nodes[constant].value.lit +
-                             (*pool)->nodes[child_constant].value.lit;
+                             (*pool)->nodes[match].value.lit;
         else
             combined_value = (*pool)->nodes[constant].value.lit *
-                             (*pool)->nodes[child_constant].value.lit;
-        csfg_expr_set_lit(pool, child_constant, combined_value);
-        csfg_expr_collapse_into_parent(*pool, subtree, n);
-        return 1;
+                             (*pool)->nodes[match].value.lit;
+        csfg_expr_set_lit(pool, constant, combined_value);
+        csfg_expr_collapse_sibling_into_parent(*pool, match);
+        modified = 1;
     }
 
-    return 0;
+    return modified;
 }
 
 /* ------------------------------------------------------------------------- */
 int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool)
 {
-#define RUN(func, pool, modified)                                              \
-    switch (func(pool))                                                        \
-    {                                                                          \
-        case -1: return -1;                                                    \
-        case 0: break;                                                         \
-        case 1: modified = 1; break;                                           \
-    }
-    int modified = 0;
-    RUN(eval_subtrees, pool, modified);
-    RUN(combine_constants, pool, modified);
-    return modified;
-#undef RUN
+    return csfg_expr_op_run(pool, eval_subtrees, combine_constants, NULL);
 }

@@ -42,6 +42,5 @@ TEST_F(NAME, expand_nested)
     int r2 = csfg_expr_parse(&p2, "(a+b)^(c*d) * (a+b)^(e*f) * (a+b)^(g*h)");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(csfg_expr_op_expand_exponent_sums(&p1), Gt(0));
-    ASSERT_THAT(csfg_expr_op_expand_exponent_sums(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }

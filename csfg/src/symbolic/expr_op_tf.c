@@ -6,34 +6,28 @@
 VEC_DEFINE(csfg_expr_vec, int, 8)
 
 /* ------------------------------------------------------------------------- */
-static int run_expansions(struct csfg_expr_pool** pool)
+static int run(struct csfg_expr_pool** num, struct csfg_expr_pool** den, ...)
 {
-    return csfg_expr_op_run_until_complete(
-        pool,
-        csfg_expr_op_expand_constant_exponents,
-        csfg_expr_op_expand_exponent_sums,
-        csfg_expr_op_expand_exponent_products,
-        csfg_expr_op_distribute_products,
-        NULL);
-}
+    va_list ap;
+    int     result, modified = 0;
 
-/* ------------------------------------------------------------------------- */
-static int run_optimizations(struct csfg_expr_pool** pool)
-{
-    return csfg_expr_op_run_until_complete(
-        pool,
-        csfg_expr_opt_fold_constants,
-        csfg_expr_opt_remove_useless_ops,
-        csfg_expr_op_simplify_products,
-        csfg_expr_op_simplify_sums,
-        NULL);
-}
+    va_start(ap, den);
+    result = csfg_expr_op_runv(num, ap);
+    va_end(ap);
+    if (result == -1)
+        return -1;
+    if (result == 1)
+        modified = 1;
 
-/* ------------------------------------------------------------------------- */
-static int run_factorizations(struct csfg_expr_pool** pool)
-{
-    return csfg_expr_op_run_until_complete(
-        pool, csfg_expr_op_factor_common_denominator, NULL);
+    va_start(ap, den);
+    result = csfg_expr_op_runv(den, ap);
+    va_end(ap);
+    if (result == -1)
+        return -1;
+    if (result == 1)
+        modified = 1;
+
+    return modified;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -54,9 +48,32 @@ int csfg_expr_to_standard_tf(
     {
         int done = 0;
 
-        if (run_factorizations(num_pool) == -1 ||
-            run_factorizations(den_pool) == -1 ||
-            run_expansions(num_pool) == -1 || run_expansions(den_pool) == -1)
+        if (run(num_pool,
+                den_pool,
+                csfg_expr_op_factor_common_denominator,
+                NULL) == -1)
+        {
+            return -1;
+        }
+        *num_root = csfg_expr_gc(*num_pool, *num_root);
+        *den_root = csfg_expr_gc(*den_pool, *den_root);
+
+        if (run(num_pool,
+                den_pool,
+                csfg_expr_op_expand_constant_exponents,
+                csfg_expr_op_expand_exponent_sums,
+                csfg_expr_op_expand_exponent_products,
+                csfg_expr_op_distribute_products,
+                NULL) == -1)
+        {
+            return -1;
+        }
+
+        if (run(num_pool,
+                den_pool,
+                csfg_expr_opt_fold_constants,
+                csfg_expr_opt_remove_useless_ops,
+                NULL) == -1)
         {
             return -1;
         }
@@ -64,12 +81,10 @@ int csfg_expr_to_standard_tf(
         *den_root = csfg_expr_gc(*den_pool, *den_root);
 
         /* rebalance fraction requires this pass */
-        if (csfg_expr_op_run_until_complete(
-                num_pool, csfg_expr_op_lower_negates, NULL) == -1)
+        if (run(num_pool, den_pool, csfg_expr_op_lower_negates, NULL) == -1)
             return -1;
-        if (csfg_expr_op_run_until_complete(
-                den_pool, csfg_expr_op_lower_negates, NULL) == -1)
-            return -1;
+        *num_root = csfg_expr_gc(*num_pool, *num_root);
+        *den_root = csfg_expr_gc(*den_pool, *den_root);
 
         switch (csfg_expr_op_rebalance_fraction(
             num_pool, *num_root, den_pool, *den_root))
@@ -85,13 +100,22 @@ int csfg_expr_to_standard_tf(
             break;
     }
 
-    if (run_expansions(num_pool) == -1 ||
-        run_expansions(den_pool) == -1 ||    /* make clang-format happy */
-        run_optimizations(num_pool) == -1 || /* make clang-format happy */
-        run_optimizations(den_pool) == -1)
-    {
+    if (run(num_pool,
+            den_pool,
+            csfg_expr_op_expand_constant_exponents,
+            csfg_expr_op_expand_exponent_sums,
+            csfg_expr_op_expand_exponent_products,
+            csfg_expr_op_distribute_products,
+            NULL) == -1)
         return -1;
-    }
+    if (run(num_pool,
+            den_pool,
+            csfg_expr_opt_fold_constants,
+            csfg_expr_opt_remove_useless_ops,
+            csfg_expr_op_simplify_products,
+            csfg_expr_op_simplify_sums,
+            NULL) == -1)
+        return -1;
     *num_root = csfg_expr_gc(*num_pool, *num_root);
     *den_root = csfg_expr_gc(*den_pool, *den_root);
 

@@ -67,3 +67,15 @@ int strview_eq(struct strview s1, struct strview s2)
     return s1.len == s2.len &&
            memcmp(s1.data + s1.off, s2.data + s2.off, s1.len) == 0;
 }
+
+struct strview strview_remove_file_ext(struct strview str)
+{
+    int len = str.len;
+    while (len--)
+        if (str.data[len] == '.')
+        {
+            str.len = len;
+            return str;
+        }
+    return str;
+}

@@ -2,6 +2,15 @@ project ("dpsfg-ui"
   LANGUAGES C
   VERSION 0.0.1)
 
+# Required so external plugins can make use of our build tree
+configure_file ("cmake/modules/DPSFGPlugin.cmake" "${DPSFG_PREFIX}/share/dpsfg/cmake/modules/DPSFGPlugin.cmake" COPYONLY)
+list (APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules")
+add_library (dpsfg-plugin INTERFACE)
+target_include_directories (dpsfg-plugin INTERFACE
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>")
+add_library (DPSFG::plugin ALIAS dpsfg-plugin)
+
 find_package (GTK4 REQUIRED COMPONENTS
     gtk glib cairo pango pangocairo harfbuzz gdk-pixbuf graphene)
 
@@ -14,11 +23,13 @@ add_executable (dpsfg-ui
     "${PROJECT_BINARY_DIR}/src/dpsfg-ui.gresource.c"
 
     "src/args.c"
+    "src/dynlib.c"
+    "src/fs.c"
+    "src/plugin_loader.c"
     "src/main.c")
-target_include_directories (dpsfg-ui PRIVATE
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>")
 target_link_libraries (dpsfg-ui PRIVATE
-    csfg
+    DPSFG::plugin
+    DPSFG::csfg
     GTK4::glib
     GTK4::cairo
     GTK4::pango
@@ -28,10 +39,10 @@ target_link_libraries (dpsfg-ui PRIVATE
     GTK4::graphene
     GTK4::gtk)
 set_target_properties (dpsfg-ui PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin"
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY ${DPSFG_PREFIX}
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${DPSFG_PREFIX}
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${DPSFG_PREFIX}
+    VS_DEBUGGER_WORKING_DIRECTORY ${DPSFG_PREFIX}
     MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)
 
 if (DPSFG_TESTS)
@@ -40,12 +51,16 @@ endif ()
 
 if (WIN32 OR CYGWIN)
     add_custom_command (TARGET dpsfg-ui POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GTK4_RUNTIMES} ${CMAKE_BINARY_DIR}/bin
-        COMMENT "Copying GTK4 DLLs to ${CMAKE_BINARY_DIR}/bin"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GTK4_RUNTIMES} ${DPSFG_PREFIX}
+        COMMENT "Copying GTK4 DLLs to ${DPSFG_PREFIX}"
         VERBATIM)
 endif ()
 
 install (
     TARGETS dpsfg-ui
     DESTINATION ".")
+install (
+    FILES "cmake/modules/DPSFGPlugin.cmake"
+    DESTINATION "share/dpsfg/cmake/modules")
 
+add_subdirectory ("plugins/graph-editor")

@@ -54,7 +54,6 @@ TEST_F(NAME, remove_zero_summands)
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
-    ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
 
@@ -65,7 +64,6 @@ TEST_F(NAME, remove_one_products)
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
-    ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
 
@@ -75,7 +73,7 @@ TEST_F(NAME, remove_negative_one_products_left)
     int r2 = csfg_expr_parse(&p2, "-a");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&p1);
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -86,7 +84,7 @@ TEST_F(NAME, remove_negative_one_products_right)
     int r2 = csfg_expr_parse(&p2, "-a");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&p1);
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -97,7 +95,7 @@ TEST_F(NAME, remove_one_exponents)
     int r2 = csfg_expr_parse(&p2, "a");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&p1);
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
@@ -108,7 +106,7 @@ TEST_F(NAME, remove_zero_exponents)
     int r2 = csfg_expr_parse(&p2, "1");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&p1);
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }

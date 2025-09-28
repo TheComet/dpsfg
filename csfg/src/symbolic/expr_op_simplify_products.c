@@ -84,7 +84,7 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_op_simplify_products(struct csfg_expr_pool** pool)
+static int simplify_products(struct csfg_expr_pool** pool)
 {
     int n, top, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
@@ -109,4 +109,10 @@ int csfg_expr_op_simplify_products(struct csfg_expr_pool** pool)
     }
 
     return modified;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_op_simplify_products(struct csfg_expr_pool** pool)
+{
+    return csfg_expr_op_run_pass(pool, simplify_products);
 }

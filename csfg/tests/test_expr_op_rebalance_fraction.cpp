@@ -43,7 +43,7 @@ TEST_F(NAME, distribute_single)
     ASSERT_THAT(nr2, Ge(0));
     ASSERT_THAT(dr1, Ge(0));
     ASSERT_THAT(dr2, Ge(0));
-    csfg_expr_op_run_until_complete(&n1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&n1);
     ASSERT_THAT(csfg_expr_op_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(n1, nr1, n2, nr2), IsTrue());
     ASSERT_THAT(csfg_expr_equal(d1, dr1, d2, dr2), IsTrue());
@@ -59,7 +59,7 @@ TEST_F(NAME, distribute_multiple_products)
     ASSERT_THAT(nr2, Ge(0));
     ASSERT_THAT(dr1, Ge(0));
     ASSERT_THAT(dr2, Ge(0));
-    csfg_expr_op_run_until_complete(&n1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&n1);
     ASSERT_THAT(csfg_expr_op_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(n1, nr1, n2, nr2), IsTrue());
     ASSERT_THAT(csfg_expr_equal(d1, dr1, d2, dr2), IsTrue());
@@ -75,8 +75,8 @@ TEST_F(NAME, dont_distribute_if_top_is_not_mul)
     ASSERT_THAT(nr2, Ge(0));
     ASSERT_THAT(dr1, Ge(0));
     ASSERT_THAT(dr2, Ge(0));
-    csfg_expr_op_run_until_complete(&n1, csfg_expr_opt_fold_constants, NULL);
-    csfg_expr_op_run_until_complete(&n2, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&n1);
+    csfg_expr_opt_fold_constants(&n2);
     ASSERT_THAT(csfg_expr_op_rebalance_fraction(&n1, nr1, &d1, dr1), Eq(0));
     ASSERT_THAT(csfg_expr_equal(n1, nr1, n2, nr2), IsTrue());
     ASSERT_THAT(csfg_expr_equal(d1, dr1, d2, dr2), IsTrue());
@@ -92,8 +92,8 @@ TEST_F(NAME, distribute_num_and_den)
     ASSERT_THAT(nr2, Ge(0));
     ASSERT_THAT(dr1, Ge(0));
     ASSERT_THAT(dr2, Ge(0));
-    csfg_expr_op_run_until_complete(&n1, csfg_expr_opt_fold_constants, NULL);
-    csfg_expr_op_run_until_complete(&d1, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&n1);
+    csfg_expr_opt_fold_constants(&d1);
     ASSERT_THAT(csfg_expr_op_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(n1, nr1, n2, nr2), IsTrue());
     ASSERT_THAT(csfg_expr_equal(d1, dr1, d2, dr2), IsTrue());

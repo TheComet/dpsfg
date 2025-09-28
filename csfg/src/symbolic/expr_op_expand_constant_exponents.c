@@ -10,9 +10,9 @@ static int is_almost_integer(double value, double epsilon)
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_op_expand_constant_exponents(struct csfg_expr_pool** pool)
+static int expand_constant_exponents(struct csfg_expr_pool** pool)
 {
-    int n;
+    int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
         double              value;
@@ -46,8 +46,14 @@ int csfg_expr_op_expand_constant_exponents(struct csfg_expr_pool** pool)
         if (csfg_expr_set_pow(pool, n, chain, csfg_expr_lit(pool, sign)) == -1)
             return -1;
 
-        return 1;
+        modified = 1;
     }
 
-    return 0;
+    return modified;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_op_expand_constant_exponents(struct csfg_expr_pool** pool)
+{
+    return csfg_expr_op_run_pass(pool, expand_constant_exponents);
 }

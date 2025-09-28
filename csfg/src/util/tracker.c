@@ -32,7 +32,7 @@ struct tracker
     int                  tracks, untracks;
 };
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 #if defined(CSFG_BACKTRACE)
 static void print_backtrace(const struct data* data)
 {
@@ -46,7 +46,7 @@ static void print_backtrace(const struct data* data)
 }
 #endif
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 struct tracker* tracker_create(const char* name)
 {
     struct tracker* t = mem_alloc(sizeof *t);
@@ -72,7 +72,7 @@ alloc_tracker_failed:
     return NULL;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void tracker_destroy(struct tracker* t)
 {
     int          slot;
@@ -114,7 +114,7 @@ void tracker_destroy(struct tracker* t)
     mem_free(t);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void tracker_track(struct tracker* t, void* p, int size, const char* name)
 {
     struct data* data;
@@ -148,7 +148,7 @@ void tracker_track(struct tracker* t, void* p, int size, const char* name)
     }
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void tracker_untrack(struct tracker* t, void* p)
 {
     struct data* data;
@@ -171,12 +171,12 @@ void tracker_untrack(struct tracker* t, void* p)
     str_deinit(data->name);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static CSFG_THREADLOCAL int             g_ignore_malloc;
 static CSFG_THREADLOCAL struct tracker* g_tracker_mem;
 static CSFG_THREADLOCAL struct tracker* g_tracker_fd;
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int trackers_init_tls(void)
 {
     g_ignore_malloc = 1;
@@ -202,7 +202,7 @@ tracker_mem_create_failed:
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void trackers_deinit_tls(void)
 {
     tracker_destroy(g_tracker_fd);

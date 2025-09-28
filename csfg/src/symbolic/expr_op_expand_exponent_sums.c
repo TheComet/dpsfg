@@ -2,9 +2,9 @@
 #include "csfg/symbolic/expr_op.h"
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_op_expand_exponent_sums(struct csfg_expr_pool** pool)
+int expand_exponent_sums(struct csfg_expr_pool** pool)
 {
-    int n;
+    int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
         int                 exp1, exp2;
@@ -30,8 +30,14 @@ int csfg_expr_op_expand_exponent_sums(struct csfg_expr_pool** pool)
             return -1;
         }
 
-        return 1;
+        modified = 1;
     }
 
-    return 0;
+    return modified;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_op_expand_exponent_sums(struct csfg_expr_pool** pool)
+{
+    return csfg_expr_op_run_pass(pool, expand_exponent_sums);
 }

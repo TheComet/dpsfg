@@ -391,6 +391,18 @@ int csfg_expr_find_sibling(const struct csfg_expr_pool* pool, int n)
 }
 
 /* ------------------------------------------------------------------------- */
+int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n)
+{
+    while (1)
+    {
+        int parent = csfg_expr_find_parent(pool, n);
+        if (parent == -1 || pool->nodes[parent].type != pool->nodes[n].type)
+            return n;
+        n = parent;
+    }
+}
+
+/* ------------------------------------------------------------------------- */
 int csfg_expr_equal(
     const struct csfg_expr_pool* p1,
     int                          root1,

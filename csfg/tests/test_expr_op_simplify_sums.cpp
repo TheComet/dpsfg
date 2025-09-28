@@ -43,8 +43,8 @@ TEST_F(NAME, sums_of_exponents)
     int r2 = csfg_expr_parse(&p2, "-3*s+a");
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
-    csfg_expr_op_run_until_complete(&p1, csfg_expr_opt_fold_constants, NULL);
-    csfg_expr_op_run_until_complete(&p2, csfg_expr_opt_fold_constants, NULL);
+    csfg_expr_opt_fold_constants(&p1);
+    csfg_expr_opt_fold_constants(&p2);
     ASSERT_THAT(csfg_expr_op_simplify_sums(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }

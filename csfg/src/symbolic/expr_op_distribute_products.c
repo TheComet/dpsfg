@@ -2,9 +2,9 @@
 #include "csfg/symbolic/expr_op.h"
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_op_distribute_products(struct csfg_expr_pool** pool)
+static int distribute_products(struct csfg_expr_pool** pool)
 {
-    int n;
+    int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
         int                 sum, fact, sum1, sum2;
@@ -35,8 +35,14 @@ int csfg_expr_op_distribute_products(struct csfg_expr_pool** pool)
             return -1;
         }
 
-        return 1;
+        modified = 1;
     }
 
-    return 0;
+    return modified;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_op_distribute_products(struct csfg_expr_pool** pool)
+{
+    return csfg_expr_op_run_pass(pool, distribute_products);
 }

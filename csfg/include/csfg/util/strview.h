@@ -26,10 +26,11 @@ static struct strview strview(const char* data, int off, int len)
     return view;
 }
 
-float strview_to_float(struct strview str);
-int   strview_to_integer(struct strview str);
-int   strview_eq_cstr(struct strview str, const char* cstr);
-int   strview_eq(struct strview s1, struct strview s2);
+float          strview_to_float(struct strview str);
+int            strview_to_integer(struct strview str);
+int            strview_eq_cstr(struct strview str, const char* cstr);
+int            strview_eq(struct strview s1, struct strview s2);
+struct strview strview_remove_file_ext(struct strview s);
 
 static const char* strview_cstr(struct strview str)
 {

@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+include ("${PACKAGE_PREFIX_DIR}/share/dpsfg/cmake/DPSFGTargets.cmake")
+list (APPEND CMAKE_MODULE_PATH "${PACKAGE_PREFIX_DIR}/share/dpsfg/cmake/modules")
+set (DPSFG_PREFIX ${PACKAGE_PREFIX_DIR})

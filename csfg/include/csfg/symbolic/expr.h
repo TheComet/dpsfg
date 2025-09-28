@@ -135,6 +135,8 @@ void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n);
 /* Returns the parent node if it exists, or -1. Ignores nodes marked for GC */
 int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n);
 int csfg_expr_find_sibling(const struct csfg_expr_pool* pool, int n);
+/* Returns the top-most parent that has the same type as "n" */
+int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n);
 
 /* Compares (recursively) if two subtrees match. Node indices can be different,
  * but the structure and the values contained within the nodes must match.

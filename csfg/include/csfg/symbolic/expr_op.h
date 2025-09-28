@@ -1,8 +1,15 @@
 #pragma once
 
-struct csfg_expr_pool;
+#include <stdarg.h>
 
-int csfg_expr_op_run_until_complete(struct csfg_expr_pool** pool, ...);
+struct csfg_expr_pool;
+typedef int (*csfg_expr_pass_func)(struct csfg_expr_pool**);
+
+int csfg_expr_op_run(struct csfg_expr_pool** pool, ...);
+int csfg_expr_op_runv(struct csfg_expr_pool** pool, va_list ap);
+
+int csfg_expr_op_run_pass(
+    struct csfg_expr_pool** pool, csfg_expr_pass_func pass);
 
 /*!
  * s^c  (c=const)  -->  (s*s*s*...)^1
