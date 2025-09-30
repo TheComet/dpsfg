@@ -3,6 +3,7 @@
 #include "csfg/util/strlist.h"
 
 struct csfg_var_table;
+struct str;
 
 enum csfg_expr_type
 {
@@ -68,6 +69,9 @@ int csfg_expr_parse(struct csfg_expr_pool** pool, const char* text);
  */
 double csfg_expr_eval(
     struct csfg_expr_pool* pool, int root, const struct csfg_var_table* vt);
+
+int csfg_expr_to_str(
+    struct str** str, const struct csfg_expr_pool* pool, int expr);
 
 /*! Main function used to allocate a new node */
 int csfg_expr_new(

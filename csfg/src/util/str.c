@@ -115,9 +115,16 @@ int str_append_cstr(struct str** str, const char* cstr)
 /* ------------------------------------------------------------------------- */
 int str_append_int(struct str** str, int value)
 {
-
     char buf[12];
     sprintf(buf, "%d", value);
+    return str_append_cstr(str, buf);
+}
+
+/* ------------------------------------------------------------------------- */
+int str_append_float(struct str** str, double value)
+{
+    char buf[12];
+    sprintf(buf, "%.4f", (float)value);
     return str_append_cstr(str, buf);
 }
 

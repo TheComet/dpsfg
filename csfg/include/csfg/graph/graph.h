@@ -41,15 +41,19 @@ int csfg_graph_add_edge(
     struct csfg_expr_pool* pool,
     int                    expr);
 
-#define vec_for_each_node(g, var)                                              \
+#define csfg_graph_for_each_node(g, var)                                       \
     if (g)                                                                     \
         vec_for_each ((g)->nodes, (var))
-#define vec_for_each_edge(g, var)                                              \
+#define csfg_graph_for_each_edge(g, var)                                       \
     if (g)                                                                     \
         vec_for_each ((g)->edges, (var))
-#define vec_enumerate_nodes(g, i, var)                                         \
+#define csfg_graph_enumerate_nodes(g, i, var)                                  \
     if (g)                                                                     \
         vec_enumerate ((g)->nodes, (i), (var))
-#define vec_enumerate_edges(g, i, var)                                         \
+#define csfg_graph_enumerate_edges(g, i, var)                                  \
     if (g)                                                                     \
         vec_enumerate ((g)->edges, (i), (var))
+#define csfg_graph_get_node(g, i) ((g) ? vec_get((g)->nodes, (i)) : NULL)
+#define csfg_graph_get_edge(g, i) ((g) ? vec_get((g)->edges, (i)) : NULL)
+#define csfg_graph_node_count(g)  ((g) ? vec_count((g)->nodes) : 0)
+#define csfg_graph_edge_count(g)  ((g) ? vec_count((g)->edges) : 0)

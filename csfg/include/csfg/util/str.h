@@ -14,6 +14,7 @@ char*       str_data(struct str* str);
 int         str_append_char(struct str** str, char c);
 int         str_append_cstr(struct str** str, const char* cstr);
 int         str_append_int(struct str** str, int value);
+int         str_append_float(struct str** str, double value);
 void        str_pop_char(struct str* str);
 void        str_set_char(struct str* str, int index, char c);
 void        str_clear(struct str* str);

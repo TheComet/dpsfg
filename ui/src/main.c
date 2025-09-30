@@ -67,9 +67,10 @@ VEC_DECLARE(plugin_vec, struct plugin, 8)
 VEC_DEFINE(plugin_vec, struct plugin, 8)
 
 static gboolean
-shortcut_activated(GtkWidget* widget, GVariant* unused, gpointer user_data)
+shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    log_dbg("activated shift+r\n");
+    GtkWindow* window = user_data;
+    gtk_window_close(window);
     return TRUE;
 }
 
@@ -168,8 +169,8 @@ static void setup_global_shortcuts(GtkWidget* window)
         GTK_SHORTCUT_CONTROLLER(controller), GTK_SHORTCUT_SCOPE_GLOBAL);
     gtk_widget_add_controller(window, controller);
 
-    trigger = gtk_keyval_trigger_new(GDK_KEY_r, GDK_SHIFT_MASK);
-    action = gtk_callback_action_new(shortcut_activated, NULL, NULL);
+    trigger = gtk_keyval_trigger_new(GDK_KEY_q, GDK_CONTROL_MASK);
+    action = gtk_callback_action_new(shorcut_quit_cb, window, NULL);
     shortcut = gtk_shortcut_new(trigger, action);
     gtk_shortcut_controller_add_shortcut(
         GTK_SHORTCUT_CONTROLLER(controller), shortcut);
@@ -246,12 +247,34 @@ static void activate(GtkApplication* app, gpointer user_data)
     gtk_widget_set_visible(window, 1);
 
     csfg_graph_init(&ctx->g);
-    int                    n1 = csfg_graph_add_node(&ctx->g, "V1");
-    int                    n2 = csfg_graph_add_node(&ctx->g, "I2");
-    struct csfg_expr_pool* e_pool;
-    csfg_expr_pool_init(&e_pool);
-    int e_expr = csfg_expr_parse(&e_pool, "G1 + G2 + s*C");
-    csfg_graph_add_edge(&ctx->g, n1, n2, e_pool, e_expr);
+    int                    v1 = csfg_graph_add_node(&ctx->g, "V1");
+    int                    i2 = csfg_graph_add_node(&ctx->g, "I2");
+    int                    v2 = csfg_graph_add_node(&ctx->g, "V2");
+    int                    v3 = csfg_graph_add_node(&ctx->g, "V3");
+    int                    v4 = csfg_graph_add_node(&ctx->g, "V4");
+    int                    v5 = csfg_graph_add_node(&ctx->g, "V5");
+    struct csfg_expr_pool *ep1, *ep2, *ep3, *ep4, *ep5, *ep6, *ep7;
+    csfg_expr_pool_init(&ep1);
+    csfg_expr_pool_init(&ep2);
+    csfg_expr_pool_init(&ep3);
+    csfg_expr_pool_init(&ep4);
+    csfg_expr_pool_init(&ep5);
+    csfg_expr_pool_init(&ep6);
+    csfg_expr_pool_init(&ep7);
+    int ex1 = csfg_expr_parse(&ep1, "G1");
+    int ex2 = csfg_expr_parse(&ep2, "z2");
+    int ex3 = csfg_expr_parse(&ep3, "-1");
+    int ex4 = csfg_expr_parse(&ep4, "A");
+    int ex5 = csfg_expr_parse(&ep5, "G2");
+    int ex6 = csfg_expr_parse(&ep6, "s*C");
+    int ex7 = csfg_expr_parse(&ep7, "1");
+    csfg_graph_add_edge(&ctx->g, v1, i2, ep1, ex1);
+    csfg_graph_add_edge(&ctx->g, i2, v2, ep2, ex2);
+    csfg_graph_add_edge(&ctx->g, v2, v3, ep3, ex3);
+    csfg_graph_add_edge(&ctx->g, v3, v4, ep4, ex4);
+    csfg_graph_add_edge(&ctx->g, v4, i2, ep5, ex5);
+    csfg_graph_add_edge(&ctx->g, v4, i2, ep6, ex6);
+    csfg_graph_add_edge(&ctx->g, v5, v3, ep7, ex7);
 
     if (vec_count(*ctx->plugins))
     {

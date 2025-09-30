@@ -1,11 +1,13 @@
 #include "csfg/graph/graph.h"
+#include "csfg/symbolic/expr.h"
 #include "csfg/util/hmap.h"
 #include "csfg/util/log.h"
 #include "csfg/util/str.h"
 #include "graph-editor/graph_editor.h"
 
-static const int GRID_WIDTH = 20;
-static const int ARROW_RADIUS = 8;
+static const int    GRID_WIDTH = 20;
+static const int    ARROW_RADIUS = 8;
+static const double DEFAULT_NODE_SPACING = GRID_WIDTH * 6;
 
 struct node_attr
 {
@@ -15,7 +17,8 @@ struct node_attr
 
 struct edge_attr
 {
-    double x, y;
+    struct str* expr_str;
+    double      x, y;
 };
 
 HMAP_DECLARE(static, node_attr_hmap, int, struct node_attr, 16)
@@ -121,7 +124,7 @@ static void draw_node(
     double      g,
     double      b)
 {
-    draw_text(cr, name, x, y, M_PI);
+    draw_text(cr, name, x, y, M_PI / 2);
 
     cairo_set_source_rgb(cr, r, g, b);
     cairo_arc(cr, x, y, radius, 0, 2 * M_PI);
@@ -209,23 +212,24 @@ static void draw_arrow(
     cairo_line_to(cr, x2, y2);
     cairo_line_to(cr, x3, y3);
     cairo_line_to(cr, x4, y4);
-    cairo_line_to(cr, x1, y1);
+    cairo_close_path(cr);
     cairo_fill(cr);
 }
 
 /* -------------------------------------------------------------------------- */
 static void draw_edge(
-    cairo_t* cr,
-    double   src_x,
-    double   src_y,
-    double   control_x,
-    double   control_y,
-    double   dst_x,
-    double   dst_y,
-    double   r,
-    double   g,
-    double   b,
-    double   zoom)
+    cairo_t*    cr,
+    double      src_x,
+    double      src_y,
+    double      control_x,
+    double      control_y,
+    double      dst_x,
+    double      dst_y,
+    const char* expr_str,
+    double      r,
+    double      g,
+    double      b,
+    double      zoom)
 {
     int    orientation;
     double cx, cy, radius, a1, a2;
@@ -244,12 +248,13 @@ static void draw_edge(
         cairo_line_to(cr, dst_x, dst_y);
         cairo_stroke(cr);
         draw_arrow(cr, control_x, control_y, arrow_angle, r, g, b, zoom);
-        draw_text(cr, "G1 + G2 + s*C", control_x, control_y, text_angle);
+        draw_text(cr, expr_str, control_x, control_y, text_angle);
         return;
     }
 
     a1 = atan2(src_y - cy, src_x - cx);
     a2 = atan2(dst_y - cy, dst_x - cx);
+    cairo_new_path(cr);
     cairo_set_source_rgb(cr, r, g, b);
     cairo_set_line_width(cr, 2.0 / zoom);
     if (orientation > 0)
@@ -262,7 +267,7 @@ static void draw_edge(
     double arrow_angle =
         orientation > 0 ? text_angle + M_PI / 2 : text_angle - M_PI / 2;
     draw_arrow(cr, control_x, control_y, arrow_angle, r, g, b, zoom);
-    draw_text(cr, "G1 + G2 + s*C", control_x, control_y, text_angle);
+    draw_text(cr, expr_str, control_x, control_y, text_angle);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -282,7 +287,7 @@ static void draw_cb(
 
     draw_grid(cr, editor->pan_x, editor->pan_y, width, height, editor->zoom);
 
-    vec_for_each_node (editor->graph, n)
+    csfg_graph_for_each_node (editor->graph, n)
     {
         const struct node_attr* na =
             node_attr_hmap_find(editor->node_attrs, n->id);
@@ -292,10 +297,12 @@ static void draw_cb(
             cr, na->x, na->y, na->radius, str_cstr(n->name), 0.2, 0.2, 0.2);
     }
 
-    vec_for_each_edge (editor->graph, e)
+    csfg_graph_for_each_edge (editor->graph, e)
     {
-        const struct csfg_node* src_n = vec_get(editor->graph->nodes, e->from);
-        const struct csfg_node* dst_n = vec_get(editor->graph->nodes, e->to);
+        const struct csfg_node* src_n =
+            csfg_graph_get_node(editor->graph, e->from);
+        const struct csfg_node* dst_n =
+            csfg_graph_get_node(editor->graph, e->to);
         const struct edge_attr* ea =
             edge_attr_hmap_find(editor->edge_attrs, e->id);
         const struct node_attr* src_na =
@@ -312,6 +319,7 @@ static void draw_cb(
             ea->y,
             dst_na->x,
             dst_na->y,
+            str_cstr(ea->expr_str),
             0.2,
             0.2,
             0.2,
@@ -373,7 +381,7 @@ static int try_select_node(
     int                     idx;
     const struct csfg_node* n;
 
-    vec_enumerate_nodes (graph, idx, n)
+    csfg_graph_enumerate_nodes (graph, idx, n)
     {
         const struct node_attr* na = node_attr_hmap_find(attrs, n->id);
         if (na == NULL)
@@ -399,7 +407,7 @@ static int try_select_edge(
     int                     idx;
     const struct csfg_edge* e;
 
-    vec_enumerate_edges (graph, idx, e)
+    csfg_graph_enumerate_edges (graph, idx, e)
     {
         const struct edge_attr* ea = edge_attr_hmap_find(attrs, e->id);
         if (ea == NULL)
@@ -452,7 +460,7 @@ static void click_begin(
     if (editor->active_node > -1 && n_press == 2 /* double-click */)
     {
         const struct csfg_node* n =
-            vec_get(editor->graph->nodes, editor->active_node);
+            csfg_graph_get_node(editor->graph, editor->active_node);
         const struct node_attr* na =
             node_attr_hmap_find(editor->node_attrs, n->id);
         if (na != NULL)
@@ -491,7 +499,7 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_pointer)
     if (editor->active_node > -1)
     {
         const struct csfg_node* n =
-            vec_get(editor->graph->nodes, editor->active_node);
+            csfg_graph_get_node(editor->graph, editor->active_node);
         const struct node_attr* na =
             node_attr_hmap_find(editor->node_attrs, n->id);
         editor->drag_offset_x = round((x - na->x) / 20) * 20;
@@ -505,6 +513,52 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_pointer)
             edge_attr_hmap_find(editor->edge_attrs, e->id);
         editor->drag_offset_x = round((x - ea->x) / 20) * 20;
         editor->drag_offset_y = round((y - ea->y) / 20) * 20;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static void drag_edge_with_node(
+    const struct csfg_graph*     g,
+    int                          n_idx,
+    double                       new_x,
+    double                       new_y,
+    const struct node_attr_hmap* nattrs,
+    const struct edge_attr_hmap* eattrs)
+{
+    const struct csfg_edge* e;
+    const struct node_attr *na1, *na2;
+    struct edge_attr*       ea;
+    double                  cx, cy, radius;
+    int                     orientation;
+
+    csfg_graph_for_each_edge (g, e)
+    {
+        const struct csfg_node* n1 = csfg_graph_get_node(g, n_idx);
+        const struct csfg_node* n2 =
+            e->from == n_idx ? csfg_graph_get_node(g, e->to)
+            : e->to == n_idx ? csfg_graph_get_node(g, e->from)
+                             : NULL;
+        if (n2 == NULL)
+            continue;
+
+        na1 = node_attr_hmap_find(nattrs, n1->id);
+        na2 = node_attr_hmap_find(nattrs, n2->id);
+        ea = edge_attr_hmap_find(eattrs, e->id);
+        if (na1 == NULL || na2 == NULL || ea == NULL)
+            continue;
+
+        orientation = calc_circle(
+            &cx, &cy, &radius, na1->x, na1->y, ea->x, ea->y, na2->x, na2->y);
+        if (orientation == 0)
+        {
+            ea->x = (new_x + na2->x) / 2;
+            ea->y = (new_y + na2->y) / 2;
+        }
+        else
+        {
+            ea->x += (new_x - na1->x) / 2;
+            ea->y += (new_y - na1->y) / 2;
+        }
     }
 }
 
@@ -524,11 +578,26 @@ static void drag_update(
 
     if (editor->active_node > -1)
     {
+        int    orientation;
+        double cx, cy, radius;
+
         const struct csfg_node* n =
-            vec_get(editor->graph->nodes, editor->active_node);
+            csfg_graph_get_node(editor->graph, editor->active_node);
         struct node_attr* na = node_attr_hmap_find(editor->node_attrs, n->id);
-        na->x = round((x - editor->drag_offset_x) / 20) * 20;
-        na->y = round((y - editor->drag_offset_y) / 20) * 20;
+
+        double node_x = round((x - editor->drag_offset_x) / 20) * 20;
+        double node_y = round((y - editor->drag_offset_y) / 20) * 20;
+
+        drag_edge_with_node(
+            editor->graph,
+            editor->active_node,
+            node_x,
+            node_y,
+            editor->node_attrs,
+            editor->edge_attrs);
+
+        na->x = node_x;
+        na->y = node_y;
     }
     else if (editor->active_edge > -1)
     {
@@ -680,9 +749,14 @@ static void graph_editor_init(GraphEditor* self)
 /* -------------------------------------------------------------------------- */
 static void graph_editor_finalize(GObject* obj)
 {
-    log_dbg("graph_editor_finalize()\n");
-    GraphEditor* self = PLUGIN_GRAPH_EDITOR(obj);
+    GraphEditor*      self = PLUGIN_GRAPH_EDITOR(obj);
+    int               idx, id;
+    struct edge_attr* ea;
+
+    hmap_for_each (self->edge_attrs, idx, id, ea)
+        str_deinit(ea->expr_str);
     edge_attr_hmap_deinit(self->edge_attrs);
+
     node_attr_hmap_deinit(self->node_attrs);
 }
 
@@ -723,43 +797,56 @@ GraphEditor* graph_editor_new(void)
 }
 
 /* -------------------------------------------------------------------------- */
-static void
-auto_position_node(struct node_attr* na, const struct node_attr_hmap* attrs)
+static int is_near_any_other_node(
+    const struct node_attr* na, const struct node_attr_hmap* attrs)
 {
     int                     idx, id;
     const struct node_attr* other_na;
-    const double            spacing = GRID_WIDTH * 6;
-    const double            row_end = (int)sqrt(hmap_count(attrs)) * spacing;
-
-    double x = 0.0, y = 0.0;
-try_again:
     hmap_for_each (attrs, idx, id, other_na)
     {
-        double dx = x - other_na->x;
-        double dy = y - other_na->y;
+        double dx = na->x - other_na->x;
+        double dy = na->y - other_na->y;
         if (na == other_na)
             continue;
-        if (dx * dx - dy * dy < spacing * spacing / 4)
-        {
-            y += spacing;
-            if (y >= row_end)
-            {
-                y = 0.0;
-                x += spacing;
-            }
-            goto try_again;
-        }
+        if (dx * dx + dy * dy < DEFAULT_NODE_SPACING * DEFAULT_NODE_SPACING / 4)
+            return 1;
     }
 
-    na->x = x;
-    na->y = y;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
-static void auto_position_edge(struct edge_attr* ea)
+static void auto_position_node(
+    struct node_attr*            na,
+    const struct node_attr_hmap* attrs,
+    int                          total_node_count)
 {
-    ea->x = 60;
-    ea->y = 0.0;
+    const double row_end =
+        (int)ceil(sqrt(total_node_count)) * DEFAULT_NODE_SPACING;
+
+    na->x = 0.0;
+    na->y = 0.0;
+    while (is_near_any_other_node(na, attrs))
+    {
+        na->x += DEFAULT_NODE_SPACING;
+        if (na->x >= row_end)
+        {
+            na->x = 0.0;
+            na->y += DEFAULT_NODE_SPACING;
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static void auto_position_edge(
+    struct edge_attr*            ea,
+    const struct node_attr*      from,
+    const struct node_attr*      to,
+    const struct node_attr_hmap* nattrs,
+    const struct edge_attr_hmap* eattrs)
+{
+    ea->x = (from->x + to->x) / 2;
+    ea->y = (from->y + to->y) / 2;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -770,21 +857,33 @@ void graph_editor_set_graph(GraphEditor* editor, struct csfg_graph* g)
     struct node_attr*       na;
     struct edge_attr*       ea;
 
-    vec_for_each (g->nodes, n)
+    csfg_graph_for_each_node (g, n)
         switch (node_attr_hmap_emplace_or_get(&editor->node_attrs, n->id, &na))
         {
             case HMAP_OOM: return;
             case HMAP_NEW:
                 na->radius = 10;
-                auto_position_node(na, editor->node_attrs);
+                auto_position_node(
+                    na, editor->node_attrs, csfg_graph_node_count(g));
             case HMAP_EXISTS: break;
         }
 
-    vec_for_each (g->edges, e)
+    csfg_graph_for_each_edge (g, e)
         switch (edge_attr_hmap_emplace_or_get(&editor->edge_attrs, e->id, &ea))
         {
             case HMAP_OOM: return;
-            case HMAP_NEW: auto_position_edge(ea);
+            case HMAP_NEW: {
+                const struct csfg_node* from = csfg_graph_get_node(g, e->from);
+                const struct csfg_node* to = csfg_graph_get_node(g, e->to);
+                const struct node_attr* afrom =
+                    node_attr_hmap_find(editor->node_attrs, from->id);
+                const struct node_attr* ato =
+                    node_attr_hmap_find(editor->node_attrs, to->id);
+                auto_position_edge(
+                    ea, afrom, ato, editor->node_attrs, editor->edge_attrs);
+                str_init(&ea->expr_str);
+                csfg_expr_to_str(&ea->expr_str, e->pool, e->expr);
+            }
             case HMAP_EXISTS: break;
         }
 
