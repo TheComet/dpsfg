@@ -86,7 +86,7 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
 /* ------------------------------------------------------------------------- */
 static int simplify_products(struct csfg_expr_pool** pool)
 {
-    int n, top, modified = 0;
+    int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
         int left = (*pool)->nodes[n].child[0];

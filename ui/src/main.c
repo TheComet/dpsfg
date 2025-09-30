@@ -20,7 +20,7 @@ struct _DPSFGPluginModuleClass
 {
     GTypeModuleClass parent_class;
 };
-G_DEFINE_TYPE(DPSFGPluginModule, dpsfg_plugin_module, G_TYPE_TYPE_MODULE);
+G_DEFINE_TYPE(DPSFGPluginModule, dpsfg_plugin_module, G_TYPE_TYPE_MODULE)
 
 static gboolean dpsfg_plugin_module_load(GTypeModule* type_module)
 {
@@ -77,8 +77,6 @@ shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 static int
 start_plugin(struct plugin* plugin, struct plugin_lib lib, GtkNotebook* center)
 {
-    int insert_pos;
-
     plugin->plugin_module = g_object_new(DPSFG_TYPE_PLUGIN_MODULE, NULL);
     if (plugin->plugin_module == NULL)
         goto alloc_plugin_module_failed;
@@ -114,7 +112,6 @@ start_plugin(struct plugin* plugin, struct plugin_lib lib, GtkNotebook* center)
     plugin->lib = lib;
     return 0;
 
-create_ui_pane_failed:
     if (plugin->ui_center)
         lib.i->ui_center->destroy(plugin->ctx, plugin->ui_center);
 create_ui_center_failed:

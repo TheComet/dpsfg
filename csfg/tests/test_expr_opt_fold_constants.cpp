@@ -42,7 +42,7 @@ TEST_F(NAME, simplify_constant_expression_with_negate)
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(csfg_expr_opt_fold_constants(&p1), Gt(0));
     ASSERT_THAT(p1->nodes[p1->nodes[r1].child[1]].type, Eq(CSFG_EXPR_LIT));
-    ASSERT_THAT(p1->nodes[p1->nodes[r1].child[1]].value.lit, DoubleEq(-1));
+    ASSERT_THAT(p1->nodes[p1->nodes[r1].child[1]].value.lit, FloatEq(-1.0));
 }
 
 TEST_F(NAME, simplify_constant_expressions_exponent)

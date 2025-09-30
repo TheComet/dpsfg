@@ -9,7 +9,7 @@ static int move_reciprocs(
     int                     to_root)
 {
     double value;
-    int    new_root, base, exp;
+    int    base, exp;
 
     if ((*from)->nodes[from_root].type == CSFG_EXPR_OP_MUL)
     {

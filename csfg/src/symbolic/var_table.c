@@ -27,7 +27,7 @@ void csfg_var_table_deinit(struct csfg_var_table* vt)
     struct entry* entry;
 
     hmap_for_each (vt->map, slot, name, entry)
-        csfg_expr_pool_deinit(entry->pool);
+        (void)name, csfg_expr_pool_deinit(entry->pool);
     csfg_var_hmap_deinit(vt->map);
 
     csfg_expr_pool_deinit(vt->pool);
@@ -54,8 +54,8 @@ static int var_table_populate(
         return 0;
     if (parent != -1)
     {
-        // If we are the right hand side of an expression that is mul or pow,
-        // default value should be 1
+        /* If we are the right hand side of an expression that is mul or pow,
+         * default value should be 1 */
         if (pool->nodes[parent].type == CSFG_EXPR_OP_MUL &&
             pool->nodes[parent].child[1] == n)
         {
@@ -76,9 +76,6 @@ static int var_table_populate(
 int csfg_var_table_populate(
     struct csfg_var_table* vt, const struct csfg_expr_pool* pool, int n)
 {
-    int    parent;
-    double default_value = 0;
-
     if (pool == NULL)
         return 0;
     if (n == -1)
@@ -116,7 +113,6 @@ int csfg_var_table_set_expr(
     int                    root)
 {
     struct entry* entry;
-    int           n;
 
     switch (csfg_var_hmap_emplace_or_get(&vt->map, name, &entry))
     {

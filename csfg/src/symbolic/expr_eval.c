@@ -12,6 +12,7 @@ eval(struct csfg_expr_pool* expr, int n, const struct csfg_var_table* vt)
 
     switch (expr->nodes[n].type)
     {
+        case CSFG_EXPR_GC: break;
         case CSFG_EXPR_LIT: return expr->nodes[n].value.lit;
         case CSFG_EXPR_VAR: {
             if (expr->nodes[n].visited)
@@ -36,6 +37,7 @@ eval(struct csfg_expr_pool* expr, int n, const struct csfg_var_table* vt)
 
     switch (expr->nodes[n].type)
     {
+        case CSFG_EXPR_GC:
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
         case CSFG_EXPR_INF: assert(0); break;

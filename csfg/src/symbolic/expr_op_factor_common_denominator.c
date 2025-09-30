@@ -35,7 +35,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
     int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
-        int    summand_with_pow, other_summand, pow, product, exp;
+        int    other_summand, pow, product, exp;
         double neg_exp;
         int    left = (*pool)->nodes[n].child[0];
         int    right = (*pool)->nodes[n].child[1];
@@ -44,12 +44,10 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
             continue;
 
         pow = find_power_with_negative_constant_exponent(*pool, left);
-        summand_with_pow = left;
         other_summand = right;
         if (pow == -1)
         {
             pow = find_power_with_negative_constant_exponent(*pool, right);
-            summand_with_pow = right;
             other_summand = left;
         }
         if (pow == -1)

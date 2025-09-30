@@ -38,7 +38,13 @@ target_link_libraries (dpsfg-ui PRIVATE
     GTK4::gdk-pixbuf
     GTK4::graphene
     GTK4::gtk)
+target_compile_options (dpsfg-ui
+    PRIVATE
+        $<$<C_COMPILER_ID:MSVC>:/W4 /wd4706 /wd4305 /wd4244 /wd4505>
+        $<$<C_COMPILER_ID:GNU>:-W -Wall -Wextra -pedantic -Wno-unused-function>
+        $<$<C_COMPILER_ID:Clang>:-W -Wall -Wextra -pedantic -Wno-unused-function>)
 set_target_properties (dpsfg-ui PROPERTIES
+    C_STANDARD 90
     RUNTIME_OUTPUT_DIRECTORY ${DPSFG_PREFIX}
     RUNTIME_OUTPUT_DIRECTORY_DEBUG ${DPSFG_PREFIX}
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${DPSFG_PREFIX}

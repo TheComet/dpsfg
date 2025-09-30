@@ -19,7 +19,7 @@ enum token
     CHAR_TOKEN_LIST
 #undef X
         TOK_LIT = 256,
-    TOK_IDENT,
+    TOK_IDENT
 };
 
 struct parser

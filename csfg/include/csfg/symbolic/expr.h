@@ -14,20 +14,20 @@ enum csfg_expr_type
     CSFG_EXPR_NEG,
     CSFG_EXPR_OP_ADD,
     CSFG_EXPR_OP_MUL,
-    CSFG_EXPR_OP_POW,
+    CSFG_EXPR_OP_POW
 };
 
 struct csfg_expr_node
 {
     union
     {
-        double lit;
-        int    var_idx;
+        float lit;
+        int   var_idx;
     } value;
 
     int child[2];
 
-    enum csfg_expr_type type : 5;
+    enum csfg_expr_type type;
     unsigned            visited : 1;
 };
 

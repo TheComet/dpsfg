@@ -25,7 +25,6 @@ endif ()
 configure_file ("templates/config.h.in" "include/csfg/config.h")
 
 set (csfg_SOURCES
-    "src/init.c"
     "src/util/hash.c"
     "src/util/log.c"
     "src/util/str.c"
@@ -80,6 +79,14 @@ target_include_directories (dpsfg-csfg PUBLIC
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
     "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>"
     "$<INSTALL_INTERFACE:include>")
+target_compile_options (dpsfg-csfg
+    PRIVATE
+        $<$<C_COMPILER_ID:MSVC>:/W4 /wd4706 /wd4305 /wd4244 /wd4505>
+        $<$<C_COMPILER_ID:GNU>:-W -Wall -Wextra -pedantic -Wno-unused-function>
+        $<$<C_COMPILER_ID:Clang>:-W -Wall -Wextra -pedantic -Wno-unused-function>)
+set_target_properties (dpsfg-csfg
+    PROPERTIES
+        C_STANDARD 90)
 add_library (DPSFG::csfg ALIAS dpsfg-csfg)
 
 if (CSFG_TESTS)
