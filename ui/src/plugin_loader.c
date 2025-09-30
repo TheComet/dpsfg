@@ -37,10 +37,7 @@ static int on_filename(const char* name, void* user)
         return -1;
 
     if (plugin_load(&plugin, str_cstr(ctx->filepath)) != 0)
-    {
-        log_err("! Failed to load plugin %s\n", str_cstr(ctx->filepath));
         goto load_plugin_failed;
-    }
     log_dbg("+ Found plugin %s\n", str_cstr(ctx->filepath));
 
     /*
@@ -110,14 +107,14 @@ int plugin_load(struct plugin_lib* plugin, const char* filepath)
 {
     plugin->handle = dynlib_open(filepath);
     if (plugin->handle == NULL)
-        return log_err("Failed to load plugin %s\n", filepath);
+        return -1;
 
     plugin->i = dynlib_symbol_addr(plugin->handle, "dpsfg_plugin");
     if (plugin->i == NULL)
     {
         dynlib_close(plugin->handle);
         return log_err(
-            "'dpsfg_plugin' symbol not found in plugin %s\n", filepath);
+            "\"dpsfg_plugin\" symbol not found in plugin \"%s\"\n", filepath);
     }
 
     return 0;

@@ -1,3 +1,4 @@
+#include "csfg/util/log.h"
 #include "csfg/util/tracker.h"
 #include "dpsfg/dynlib.h"
 
@@ -13,6 +14,7 @@
 
 #include <stddef.h>
 
+/* -------------------------------------------------------------------------- */
 int dynlib_add_path(const char* path)
 {
 #if defined(_WIN32)
@@ -28,17 +30,25 @@ int dynlib_add_path(const char* path)
 #endif
 }
 
+/* -------------------------------------------------------------------------- */
 void* dynlib_open(const char* filename)
 {
 #if defined(_WIN32)
     void* handle = (void*)LoadLibraryA(filename);
 #else
     void* handle = dlopen(filename, RTLD_LAZY);
+    if (handle == NULL)
+    {
+        log_err(
+            "Failed to load shared library \"%s\": %s\n", filename, dlerror());
+        return NULL;
+    }
 #endif
     track_mem(handle, 0, filename);
     return handle;
 }
 
+/* -------------------------------------------------------------------------- */
 void dynlib_close(void* handle)
 {
     untrack_mem(handle);
@@ -49,6 +59,7 @@ void dynlib_close(void* handle)
 #endif
 }
 
+/* -------------------------------------------------------------------------- */
 void* dynlib_symbol_addr(void* handle, const char* name)
 {
 #if defined(_WIN32)

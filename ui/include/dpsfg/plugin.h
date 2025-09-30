@@ -21,9 +21,9 @@ struct dpsfg_ui_center_interface
 
 struct dpsfg_graph_interface
 {
-    void (*on_set)(struct csfg_graph* graph);
-    void (*on_changed)(struct csfg_graph* graph);
-    void (*on_clear)(void);
+    void (*on_set)(struct plugin_ctx* ctx, struct csfg_graph* graph);
+    void (*on_changed)(struct plugin_ctx* ctx, struct csfg_graph* graph);
+    void (*on_clear)(struct plugin_ctx* ctx);
 };
 
 struct plugin_info

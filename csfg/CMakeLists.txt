@@ -32,6 +32,8 @@ set (csfg_SOURCES
     "src/util/strlist.c"
     "src/util/strview.c"
 
+    "src/graph/graph.c"
+
     "src/symbolic/expr.c"
     "src/symbolic/expr_eval.c"
     "src/symbolic/expr_parse.c"

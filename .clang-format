@@ -59,7 +59,11 @@ ForEachMacros: [
     ui_for_each_active,
     vec_for_each,
     vec_for_each_r,
-    vec_enumerate
+    vec_for_each_node,
+    vec_for_each_edge,
+    vec_enumerate,
+    vec_enumerate_nodes,
+    vec_enumerate_edges
 ]
 IncludeBlocks: Regroup
 IncludeCategories:

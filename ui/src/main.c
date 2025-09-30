@@ -1,3 +1,5 @@
+#include "csfg/graph/graph.h"
+#include "csfg/symbolic/expr.h"
 #include "csfg/util/log.h"
 #include "csfg/util/tracker.h"
 #include "csfg/util/vec.h"
@@ -197,6 +199,7 @@ static int on_plugin(struct plugin_lib lib, void* user)
 struct app_activate_ctx
 {
     struct plugin_vec** plugins;
+    struct csfg_graph   g;
 };
 
 static void activate(GtkApplication* app, gpointer user_data)
@@ -241,6 +244,20 @@ static void activate(GtkApplication* app, gpointer user_data)
     gtk_window_set_child(GTK_WINDOW(window), paned1);
     gtk_window_maximize(GTK_WINDOW(window));
     gtk_widget_set_visible(window, 1);
+
+    csfg_graph_init(&ctx->g);
+    int                    n1 = csfg_graph_add_node(&ctx->g, "V1");
+    int                    n2 = csfg_graph_add_node(&ctx->g, "I2");
+    struct csfg_expr_pool* e_pool;
+    csfg_expr_pool_init(&e_pool);
+    int e_expr = csfg_expr_parse(&e_pool, "G1 + G2 + s*C");
+    csfg_graph_add_edge(&ctx->g, n1, n2, e_pool, e_expr);
+
+    if (vec_count(*ctx->plugins))
+    {
+        struct plugin* plugin = vec_get(*ctx->plugins, 0);
+        plugin->lib.i->graph->on_set(plugin->ctx, &ctx->g);
+    }
 }
 
 int main(int argc, char** argv)
@@ -281,6 +298,8 @@ int main(int argc, char** argv)
     vec_for_each (plugins, plugin)
         stop_plugin(plugin);
     plugin_vec_deinit(plugins);
+
+    csfg_graph_deinit(&ctx.g);
 
 parse_args_break:
     trackers_deinit_tls();
