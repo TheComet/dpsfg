@@ -40,6 +40,10 @@ int csfg_graph_add_edge(
     int                    n_to,
     struct csfg_expr_pool* pool,
     int                    expr);
+void csfg_graph_mark_node_deleted(struct csfg_graph* g, int n);
+void csfg_graph_mark_edge_deleted(struct csfg_graph* g, int e);
+
+void csfg_graph_gc(struct csfg_graph* g);
 
 #define csfg_graph_for_each_node(g, var)                                       \
     if (g)                                                                     \

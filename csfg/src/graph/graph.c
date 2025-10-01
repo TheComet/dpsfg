@@ -82,3 +82,55 @@ int csfg_graph_add_edge(
     edge_init(e, g->id_counter++, n_from, n_to, pool, expr);
     return e_idx;
 }
+
+/* -------------------------------------------------------------------------- */
+void csfg_graph_mark_node_deleted(struct csfg_graph* g, int n)
+{
+    vec_get(g->nodes, n)->id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+void csfg_graph_mark_edge_deleted(struct csfg_graph* g, int e_idx)
+{
+    struct csfg_edge* e = vec_get(g->edges, e_idx);
+    e->id = -1;
+    csfg_expr_pool_deinit(e->pool);
+}
+
+/* -------------------------------------------------------------------------- */
+void csfg_graph_gc(struct csfg_graph* g)
+{
+    struct csfg_node* n;
+    struct csfg_edge* e;
+    int               n_idx, e_idx;
+
+    csfg_graph_enumerate_edges (g, e_idx, e)
+    {
+        int end = csfg_graph_edge_count(g) - 1;
+        if (e->id > -1)
+            continue;
+
+        csfg_edge_vec_swap_values(g->edges, e_idx, end);
+        csfg_edge_vec_pop(g->edges);
+        --e_idx;
+    }
+
+    csfg_graph_enumerate_nodes (g, n_idx, n)
+    {
+        int end = csfg_graph_node_count(g) - 1;
+        if (n->id > -1)
+            continue;
+
+        csfg_graph_for_each_edge (g, e)
+        {
+            if (e->from == end)
+                e->from = n_idx;
+            if (e->to == end)
+                e->to = n_idx;
+        }
+
+        csfg_node_vec_swap_values(g->nodes, n_idx, end);
+        csfg_node_vec_pop(g->nodes);
+        --n_idx;
+    }
+}

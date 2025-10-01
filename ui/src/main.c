@@ -37,6 +37,7 @@ static void dpsfg_plugin_module_unload(GTypeModule* type_module)
 
 static void dpsfg_plugin_module_init(DPSFGPluginModule* self)
 {
+    (void)self;
 }
 
 static void dpsfg_plugin_module_class_init(DPSFGPluginModuleClass* class)
@@ -59,6 +60,7 @@ struct plugin
 static void
 track_plugin_widget_deallocation(GtkWidget* self, gpointer user_pointer)
 {
+    (void)user_pointer;
     untrack_mem(self);
 }
 #endif
@@ -71,6 +73,7 @@ shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GtkWindow* window = user_data;
     gtk_window_close(window);
+    (void)widget, (void)unused;
     return TRUE;
 }
 
@@ -137,6 +140,7 @@ static void stop_plugin(struct plugin* plugin)
 static void page_removed(
     GtkNotebook* self, GtkWidget* child, guint page_num, gpointer user_data)
 {
+    (void)self, (void)child, (void)page_num, (void)user_data;
     log_dbg("page_removed()\n");
 }
 
