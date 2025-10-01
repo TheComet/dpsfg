@@ -70,3 +70,4 @@ install (
     DESTINATION "share/dpsfg/cmake/modules")
 
 add_subdirectory ("plugins/graph-editor")
+add_subdirectory ("plugins/math-viewer")

@@ -92,9 +92,7 @@ void csfg_graph_mark_node_deleted(struct csfg_graph* g, int n)
 /* -------------------------------------------------------------------------- */
 void csfg_graph_mark_edge_deleted(struct csfg_graph* g, int e_idx)
 {
-    struct csfg_edge* e = vec_get(g->edges, e_idx);
-    e->id = -1;
-    csfg_expr_pool_deinit(e->pool);
+    vec_get(g->edges, e_idx)->id = -1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -110,6 +108,7 @@ void csfg_graph_gc(struct csfg_graph* g)
         if (e->id > -1)
             continue;
 
+        csfg_expr_pool_deinit(e->pool);
         csfg_edge_vec_swap_values(g->edges, e_idx, end);
         csfg_edge_vec_pop(g->edges);
         --e_idx;
@@ -129,6 +128,7 @@ void csfg_graph_gc(struct csfg_graph* g)
                 e->to = n_idx;
         }
 
+        str_deinit(n->name);
         csfg_node_vec_swap_values(g->nodes, n_idx, end);
         csfg_node_vec_pop(g->nodes);
         --n_idx;

@@ -54,6 +54,7 @@ struct plugin
     struct plugin_ctx* ctx;
     GTypeModule*       plugin_module;
     GtkWidget*         ui_center;
+    GtkWidget*         ui_pane;
 };
 
 #if defined(CSFG_DEBUG_MEMORY)
@@ -77,8 +78,11 @@ shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     return TRUE;
 }
 
-static int
-start_plugin(struct plugin* plugin, struct plugin_lib lib, GtkNotebook* center)
+static int start_plugin(
+    struct plugin*    plugin,
+    struct plugin_lib lib,
+    GtkNotebook*      center,
+    GtkBox*           pane)
 {
     plugin->plugin_module = g_object_new(DPSFG_TYPE_PLUGIN_MODULE, NULL);
     if (plugin->plugin_module == NULL)
@@ -96,6 +100,9 @@ start_plugin(struct plugin* plugin, struct plugin_lib lib, GtkNotebook* center)
         if (plugin->ui_center == NULL)
             goto create_ui_center_failed;
 
+        gtk_notebook_append_page(
+            center, plugin->ui_center, gtk_label_new(lib.i->info->name));
+
 #if defined(CSFG_DEBUG_MEMORY)
         track_mem(plugin->ui_center, 0, "ui_center");
         g_signal_connect(
@@ -106,34 +113,60 @@ start_plugin(struct plugin* plugin, struct plugin_lib lib, GtkNotebook* center)
 #endif
     }
 
-    if (plugin->ui_center)
+    plugin->ui_pane = NULL;
+    if (lib.i->ui_pane)
     {
-        gtk_notebook_append_page(
-            center, plugin->ui_center, gtk_label_new(lib.i->info->name));
+        GtkWidget* expander;
+        GtkWidget* section_box;
+
+        plugin->ui_pane = lib.i->ui_pane->create(plugin->ctx);
+        if (plugin->ui_pane == NULL)
+            goto create_ui_pane_failed;
+
+        expander = gtk_expander_new(lib.i->info->name);
+        section_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+        gtk_box_append(GTK_BOX(section_box), plugin->ui_pane);
+        gtk_expander_set_child(GTK_EXPANDER(expander), section_box);
+        gtk_expander_set_expanded(GTK_EXPANDER(expander), TRUE);
+        gtk_widget_set_hexpand(expander, TRUE);
+
+        gtk_box_append(pane, expander);
+
+#if defined(CSFG_DEBUG_MEMORY)
+        track_mem(plugin->ui_pane, 0, "ui_pane");
+        g_signal_connect(
+            plugin->ui_pane,
+            "destroy",
+            G_CALLBACK(track_plugin_widget_deallocation),
+            NULL);
+#endif
     }
 
     plugin->lib = lib;
     return 0;
 
+create_ui_pane_failed:
     if (plugin->ui_center)
         lib.i->ui_center->destroy(plugin->ctx, plugin->ui_center);
 create_ui_center_failed:
     lib.i->destroy(plugin->plugin_module, plugin->ctx);
 create_context_failed:
     g_type_module_unuse(plugin->plugin_module);
-    g_object_unref(plugin->plugin_module);
+    // g_object_unref(plugin->plugin_module);
 alloc_plugin_module_failed:
     return -1;
 }
 
 static void stop_plugin(struct plugin* plugin)
 {
+    if (plugin->ui_pane)
+        plugin->lib.i->ui_pane->destroy(plugin->ctx, plugin->ui_pane);
     if (plugin->ui_center)
         plugin->lib.i->ui_center->destroy(plugin->ctx, plugin->ui_center);
 
     plugin->lib.i->destroy(plugin->plugin_module, plugin->ctx);
     g_type_module_unuse(plugin->plugin_module);
-    g_object_unref(plugin->plugin_module);
+    // g_object_unref(plugin->plugin_module);
     plugin_unload(&plugin->lib);
 }
 
@@ -142,13 +175,6 @@ static void page_removed(
 {
     (void)self, (void)child, (void)page_num, (void)user_data;
     log_dbg("page_removed()\n");
-}
-
-static GtkWidget* property_panel_new(void)
-{
-    GtkWidget* notebook = gtk_notebook_new();
-    g_signal_connect(notebook, "page-removed", G_CALLBACK(page_removed), NULL);
-    return notebook;
 }
 
 static GtkWidget* plugin_view_new(void)
@@ -181,6 +207,7 @@ struct on_plugin_ctx
 {
     struct plugin_vec** plugins;
     GtkNotebook*        center_area;
+    GtkBox*             property_pane;
 };
 
 static int on_plugin(struct plugin_lib lib, void* user)
@@ -190,7 +217,7 @@ static int on_plugin(struct plugin_lib lib, void* user)
     if (plugin == NULL)
         return -1;
 
-    if (start_plugin(plugin, lib, ctx->center_area) == 0)
+    if (start_plugin(plugin, lib, ctx->center_area, ctx->property_pane) == 0)
         return 1;
 
     /* Failed to start, remove plugin from list but continue loading */
@@ -200,8 +227,10 @@ static int on_plugin(struct plugin_lib lib, void* user)
 
 struct app_activate_ctx
 {
-    struct plugin_vec** plugins;
-    struct csfg_graph   g;
+    struct plugin_vec**    plugins;
+    struct csfg_graph      g;
+    struct csfg_expr_pool* pool;
+    int                    expr;
 };
 
 static void activate(GtkApplication* app, gpointer user_data)
@@ -210,9 +239,11 @@ static void activate(GtkApplication* app, gpointer user_data)
     GtkWidget* project_browser;
     GtkWidget* paned1;
     GtkWidget* paned2;
-    GtkWidget* plugin_view;
-    GtkWidget* property_panel;
+    GtkWidget* center_area;
+    GtkWidget* property_pane_container;
+    GtkWidget* property_pane_scrolled_window;
 
+    struct plugin*           plugin;
     struct on_plugin_ctx     on_plugin_ctx;
     struct app_activate_ctx* ctx = user_data;
 
@@ -221,20 +252,26 @@ static void activate(GtkApplication* app, gpointer user_data)
     gtk_window_set_default_size(GTK_WINDOW(window), 1280, 720);
     setup_global_shortcuts(window);
 
-    plugin_view = plugin_view_new();
-    on_plugin_ctx.plugins = ctx->plugins;
-    on_plugin_ctx.center_area = GTK_NOTEBOOK(plugin_view);
-    plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
+    property_pane_scrolled_window = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(
+        GTK_SCROLLED_WINDOW(property_pane_scrolled_window),
+        GTK_POLICY_NEVER,
+        GTK_POLICY_AUTOMATIC);
 
-    property_panel = property_panel_new();
+    property_pane_container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+    gtk_scrolled_window_set_child(
+        GTK_SCROLLED_WINDOW(property_pane_scrolled_window),
+        property_pane_container);
+
+    center_area = plugin_view_new();
     project_browser = gtk_notebook_new();
 
     paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    gtk_paned_set_start_child(GTK_PANED(paned2), plugin_view);
-    gtk_paned_set_end_child(GTK_PANED(paned2), property_panel);
+    gtk_paned_set_start_child(GTK_PANED(paned2), center_area);
+    gtk_paned_set_end_child(GTK_PANED(paned2), property_pane_scrolled_window);
     gtk_paned_set_resize_start_child(GTK_PANED(paned2), TRUE);
     gtk_paned_set_resize_end_child(GTK_PANED(paned2), FALSE);
-    // gtk_paned_set_position(GTK_PANED(paned2), 800);
+    gtk_paned_set_position(GTK_PANED(paned2), 0);
 
     paned1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_paned_set_start_child(GTK_PANED(paned1), project_browser);
@@ -247,41 +284,20 @@ static void activate(GtkApplication* app, gpointer user_data)
     gtk_window_maximize(GTK_WINDOW(window));
     gtk_widget_set_visible(window, 1);
 
-    csfg_graph_init(&ctx->g);
-    int                    v1 = csfg_graph_add_node(&ctx->g, "V1");
-    int                    i2 = csfg_graph_add_node(&ctx->g, "I2");
-    int                    v2 = csfg_graph_add_node(&ctx->g, "V2");
-    int                    v3 = csfg_graph_add_node(&ctx->g, "V3");
-    int                    v4 = csfg_graph_add_node(&ctx->g, "V4");
-    int                    v5 = csfg_graph_add_node(&ctx->g, "V5");
-    struct csfg_expr_pool *ep1, *ep2, *ep3, *ep4, *ep5, *ep6, *ep7;
-    csfg_expr_pool_init(&ep1);
-    csfg_expr_pool_init(&ep2);
-    csfg_expr_pool_init(&ep3);
-    csfg_expr_pool_init(&ep4);
-    csfg_expr_pool_init(&ep5);
-    csfg_expr_pool_init(&ep6);
-    csfg_expr_pool_init(&ep7);
-    int ex1 = csfg_expr_parse(&ep1, "G1");
-    int ex2 = csfg_expr_parse(&ep2, "z2");
-    int ex3 = csfg_expr_parse(&ep3, "-1");
-    int ex4 = csfg_expr_parse(&ep4, "A");
-    int ex5 = csfg_expr_parse(&ep5, "G2");
-    int ex6 = csfg_expr_parse(&ep6, "s*C");
-    int ex7 = csfg_expr_parse(&ep7, "1");
-    csfg_graph_add_edge(&ctx->g, v1, i2, ep1, ex1);
-    csfg_graph_add_edge(&ctx->g, i2, v2, ep2, ex2);
-    csfg_graph_add_edge(&ctx->g, v2, v3, ep3, ex3);
-    csfg_graph_add_edge(&ctx->g, v3, v4, ep4, ex4);
-    csfg_graph_add_edge(&ctx->g, v4, i2, ep5, ex5);
-    csfg_graph_add_edge(&ctx->g, v4, i2, ep6, ex6);
-    csfg_graph_add_edge(&ctx->g, v5, v3, ep7, ex7);
+    on_plugin_ctx.plugins = ctx->plugins;
+    on_plugin_ctx.center_area = GTK_NOTEBOOK(center_area);
+    on_plugin_ctx.property_pane = GTK_BOX(property_pane_container);
+    plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
 
-    if (vec_count(*ctx->plugins))
-    {
-        struct plugin* plugin = vec_get(*ctx->plugins, 0);
-        plugin->lib.i->graph->on_set(plugin->ctx, &ctx->g);
-    }
+    vec_for_each (*ctx->plugins, plugin)
+        if (plugin->lib.i->graph)
+            plugin->lib.i->graph->on_set(plugin->ctx, &ctx->g);
+
+    ctx->expr = csfg_expr_parse(&ctx->pool, "G1+G2+s*C");
+    vec_for_each (*ctx->plugins, plugin)
+        if (plugin->lib.i->expr)
+            plugin->lib.i->expr->on_graph_expr(
+                plugin->ctx, ctx->pool, ctx->expr);
 }
 
 int main(int argc, char** argv)
@@ -311,6 +327,10 @@ int main(int argc, char** argv)
         goto parse_args_break;
     }
 
+    csfg_graph_init(&ctx.g);
+    csfg_expr_pool_init(&ctx.pool);
+    ctx.expr = -1;
+
     plugin_vec_init(&plugins);
     ctx.plugins = &plugins;
     app = gtk_application_new(
@@ -323,6 +343,7 @@ int main(int argc, char** argv)
         stop_plugin(plugin);
     plugin_vec_deinit(plugins);
 
+    csfg_expr_pool_deinit(ctx.pool);
     csfg_graph_deinit(&ctx.g);
 
 parse_args_break:

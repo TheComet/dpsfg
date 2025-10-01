@@ -77,7 +77,9 @@ static int on_subdir(const char* subdir, void* user)
     if (dynlib_add_path(str_cstr(ctx->filepath)) != 0)
         return 0; /* Try to continue */
 
-    return fs_list(str_cstr(ctx->filepath), on_filename, ctx);
+    if (fs_list(str_cstr(ctx->filepath), on_filename, ctx) < 0)
+        return -1;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */

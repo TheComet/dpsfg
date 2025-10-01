@@ -62,4 +62,4 @@ static struct plugin_info info = {
     "Signal Flow Graph Editor"};
 
 PLUGIN_API struct plugin_interface dpsfg_plugin = {
-    PLUGIN_VERSION, 0, &info, create, destroy, &ui_center, &graph};
+    PLUGIN_VERSION, 0, &info, create, destroy, &ui_center, NULL, &graph};
