@@ -6,7 +6,7 @@ extern "C" {
 #include "csfg/symbolic/var_table.h"
 }
 
-#define NAME test_op_tf
+#define NAME test_expr_op_tf
 
 using namespace testing;
 

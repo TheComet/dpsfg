@@ -5,6 +5,8 @@
 VEC_DEFINE(csfg_node_vec, struct csfg_node, 16)
 VEC_DEFINE(csfg_edge_vec, struct csfg_edge, 16)
 
+VEC_DEFINE(csfg_edge_idx_vec, int, 16)
+
 /* -------------------------------------------------------------------------- */
 static int node_init(struct csfg_node* n, int id, const char* name)
 {
@@ -81,6 +83,29 @@ int csfg_graph_add_edge(
 
     edge_init(e, g->id_counter++, n_from, n_to, pool, expr);
     return e_idx;
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_graph_add_edge_parse_expr(
+    struct csfg_graph* g, int n_from, int n_to, const char* text)
+{
+    int                    expr, edge;
+    struct csfg_expr_pool* pool;
+
+    csfg_expr_pool_init(&pool);
+    expr = csfg_expr_parse(&pool, text);
+    if (expr < 0)
+        goto parse_failed;
+
+    edge = csfg_graph_add_edge(g, n_from, n_to, pool, expr);
+    if (edge < 0)
+        goto parse_failed;
+
+    return edge;
+
+parse_failed:
+    csfg_expr_pool_deinit(pool);
+    return -1;
 }
 
 /* -------------------------------------------------------------------------- */

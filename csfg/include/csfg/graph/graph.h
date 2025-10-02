@@ -8,6 +8,7 @@ struct csfg_node
 {
     struct str* name;
     int         id;
+    unsigned    visited : 1;
 };
 
 struct csfg_edge
@@ -22,6 +23,8 @@ struct csfg_edge
 
 VEC_DECLARE(csfg_node_vec, struct csfg_node, 16)
 VEC_DECLARE(csfg_edge_vec, struct csfg_edge, 16)
+
+VEC_DECLARE(csfg_edge_idx_vec, int, 16)
 
 struct csfg_graph
 {
@@ -40,6 +43,8 @@ int csfg_graph_add_edge(
     int                    n_to,
     struct csfg_expr_pool* pool,
     int                    expr);
+int csfg_graph_add_edge_parse_expr(
+    struct csfg_graph* g, int n_from, int n_to, const char* text);
 void csfg_graph_mark_node_deleted(struct csfg_graph* g, int n);
 void csfg_graph_mark_edge_deleted(struct csfg_graph* g, int e);
 
