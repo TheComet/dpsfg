@@ -80,8 +80,16 @@ int csfg_expr_to_str(
     {
         case CSFG_EXPR_GC: break;
         case CSFG_EXPR_LIT:
-            if (str_append_int(str, pool->nodes[expr].value.lit) != 0)
-                return -1;
+            if (isinf(pool->nodes[expr].value.lit))
+            {
+                if (str_append_cstr(str, "oo") != 0)
+                    return -1;
+            }
+            else
+            {
+                if (str_append_int(str, pool->nodes[expr].value.lit) != 0)
+                    return -1;
+            }
             break;
         case CSFG_EXPR_VAR: {
             int         var_idx = pool->nodes[expr].value.var_idx;

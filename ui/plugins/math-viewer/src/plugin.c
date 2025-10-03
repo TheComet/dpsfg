@@ -4,15 +4,35 @@
 
 struct plugin_ctx
 {
-    MathViewer*              math_viewer;
+    GtkWidget*                         top_level;
+    MathViewer*                        graph_expr_viewer;
+    MathViewer*                        standard_tf_viewer;
+    MathViewer*                        tf_after_limit_viewer;
     struct plugin_callbacks_interface* callbacks;
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
-    ctx->math_viewer = math_viewer_new();
-    return GTK_WIDGET(g_object_ref_sink(ctx->math_viewer));
+    ctx->graph_expr_viewer = math_viewer_new();
+    ctx->standard_tf_viewer = math_viewer_new();
+    ctx->tf_after_limit_viewer = math_viewer_new();
+
+    ctx->top_level = gtk_notebook_new();
+    gtk_notebook_append_page(
+        GTK_NOTEBOOK(ctx->top_level),
+        GTK_WIDGET(ctx->tf_after_limit_viewer),
+        gtk_label_new("TF with Limit"));
+    gtk_notebook_append_page(
+        GTK_NOTEBOOK(ctx->top_level),
+        GTK_WIDGET(ctx->standard_tf_viewer),
+        gtk_label_new("Transfer Function"));
+    gtk_notebook_append_page(
+        GTK_NOTEBOOK(ctx->top_level),
+        GTK_WIDGET(ctx->graph_expr_viewer),
+        gtk_label_new("Graph Expression"));
+
+    return GTK_WIDGET(g_object_ref_sink(ctx->top_level));
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
@@ -22,13 +42,11 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
     const struct plugin_callbacks_interface* icb,
-    struct plugin_callbacks*   cb,
-    GTypeModule*                   type_module)
+    struct plugin_callbacks*                 cb,
+    GTypeModule*                             type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
-
     math_viewer_register_type_internal(type_module);
-
     return ctx;
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
@@ -40,12 +58,16 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 static void on_graph_expr(
     struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr)
 {
-    math_viewer_set_graph_expr(ctx->math_viewer, pool, expr);
+    math_viewer_set_expr(ctx->graph_expr_viewer, pool, expr);
 }
-static void
-on_graph_tf(struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr)
+static void on_graph_tf(
+    struct plugin_ctx*           ctx,
+    const struct csfg_expr_pool* num_pool,
+    int                          num_expr,
+    const struct csfg_expr_pool* den_pool,
+    int                          den_expr)
 {
-    math_viewer_set_graph_tf(ctx->math_viewer, pool, expr);
+    math_viewer_set_expr(ctx->standard_tf_viewer, num_pool, num_expr);
 }
 
 /* -------------------------------------------------------------------------- */

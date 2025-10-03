@@ -2,6 +2,7 @@
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/expr_tf.h"
 #include "csfg/util/log.h"
 #include "csfg/util/tracker.h"
 #include "csfg/util/vec.h"
@@ -80,8 +81,12 @@ struct app_ctx
     struct csfg_path_vec* paths;
     struct csfg_path_vec* loops;
 
-    struct csfg_expr_pool* pool;
-    int                    expr;
+    struct csfg_expr_pool* graph_pool;
+    struct csfg_expr_pool* num_pool;
+    struct csfg_expr_pool* den_pool;
+    int                    graph_expr;
+    int                    num_expr;
+    int                    den_expr;
 };
 
 struct plugin_callbacks
@@ -98,31 +103,67 @@ static void graph_changed_cb(
     struct plugin*  plugin;
     struct app_ctx* app = cb->app;
 
-    csfg_path_vec_clear(app->paths);
-    csfg_path_vec_clear(app->loops);
-    csfg_expr_pool_clear(app->pool);
-    app->expr = -1;
-
-    csfg_graph_find_forward_paths(&app->graph, &app->paths, node_in, node_out);
-    csfg_graph_find_loops(&app->graph, &app->loops);
-    app->expr =
-        csfg_graph_mason(&app->graph, &app->pool, app->paths, app->loops);
-    if (app->expr > -1)
-    {
-        csfg_expr_op_run(
-            &app->pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
-    }
-
     vec_for_each (*app->plugins, plugin)
     {
         if (plugin->ctx == source_plugin)
             continue;
+        if (plugin->lib.i->graph)
+            plugin->lib.i->graph->on_changed(plugin->ctx, &app->graph);
+    }
+
+    csfg_path_vec_clear(app->paths);
+    csfg_path_vec_clear(app->loops);
+    csfg_expr_pool_clear(app->graph_pool);
+    app->graph_expr = -1;
+
+    csfg_graph_find_forward_paths(&app->graph, &app->paths, node_in, node_out);
+    csfg_graph_find_loops(&app->graph, &app->loops);
+    app->graph_expr =
+        csfg_graph_mason(&app->graph, &app->graph_pool, app->paths, app->loops);
+    if (app->graph_expr > -1)
+    {
+        csfg_expr_op_run(
+            &app->graph_pool,
+            csfg_expr_opt_fold_constants,
+            csfg_expr_opt_remove_useless_ops,
+            NULL);
+        app->graph_expr = csfg_expr_gc(app->graph_pool, app->graph_expr);
+    }
+
+    vec_for_each (*app->plugins, plugin)
+    {
         if (plugin->lib.i->expr)
             plugin->lib.i->expr->on_graph_expr(
-                plugin->ctx, app->pool, app->expr);
+                plugin->ctx, app->graph_pool, app->graph_expr);
+    }
+
+    csfg_expr_pool_clear(app->num_pool);
+    csfg_expr_pool_clear(app->den_pool);
+    app->num_expr =
+        csfg_expr_dup_from(&app->num_pool, app->graph_pool, app->graph_expr);
+    if (app->num_expr > -1)
+    {
+        if (csfg_expr_to_standard_tf(
+                &app->num_pool,
+                &app->num_expr,
+                &app->den_pool,
+                &app->den_expr,
+                cstr_view("s")) != 0)
+        {
+            app->num_expr = -1;
+            app->den_expr = -1;
+        }
+    }
+
+    vec_for_each (*app->plugins, plugin)
+    {
+        if (plugin->lib.i->expr)
+            plugin->lib.i->expr->on_graph_tf(
+                plugin->ctx,
+                app->num_pool,
+                app->num_expr,
+                app->den_pool,
+                app->den_expr);
     }
 }
 
@@ -390,8 +431,12 @@ int main(int argc, char** argv)
     csfg_path_vec_init(&app_ctx.paths);
     csfg_path_vec_init(&app_ctx.loops);
 
-    csfg_expr_pool_init(&app_ctx.pool);
-    app_ctx.expr = -1;
+    csfg_expr_pool_init(&app_ctx.graph_pool);
+    csfg_expr_pool_init(&app_ctx.num_pool);
+    csfg_expr_pool_init(&app_ctx.den_pool);
+    app_ctx.graph_expr = -1;
+    app_ctx.num_expr = -1;
+    app_ctx.den_expr = -1;
 
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
@@ -399,7 +444,9 @@ int main(int argc, char** argv)
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 
-    csfg_expr_pool_deinit(app_ctx.pool);
+    csfg_expr_pool_deinit(app_ctx.den_pool);
+    csfg_expr_pool_deinit(app_ctx.num_pool);
+    csfg_expr_pool_deinit(app_ctx.graph_pool);
     csfg_path_vec_deinit(app_ctx.loops);
     csfg_path_vec_deinit(app_ctx.paths);
     csfg_graph_deinit(&app_ctx.graph);

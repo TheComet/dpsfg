@@ -43,7 +43,11 @@ struct dpsfg_expr_interface
     void (*on_graph_expr)(
         struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr);
     void (*on_graph_tf)(
-        struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr);
+        struct plugin_ctx*           ctx,
+        const struct csfg_expr_pool* num_pool,
+        int                          num_expr,
+        const struct csfg_expr_pool* den_pool,
+        int                          den_expr);
 };
 
 struct plugin_info

@@ -7,11 +7,8 @@ struct _MathViewer
     GtkBox     parent_instance;
     GtkWidget* drawing_area;
 
-    const struct csfg_expr_pool* graph_pool;
-    const struct csfg_expr_pool* graph_tf_pool;
-
-    int graph_expr;
-    int graph_tf_expr;
+    const struct csfg_expr_pool* pool;
+    int                          expr;
 };
 
 G_DEFINE_DYNAMIC_TYPE(MathViewer, math_viewer, GTK_TYPE_BOX)
@@ -42,7 +39,7 @@ static void draw_cb(
     cairo_set_line_width(cr, 1.0);
     cairo_stroke(cr);
 
-    if (viewer->graph_pool != NULL && viewer->graph_expr > -1)
+    if (viewer->pool != NULL && viewer->expr > -1)
     {
         struct str*           str;
         PangoLayout*          layout;
@@ -52,7 +49,7 @@ static void draw_cb(
         double                ty = 0.0;
 
         str_init(&str);
-        csfg_expr_to_str(&str, viewer->graph_pool, viewer->graph_expr);
+        csfg_expr_to_str(&str, viewer->pool, viewer->expr);
 
         layout = pango_cairo_create_layout(cr);
         pango_layout_set_text(layout, str_cstr(str), -1);
@@ -74,10 +71,10 @@ static void draw_cb(
 /* -------------------------------------------------------------------------- */
 static void math_viewer_init(MathViewer* self)
 {
-    self->graph_pool = NULL;
-    self->graph_tf_pool = NULL;
-    self->graph_expr = -1;
-    self->graph_tf_expr = -1;
+    self->pool = NULL;
+    self->pool = NULL;
+    self->expr = -1;
+    self->expr = -1;
 
     g_object_set(self, "orientation", GTK_ORIENTATION_VERTICAL, NULL);
 
@@ -123,19 +120,10 @@ MathViewer* math_viewer_new(void)
 }
 
 /* -------------------------------------------------------------------------- */
-void math_viewer_set_graph_expr(
+void math_viewer_set_expr(
     MathViewer* viewer, const struct csfg_expr_pool* pool, int expr)
 {
-    viewer->graph_pool = pool;
-    viewer->graph_expr = expr;
-    gtk_widget_queue_draw(viewer->drawing_area);
-}
-
-/* -------------------------------------------------------------------------- */
-void math_viewer_set_graph_tf(
-    MathViewer* viewer, const struct csfg_expr_pool* pool, int expr)
-{
-    viewer->graph_tf_pool = pool;
-    viewer->graph_tf_expr = expr;
+    viewer->pool = pool;
+    viewer->expr = expr;
     gtk_widget_queue_draw(viewer->drawing_area);
 }

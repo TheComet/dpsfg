@@ -128,6 +128,9 @@ int csfg_expr_set_var(struct csfg_expr_pool** pool, int n, struct strview name)
     int            i;
     struct strview str;
 
+    if (n == -1)
+        return -1;
+
     strlist_for_each ((*pool)->var_names, i, str)
         if (strview_eq(str, name))
         {
@@ -140,6 +143,19 @@ int csfg_expr_set_var(struct csfg_expr_pool** pool, int n, struct strview name)
         return -1;
 
     return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_set_inf(struct csfg_expr_pool** pool, int n)
+{
+    if (n == -1)
+        return -1;
+
+    (*pool)->nodes[n].type = CSFG_EXPR_INF;
+    (*pool)->nodes[n].child[0] = -1;
+    (*pool)->nodes[n].child[1] = -1;
+
+    return n;
 }
 
 /* ------------------------------------------------------------------------- */
