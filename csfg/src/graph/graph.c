@@ -5,7 +5,7 @@
 VEC_DEFINE(csfg_node_vec, struct csfg_node, 16)
 VEC_DEFINE(csfg_edge_vec, struct csfg_edge, 16)
 
-VEC_DEFINE(csfg_edge_idx_vec, int, 16)
+VEC_DEFINE(csfg_path_vec, int, 16)
 
 /* -------------------------------------------------------------------------- */
 static int node_init(struct csfg_node* n, int id, const char* name)

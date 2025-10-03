@@ -128,6 +128,7 @@ void math_viewer_set_graph_expr(
 {
     viewer->graph_pool = pool;
     viewer->graph_expr = expr;
+    gtk_widget_queue_draw(viewer->drawing_area);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -136,4 +137,5 @@ void math_viewer_set_graph_tf(
 {
     viewer->graph_tf_pool = pool;
     viewer->graph_tf_expr = expr;
+    gtk_widget_queue_draw(viewer->drawing_area);
 }

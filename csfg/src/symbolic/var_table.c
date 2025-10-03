@@ -70,7 +70,7 @@ static int var_table_populate(
 
     return csfg_var_table_set_lit(
         vt,
-        strlist_view(pool->var_names, pool->nodes[n].value.var_idx),
+        strlist_cstr(pool->var_names, pool->nodes[n].value.var_idx),
         default_value);
 }
 int csfg_var_table_populate(
@@ -86,12 +86,12 @@ int csfg_var_table_populate(
 
 /* ------------------------------------------------------------------------- */
 int csfg_var_table_set_lit(
-    struct csfg_var_table* vt, struct strview name, double value)
+    struct csfg_var_table* vt, const char* name, double value)
 {
     struct entry* entry;
     int           n;
 
-    switch (csfg_var_hmap_emplace_or_get(&vt->map, name, &entry))
+    switch (csfg_var_hmap_emplace_or_get(&vt->map, cstr_view(name), &entry))
     {
         case HMAP_OOM: return -1;
         case HMAP_NEW: csfg_expr_pool_init(&entry->pool); break;
@@ -108,13 +108,13 @@ int csfg_var_table_set_lit(
 /* ------------------------------------------------------------------------- */
 int csfg_var_table_set_expr(
     struct csfg_var_table* vt,
-    struct strview         name,
+    const char*            name,
     struct csfg_expr_pool* pool,
     int                    root)
 {
     struct entry* entry;
 
-    switch (csfg_var_hmap_emplace_or_get(&vt->map, name, &entry))
+    switch (csfg_var_hmap_emplace_or_get(&vt->map, cstr_view(name), &entry))
     {
         case HMAP_OOM: return -1;
         case HMAP_EXISTS: csfg_expr_pool_deinit(entry->pool);
@@ -127,10 +127,31 @@ int csfg_var_table_set_expr(
 }
 
 /* ------------------------------------------------------------------------- */
-struct csfg_expr_pool* csfg_var_table_get(
-    const struct csfg_var_table* vt, struct strview name, int* root)
+int csfg_var_table_set_parse_expr(
+    struct csfg_var_table* vt, const char* name, const char* expr)
 {
-    struct entry* entry = csfg_var_hmap_find(vt->map, name);
+    int                    expr_root;
+    struct csfg_expr_pool* pool;
+
+    csfg_expr_pool_init(&pool);
+    expr_root = csfg_expr_parse(&pool, expr);
+    if (expr_root == -1)
+        goto fail;
+    if (csfg_var_table_set_expr(vt, name, pool, expr_root) != 0)
+        goto fail;
+
+    return 0;
+
+fail:
+    csfg_expr_pool_deinit(pool);
+    return -1;
+}
+
+/* ------------------------------------------------------------------------- */
+struct csfg_expr_pool*
+csfg_var_table_get(const struct csfg_var_table* vt, const char* name, int* root)
+{
+    struct entry* entry = csfg_var_hmap_find(vt->map, cstr_view(name));
     if (entry == NULL)
         return NULL;
     *root = entry->root;
@@ -138,7 +159,7 @@ struct csfg_expr_pool* csfg_var_table_get(
 }
 
 /* ------------------------------------------------------------------------- */
-double csfg_var_table_eval(const struct csfg_var_table* vt, struct strview name)
+double csfg_var_table_eval(const struct csfg_var_table* vt, const char* name)
 {
     int                    root;
     struct csfg_expr_pool* pool;

@@ -1,0 +1,165 @@
+#include "gmock/gmock.h"
+
+extern "C" {
+#include "csfg/graph/graph.h"
+#include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/var_table.h"
+}
+
+#define NAME test_graph_mason
+
+using namespace testing;
+
+struct NAME : public Test
+{
+    void SetUp() override
+    {
+        csfg_graph_init(&g);
+        csfg_path_vec_init(&paths);
+        csfg_path_vec_init(&loops);
+        csfg_expr_pool_init(&pool);
+        csfg_var_table_init(&vt);
+    }
+    void TearDown() override
+    {
+        csfg_var_table_deinit(&vt);
+        csfg_expr_pool_deinit(pool);
+        csfg_path_vec_deinit(loops);
+        csfg_path_vec_deinit(paths);
+        csfg_graph_deinit(&g);
+    }
+
+    struct csfg_graph         g;
+    struct csfg_path_vec* paths;
+    struct csfg_path_vec* loops;
+    struct csfg_expr_pool*    pool;
+    struct csfg_var_table     vt;
+};
+
+TEST_F(NAME, andersen_ang_example2)
+{
+    int n1 = csfg_graph_add_node(&g, "V1");
+    int n2 = csfg_graph_add_node(&g, "V2");
+    int n3 = csfg_graph_add_node(&g, "V3");
+    int n4 = csfg_graph_add_node(&g, "V4");
+    int n5 = csfg_graph_add_node(&g, "V5");
+    int n6 = csfg_graph_add_node(&g, "V5");
+    int n7 = csfg_graph_add_node(&g, "V5");
+    int n8 = csfg_graph_add_node(&g, "V5");
+    /*
+     *            H2      H3
+     *          --<--   --<--
+     *         /     \ /     \
+     *     n5 o--->---o--->---o n7
+     *       /   G2   n6  G3   \
+     *   G1 ^                   v G4
+     *     /                     \
+     * n1 o                       o n8
+     *     \                     /
+     *   G5 v                   ^ G8
+     *       \   G6   n3  G7   /
+     *     n2 o--->---o--->---o n4
+     *         \     / \     /
+     *          --<--   --<--
+     *            H6      H7
+     */
+    csfg_graph_add_edge_parse_expr(&g, n1, n5, "G1");
+    csfg_graph_add_edge_parse_expr(&g, n5, n6, "G2");
+    csfg_graph_add_edge_parse_expr(&g, n6, n7, "G3");
+    csfg_graph_add_edge_parse_expr(&g, n7, n8, "G4");
+    csfg_graph_add_edge_parse_expr(&g, n1, n2, "G5");
+    csfg_graph_add_edge_parse_expr(&g, n2, n3, "G6");
+    csfg_graph_add_edge_parse_expr(&g, n3, n4, "G7");
+    csfg_graph_add_edge_parse_expr(&g, n4, n8, "G8");
+    csfg_graph_add_edge_parse_expr(&g, n6, n5, "H2");
+    csfg_graph_add_edge_parse_expr(&g, n7, n6, "H3");
+    csfg_graph_add_edge_parse_expr(&g, n3, n2, "H6");
+    csfg_graph_add_edge_parse_expr(&g, n4, n3, "H7");
+
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n8), Eq(0));
+    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    int expr = csfg_graph_mason(&g, &pool, paths, loops);
+    ASSERT_THAT(expr, Ge(0));
+
+    // clang-format off
+    double G1 = 3;  csfg_var_table_set_lit(&vt, "G1", G1);
+    double G2 = 5;  csfg_var_table_set_lit(&vt, "G2", G2);
+    double G3 = 7;  csfg_var_table_set_lit(&vt, "G3", G3);
+    double G4 = 11; csfg_var_table_set_lit(&vt, "G4", G4);
+    double G5 = 13; csfg_var_table_set_lit(&vt, "G5", G5);
+    double G6 = 17; csfg_var_table_set_lit(&vt, "G6", G6);
+    double G7 = 19; csfg_var_table_set_lit(&vt, "G7", G7);
+    double G8 = 23; csfg_var_table_set_lit(&vt, "G8", G8);
+    double H2 = 29; csfg_var_table_set_lit(&vt, "H2", H2);
+    double H3 = 31; csfg_var_table_set_lit(&vt, "H3", H3);
+    double H6 = 37; csfg_var_table_set_lit(&vt, "H6", H6);
+    double H7 = 41; csfg_var_table_set_lit(&vt, "H7", H7);
+    ASSERT_THAT(csfg_expr_eval(pool, expr, &vt), DoubleEq(
+        (G5*G6*G7*G8*(1 - G2*H2 - G3*H3) + G1*G2*G3*G4*(1 - G6*H6 - G7*H7)) /
+        (1 - (G2*H2 + G3*H3 + G6*H6 + G7*H7) + (G2*H2*G6*H6 + G2*H2*G7*H7 + G3*H3*G6*H6 + G3*H3*G7*H7))
+    ));
+    // clang-format on
+}
+
+TEST_F(NAME, active_lowpass_filter)
+{
+    int Vin = csfg_graph_add_node(&g, "Vin");
+    int I2 = csfg_graph_add_node(&g, "I2");
+    int V2 = csfg_graph_add_node(&g, "V2");
+    int V3 = csfg_graph_add_node(&g, "V3");
+    int V4 = csfg_graph_add_node(&g, "V4");
+    int Vout = csfg_graph_add_node(&g, "Vout");
+    /*
+     *                    C
+     *             +------||------+
+     *             |              |
+     *             |      G2      |
+     *             o-----\/\/\----o
+     *             |              |
+     * Vin   G1    |  |'-.        |
+     * O---\/\/\---o--| -  '-.    |     Vout
+     *                |        >--o------O
+     *             +--| +  .-'
+     *            _|_ |.-'
+     *                                               1
+     *                                              --- = y2 = G1 + G2 + sC
+     * Vin        I2        V2                       z2
+     *  o---->----o---->----o-.  -1
+     *      G1    |    z2       '-. V4       Vout
+     *            |                 o---->----o
+     *            |             .-'      A    |
+     *             \        o-'  1           /
+     *              '-,     V3            ,-'
+     *                  '-------<-------'
+     *                       G2 + sC
+     *
+     * P1 = -G1*z2*A
+     * L1 = -A*(G2+s*C)*z2
+     */
+    csfg_graph_add_edge_parse_expr(&g, Vin, I2, "G1");
+    csfg_graph_add_edge_parse_expr(&g, I2, V2, "z2");
+    csfg_graph_add_edge_parse_expr(&g, V2, V4, "-1");
+    csfg_graph_add_edge_parse_expr(&g, V3, V4, "1");
+    csfg_graph_add_edge_parse_expr(&g, V4, Vout, "A");
+    csfg_graph_add_edge_parse_expr(&g, Vout, I2, "G2+s*C");
+
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
+    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    int expr = csfg_graph_mason(&g, &pool, paths, loops);
+    ASSERT_THAT(expr, Ge(0));
+
+    // clang-format off
+    csfg_var_table_set_parse_expr(&vt, "y2", "G1 + G2 + s*C");
+    csfg_var_table_set_parse_expr(&vt, "z2", "1/y2");
+    double G1 = 3;  csfg_var_table_set_lit(&vt, "G1", G1);
+    double G2 = 5;  csfg_var_table_set_lit(&vt, "G2", G2);
+    double C  = 7;  csfg_var_table_set_lit(&vt, "C", C);
+    double s  = 11; csfg_var_table_set_lit(&vt, "s", s);
+    double A  = 13; csfg_var_table_set_lit(&vt, "A", A);
+    double z2 = 1.0 / (G1 + G2 + s*C);
+    ASSERT_THAT(csfg_expr_eval(pool, expr, &vt), DoubleEq(
+        (-G1*z2*A) /
+        (1 + A*(G2+s*C)*z2)
+    ));
+    // clang-format on
+}

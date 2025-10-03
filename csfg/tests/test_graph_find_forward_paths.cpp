@@ -2,10 +2,9 @@
 
 extern "C" {
 #include "csfg/graph/graph.h"
-#include "csfg/graph/graph_op.h"
 }
 
-#define NAME test_graph_op_find_forward_paths
+#define NAME test_graph_find_forward_paths
 
 using namespace testing;
 
@@ -14,16 +13,16 @@ struct NAME : public Test
     void SetUp() override
     {
         csfg_graph_init(&g);
-        csfg_edge_idx_vec_init(&paths);
+        csfg_path_vec_init(&paths);
     }
     void TearDown() override
     {
-        csfg_edge_idx_vec_deinit(paths);
+        csfg_path_vec_deinit(paths);
         csfg_graph_deinit(&g);
     }
 
-    struct csfg_graph         g;
-    struct csfg_edge_idx_vec* paths;
+    struct csfg_graph     g;
+    struct csfg_path_vec* paths;
 };
 
 TEST_F(NAME, single_forward_path)
@@ -35,7 +34,7 @@ TEST_F(NAME, single_forward_path)
     int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "5");
     int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
 
-    ASSERT_THAT(csfg_graph_find_forward_paths(&paths, &g, n1, n3), Eq(0));
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n3), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(3));
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));
     ASSERT_THAT(vec_get(paths, 1), Pointee(e2));
@@ -55,7 +54,7 @@ TEST_F(NAME, two_separate_forward_paths)
     int e3 = csfg_graph_add_edge_parse_expr(&g, n1, n4, "3");
     int e4 = csfg_graph_add_edge_parse_expr(&g, n4, n3, "13");
 
-    ASSERT_THAT(csfg_graph_find_forward_paths(&paths, &g, n1, n3), Eq(0));
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n3), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(6));
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));
     ASSERT_THAT(vec_get(paths, 1), Pointee(e2));
@@ -75,7 +74,7 @@ TEST_F(NAME, two_joined_forward_paths)
     int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
     int e3 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "3");
 
-    ASSERT_THAT(csfg_graph_find_forward_paths(&paths, &g, n1, n3), Eq(0));
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n3), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(6));
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));
     ASSERT_THAT(vec_get(paths, 1), Pointee(e2));
@@ -109,7 +108,7 @@ TEST_F(NAME, multiple_paths_with_dead_ends)
     int e5 = csfg_graph_add_edge_parse_expr(&g, n2, n4, "3");
     int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, "3");
 
-    ASSERT_THAT(csfg_graph_find_forward_paths(&paths, &g, n1, n4), Eq(0));
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n4), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(11));
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));
     ASSERT_THAT(vec_get(paths, 1), Pointee(e2));
@@ -123,8 +122,8 @@ TEST_F(NAME, multiple_paths_with_dead_ends)
     ASSERT_THAT(vec_get(paths, 9), Pointee(e5));
     ASSERT_THAT(vec_get(paths, 10), Pointee(-1));
 
-    csfg_edge_idx_vec_clear(paths);
-    ASSERT_THAT(csfg_graph_find_forward_paths(&paths, &g, n1, n5), Eq(0));
+    csfg_path_vec_clear(paths);
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n5), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(8));
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));
     ASSERT_THAT(vec_get(paths, 1), Pointee(e2));
@@ -161,7 +160,7 @@ TEST_F(NAME, multiple_paths_with_loops_and_dead_ends)
     int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, "3");
     (void)e4;
 
-    ASSERT_THAT(csfg_graph_find_forward_paths(&paths, &g, n1, n4), Eq(0));
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n4), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(7));
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));
     ASSERT_THAT(vec_get(paths, 1), Pointee(e2));
@@ -171,8 +170,8 @@ TEST_F(NAME, multiple_paths_with_loops_and_dead_ends)
     ASSERT_THAT(vec_get(paths, 5), Pointee(e5));
     ASSERT_THAT(vec_get(paths, 6), Pointee(-1));
 
-    csfg_edge_idx_vec_clear(paths);
-    ASSERT_THAT(csfg_graph_find_forward_paths(&paths, &g, n1, n5), Eq(0));
+    csfg_path_vec_clear(paths);
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n5), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(4));
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));
     ASSERT_THAT(vec_get(paths, 1), Pointee(e2));

@@ -1,5 +1,7 @@
 #include "csfg/graph/graph.h"
 #include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/expr_opt.h"
 #include "csfg/util/log.h"
 #include "csfg/util/tracker.h"
 #include "csfg/util/vec.h"
@@ -69,6 +71,63 @@ track_plugin_widget_deallocation(GtkWidget* self, gpointer user_pointer)
 VEC_DECLARE(plugin_vec, struct plugin, 8)
 VEC_DEFINE(plugin_vec, struct plugin, 8)
 
+struct app_ctx
+{
+    struct plugin_vec**      plugins;
+    struct plugin_callbacks* plugin_callbacks_ctx;
+
+    struct csfg_graph     graph;
+    struct csfg_path_vec* paths;
+    struct csfg_path_vec* loops;
+
+    struct csfg_expr_pool* pool;
+    int                    expr;
+};
+
+struct plugin_callbacks
+{
+    struct app_ctx* app;
+};
+
+static void graph_changed_cb(
+    struct plugin_callbacks* cb,
+    const struct plugin_ctx* source_plugin,
+    int                      node_in,
+    int                      node_out)
+{
+    struct plugin*  plugin;
+    struct app_ctx* app = cb->app;
+
+    csfg_path_vec_clear(app->paths);
+    csfg_path_vec_clear(app->loops);
+    csfg_expr_pool_clear(app->pool);
+    app->expr = -1;
+
+    csfg_graph_find_forward_paths(&app->graph, &app->paths, node_in, node_out);
+    csfg_graph_find_loops(&app->graph, &app->loops);
+    app->expr =
+        csfg_graph_mason(&app->graph, &app->pool, app->paths, app->loops);
+    if (app->expr > -1)
+    {
+        csfg_expr_op_run(
+            &app->pool,
+            csfg_expr_opt_fold_constants,
+            csfg_expr_opt_remove_useless_ops,
+            NULL);
+    }
+
+    vec_for_each (*app->plugins, plugin)
+    {
+        if (plugin->ctx == source_plugin)
+            continue;
+        if (plugin->lib.i->expr)
+            plugin->lib.i->expr->on_graph_expr(
+                plugin->ctx, app->pool, app->expr);
+    }
+}
+
+static struct plugin_callbacks_interface plugin_callbacks = {&graph_changed_cb};
+
 static gboolean
 shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
@@ -79,17 +138,19 @@ shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 }
 
 static int start_plugin(
-    struct plugin*    plugin,
-    struct plugin_lib lib,
-    GtkNotebook*      center,
-    GtkBox*           pane)
+    struct plugin*           plugin,
+    struct plugin_lib        lib,
+    struct plugin_callbacks* callbacks_ctx,
+    GtkNotebook*             center,
+    GtkBox*                  pane)
 {
     plugin->plugin_module = g_object_new(DPSFG_TYPE_PLUGIN_MODULE, NULL);
     if (plugin->plugin_module == NULL)
         goto alloc_plugin_module_failed;
     g_type_module_use(plugin->plugin_module);
 
-    plugin->ctx = lib.i->create(NULL, plugin->plugin_module);
+    plugin->ctx =
+        lib.i->create(&plugin_callbacks, callbacks_ctx, plugin->plugin_module);
     if (plugin->ctx == NULL)
         goto create_context_failed;
 
@@ -149,7 +210,7 @@ create_ui_pane_failed:
     if (plugin->ui_center)
         lib.i->ui_center->destroy(plugin->ctx, plugin->ui_center);
 create_ui_center_failed:
-    lib.i->destroy(plugin->plugin_module, plugin->ctx);
+    lib.i->destroy(plugin->ctx, plugin->plugin_module);
 create_context_failed:
     g_type_module_unuse(plugin->plugin_module);
     // g_object_unref(plugin->plugin_module);
@@ -164,7 +225,7 @@ static void stop_plugin(struct plugin* plugin)
     if (plugin->ui_center)
         plugin->lib.i->ui_center->destroy(plugin->ctx, plugin->ui_center);
 
-    plugin->lib.i->destroy(plugin->plugin_module, plugin->ctx);
+    plugin->lib.i->destroy(plugin->ctx, plugin->plugin_module);
     g_type_module_unuse(plugin->plugin_module);
     // g_object_unref(plugin->plugin_module);
     plugin_unload(&plugin->lib);
@@ -205,9 +266,10 @@ static void setup_global_shortcuts(GtkWidget* window)
 
 struct on_plugin_ctx
 {
-    struct plugin_vec** plugins;
-    GtkNotebook*        center_area;
-    GtkBox*             property_pane;
+    struct plugin_vec**      plugins;
+    struct plugin_callbacks* plugin_callbacks_ctx;
+    GtkNotebook*             center_area;
+    GtkBox*                  property_pane;
 };
 
 static int on_plugin(struct plugin_lib lib, void* user)
@@ -217,21 +279,18 @@ static int on_plugin(struct plugin_lib lib, void* user)
     if (plugin == NULL)
         return -1;
 
-    if (start_plugin(plugin, lib, ctx->center_area, ctx->property_pane) == 0)
+    if (start_plugin(
+            plugin,
+            lib,
+            ctx->plugin_callbacks_ctx,
+            ctx->center_area,
+            ctx->property_pane) == 0)
         return 1;
 
     /* Failed to start, remove plugin from list but continue loading */
     plugin_vec_pop(*ctx->plugins);
     return 0;
 }
-
-struct app_activate_ctx
-{
-    struct plugin_vec**    plugins;
-    struct csfg_graph      g;
-    struct csfg_expr_pool* pool;
-    int                    expr;
-};
 
 static void activate(GtkApplication* app, gpointer user_data)
 {
@@ -243,9 +302,9 @@ static void activate(GtkApplication* app, gpointer user_data)
     GtkWidget* property_pane_container;
     GtkWidget* property_pane_scrolled_window;
 
-    struct plugin*           plugin;
-    struct on_plugin_ctx     on_plugin_ctx;
-    struct app_activate_ctx* ctx = user_data;
+    struct plugin*       plugin;
+    struct on_plugin_ctx on_plugin_ctx;
+    struct app_ctx*      ctx = user_data;
 
     window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "DPSFG");
@@ -285,23 +344,19 @@ static void activate(GtkApplication* app, gpointer user_data)
     on_plugin_ctx.plugins = ctx->plugins;
     on_plugin_ctx.center_area = GTK_NOTEBOOK(center_area);
     on_plugin_ctx.property_pane = GTK_BOX(property_pane_container);
+    on_plugin_ctx.plugin_callbacks_ctx = ctx->plugin_callbacks_ctx;
     plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
 
     vec_for_each (*ctx->plugins, plugin)
         if (plugin->lib.i->graph)
-            plugin->lib.i->graph->on_set(plugin->ctx, &ctx->g);
-
-    ctx->expr = csfg_expr_parse(&ctx->pool, "G1+G2+s*C");
-    vec_for_each (*ctx->plugins, plugin)
-        if (plugin->lib.i->expr)
-            plugin->lib.i->expr->on_graph_expr(
-                plugin->ctx, ctx->pool, ctx->expr);
+            plugin->lib.i->graph->on_set(plugin->ctx, &ctx->graph);
 }
 
 int main(int argc, char** argv)
 {
     struct args             args;
-    struct app_activate_ctx ctx;
+    struct app_ctx          app_ctx;
+    struct plugin_callbacks callbacks_ctx;
     struct plugin*          plugin;
     struct plugin_vec*      plugins;
     GtkApplication*         app;
@@ -325,24 +380,33 @@ int main(int argc, char** argv)
         goto parse_args_break;
     }
 
-    csfg_graph_init(&ctx.g);
-    csfg_expr_pool_init(&ctx.pool);
-    ctx.expr = -1;
+    callbacks_ctx.app = &app_ctx;
 
     plugin_vec_init(&plugins);
-    ctx.plugins = &plugins;
+    app_ctx.plugins = &plugins;
+    app_ctx.plugin_callbacks_ctx = &callbacks_ctx;
+
+    csfg_graph_init(&app_ctx.graph);
+    csfg_path_vec_init(&app_ctx.paths);
+    csfg_path_vec_init(&app_ctx.loops);
+
+    csfg_expr_pool_init(&app_ctx.pool);
+    app_ctx.expr = -1;
+
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
-    g_signal_connect(app, "activate", G_CALLBACK(activate), &ctx);
+    g_signal_connect(app, "activate", G_CALLBACK(activate), &app_ctx);
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
+
+    csfg_expr_pool_deinit(app_ctx.pool);
+    csfg_path_vec_deinit(app_ctx.loops);
+    csfg_path_vec_deinit(app_ctx.paths);
+    csfg_graph_deinit(&app_ctx.graph);
 
     vec_for_each (plugins, plugin)
         stop_plugin(plugin);
     plugin_vec_deinit(plugins);
-
-    csfg_expr_pool_deinit(ctx.pool);
-    csfg_graph_deinit(&ctx.g);
 
 parse_args_break:
     trackers_deinit_tls();

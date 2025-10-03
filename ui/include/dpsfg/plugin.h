@@ -9,9 +9,14 @@ struct csfg_expr_pool;
 typedef struct _GtkWidget   GtkWidget;
 typedef struct _GTypeModule GTypeModule;
 
-struct plugin_callbacks
+struct plugin_callbacks;
+struct plugin_callbacks_interface
 {
-    void (*graph_changed)(struct plugin_callbacks* cb);
+    void (*graph_changed)(
+        struct plugin_callbacks* ctx,
+        const struct plugin_ctx* source_plugin,
+        int                      node_in,
+        int                      node_out);
 };
 
 struct dpsfg_ui_center_interface
@@ -56,8 +61,10 @@ struct plugin_interface
     uint32_t            vh_version;
     struct plugin_info* info;
     struct plugin_ctx* (*create)(
-        const struct plugin_callbacks* cb, GTypeModule* type_module);
-    void (*destroy)(GTypeModule* type_module, struct plugin_ctx* ctx);
+        const struct plugin_callbacks_interface* icb,
+        struct plugin_callbacks*                 cb,
+        GTypeModule*                             type_module);
+    void (*destroy)(struct plugin_ctx* ctx, GTypeModule* type_module);
     const struct dpsfg_ui_center_interface* ui_center;
     const struct dpsfg_ui_pane_interface*   ui_pane;
     const struct dpsfg_graph_interface*     graph;

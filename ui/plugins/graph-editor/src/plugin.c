@@ -4,14 +4,15 @@
 
 struct plugin_ctx
 {
-    GraphEditor*             graph_editor;
-    struct plugin_callbacks* callbacks;
+    GraphEditor*                             graph_editor;
+    const struct plugin_callbacks_interface* icb;
+    struct plugin_callbacks*                 cb;
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_center_create(struct plugin_ctx* ctx)
 {
-    ctx->graph_editor = graph_editor_new();
+    ctx->graph_editor = graph_editor_new(ctx, ctx->icb, ctx->cb);
     return GTK_WIDGET(g_object_ref_sink(ctx->graph_editor));
 }
 static void ui_center_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
@@ -34,16 +35,20 @@ static void graph_on_clear(struct plugin_ctx* ctx)
 }
 
 /* -------------------------------------------------------------------------- */
-static struct plugin_ctx*
-create(const struct plugin_callbacks* cb, GTypeModule* type_module)
+static struct plugin_ctx* create(
+    const struct plugin_callbacks_interface* icb,
+    struct plugin_callbacks*                 cb,
+    GTypeModule*                             type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
+    ctx->icb = icb;
+    ctx->cb = cb;
 
     graph_editor_register_type_internal(type_module);
 
     return ctx;
 }
-static void destroy(GTypeModule* type_module, struct plugin_ctx* ctx)
+static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 {
     mem_free(ctx);
 }

@@ -32,7 +32,9 @@ set (csfg_SOURCES
     "src/util/strview.c"
 
     "src/graph/graph.c"
-    "src/graph/graph_op_find_paths_and_loops.c"
+    "src/graph/graph_find_paths_and_loops.c"
+    "src/graph/graph_find_nontouching.c"
+    "src/graph/graph_mason.c"
 
     "src/symbolic/expr.c"
     "src/symbolic/expr_eval.c"
@@ -108,8 +110,10 @@ if (CSFG_TESTS)
         "tests/test_expr_opt_remove_useless_ops.cpp"
         "tests/test_expr_opt_fold_constants.cpp"
 
-        "tests/test_graph_op_find_forward_paths.cpp"
-        "tests/test_graph_op_find_loops.cpp"
+        "tests/test_graph_find_forward_paths.cpp"
+        "tests/test_graph_find_loops.cpp"
+        "tests/test_graph_find_nontouching.cpp"
+        "tests/test_graph_mason.cpp"
 
         "tests/test_hmap.cpp"
         "tests/test_hmap_full.cpp"

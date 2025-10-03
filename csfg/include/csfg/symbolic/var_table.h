@@ -1,7 +1,5 @@
 #pragma once
 
-#include "csfg/util/strview.h"
-
 struct csfg_expr_pool;
 struct csfg_var_hmap;
 
@@ -30,7 +28,7 @@ int csfg_var_table_populate(
  * @note The value is stored as a constant expression (csfg_expr).
  */
 int csfg_var_table_set_lit(
-    struct csfg_var_table* vt, struct strview name, double value);
+    struct csfg_var_table* vt, const char* name, double value);
 
 /*!
  * @brief Adds a new entry to the table that maps "name" to an expression.
@@ -40,20 +38,21 @@ int csfg_var_table_set_lit(
  */
 int csfg_var_table_set_expr(
     struct csfg_var_table* vt,
-    struct strview         name,
+    const char*            name,
     struct csfg_expr_pool* pool,
     int                    root);
+int csfg_var_table_set_parse_expr(
+    struct csfg_var_table* vt, const char* name, const char* expr);
 
 /*!
  * @brief Retrieves the expression the specified variable would be mapped to,
  * or NULL if no entry exists.
  */
 struct csfg_expr_pool* csfg_var_table_get(
-    const struct csfg_var_table* vt, struct strview name, int* root);
+    const struct csfg_var_table* vt, const char* name, int* root);
 
 /*!
  * @brief Recursively evaluates the expression the specified variable maps
  * to until a constant value is computed.
  */
-double
-csfg_var_table_eval(const struct csfg_var_table* vt, struct strview name);
+double csfg_var_table_eval(const struct csfg_var_table* vt, const char* name);

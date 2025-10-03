@@ -3,6 +3,7 @@
 #include "csfg/util/hmap.h"
 #include "csfg/util/log.h"
 #include "csfg/util/str.h"
+#include "dpsfg/plugin.h"
 #include "graph-editor/graph_editor.h"
 
 static const int    GRID_WIDTH = 20;
@@ -45,9 +46,15 @@ struct _GraphEditor
     GtkWidget* drawing_area;
     GtkWidget* entry; /* Text entry, when active */
 
+    const struct plugin_callbacks_interface* icb;
+    struct plugin_callbacks*                 cb;
+    struct plugin_ctx*                       plugin_ctx;
+
     struct csfg_graph*     graph;
     struct node_attr_hmap* node_attrs;
     struct edge_attr_hmap* edge_attrs;
+    int                    node_in_idx;
+    int                    node_out_idx;
 
     int active_node_id;
     int active_edge_id;
@@ -583,6 +590,11 @@ shortcut_new_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     editor->active_node_id = create_new_node(editor, editor->active_node_id);
+    editor->icb->graph_changed(
+        editor->cb,
+        editor->plugin_ctx,
+        editor->node_in_idx,
+        editor->node_out_idx);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -595,6 +607,11 @@ static gboolean shortcut_new_node_and_edge_cb(
     int          prev_active_node_id = editor->active_node_id;
     editor->active_node_id = create_new_node(editor, editor->active_node_id);
     create_new_edge(editor, prev_active_node_id, editor->active_node_id);
+    editor->icb->graph_changed(
+        editor->cb,
+        editor->plugin_ctx,
+        editor->node_in_idx,
+        editor->node_out_idx);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -676,12 +693,29 @@ static int delete_node(GraphEditor* editor, int node_id)
 static gboolean
 shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor*            editor = user_data;
+    const struct csfg_node* node;
+    int                     node_idx;
 
     delete_edge(editor, editor->active_edge_id);
     editor->active_edge_id = -1;
 
+    csfg_graph_enumerate_nodes (editor->graph, node_idx, node)
+        if (node->id == editor->active_node_id)
+        {
+            if (editor->node_out_idx == node_idx)
+                editor->node_out_idx = -1;
+            if (editor->node_in_idx == node_idx)
+                editor->node_in_idx = -1;
+        }
+
     editor->active_node_id = delete_node(editor, editor->active_node_id);
+
+    editor->icb->graph_changed(
+        editor->cb,
+        editor->plugin_ctx,
+        editor->node_in_idx,
+        editor->node_out_idx);
 
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
@@ -707,6 +741,61 @@ shortcut_new_edge_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     create_new_edge(editor, editor->selected_node_id, editor->active_node_id);
+    editor->icb->graph_changed(
+        editor->cb,
+        editor->plugin_ctx,
+        editor->node_in_idx,
+        editor->node_out_idx);
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+
+/* -------------------------------------------------------------------------- */
+static gboolean
+shortcut_set_in_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    int                     node_idx;
+    const struct csfg_node* node;
+    GraphEditor*            editor = user_data;
+
+    csfg_graph_enumerate_nodes (editor->graph, node_idx, node)
+        if (node->id == editor->active_node_id)
+        {
+            editor->node_in_idx = node_idx;
+            break;
+        }
+
+    editor->icb->graph_changed(
+        editor->cb,
+        editor->plugin_ctx,
+        editor->node_in_idx,
+        editor->node_out_idx);
+
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+
+/* -------------------------------------------------------------------------- */
+static gboolean shortcut_set_out_node_cb(
+    GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    int                     node_idx;
+    const struct csfg_node* node;
+    GraphEditor*            editor = user_data;
+
+    csfg_graph_enumerate_nodes (editor->graph, node_idx, node)
+        if (node->id == editor->active_node_id)
+        {
+            editor->node_out_idx = node_idx;
+            break;
+        }
+
+    editor->icb->graph_changed(
+        editor->cb,
+        editor->plugin_ctx,
+        editor->node_in_idx,
+        editor->node_out_idx);
+
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -736,6 +825,8 @@ static void setup_global_shortcuts(GraphEditor* editor)
         {GDK_KEY_x, GDK_NO_MODIFIER_MASK, shortcut_delete_cb},
         {GDK_KEY_s, GDK_NO_MODIFIER_MASK, shortcut_select_node_cb},
         {GDK_KEY_e, GDK_NO_MODIFIER_MASK, shortcut_new_edge_cb},
+        {GDK_KEY_i, GDK_NO_MODIFIER_MASK, shortcut_set_in_node_cb},
+        {GDK_KEY_o, GDK_NO_MODIFIER_MASK, shortcut_set_out_node_cb},
     };
 
     controller = gtk_shortcut_controller_new();
@@ -808,41 +899,6 @@ static void draw_text(
 }
 
 /* -------------------------------------------------------------------------- */
-static void draw_node(
-    cairo_t*    cr,
-    double      x,
-    double      y,
-    double      radius,
-    const char* name,
-    double      r,
-    double      g,
-    double      b,
-    int         is_active,
-    int         is_selected,
-    int         is_move_mode)
-{
-    draw_text(cr, name, x, y, M_PI / 2);
-
-    cairo_set_source_rgb(cr, r, g, b);
-    cairo_arc(cr, x, y, radius, 0, 2 * M_PI);
-    cairo_fill(cr);
-
-    if (is_selected)
-    {
-        cairo_set_source_rgb(cr, r, g, b);
-        cairo_arc(cr, x, y, radius * 1.2, 0, 2 * M_PI);
-        cairo_stroke(cr);
-    }
-
-    if (is_active && is_move_mode)
-    {
-        cairo_set_source_rgb(cr, r, g, b);
-        cairo_arc(cr, x, y, radius * 1.5, 0, 2 * M_PI);
-        cairo_stroke(cr);
-    }
-}
-
-/* -------------------------------------------------------------------------- */
 static void draw_arrow(
     cairo_t* cr,
     double   x,
@@ -877,6 +933,41 @@ static void draw_arrow(
     cairo_line_to(cr, x4, y4);
     cairo_close_path(cr);
     cairo_fill(cr);
+}
+
+/* -------------------------------------------------------------------------- */
+static void draw_node(
+    cairo_t*    cr,
+    double      x,
+    double      y,
+    double      radius,
+    const char* name,
+    double      r,
+    double      g,
+    double      b,
+    int         is_active,
+    int         is_selected,
+    int         is_move_mode)
+{
+    draw_text(cr, name, x, y, M_PI / 2);
+
+    cairo_set_source_rgb(cr, r, g, b);
+    cairo_arc(cr, x, y, radius, 0, 2 * M_PI);
+    cairo_fill(cr);
+
+    if (is_selected)
+    {
+        cairo_set_source_rgb(cr, r, g, b);
+        cairo_arc(cr, x, y, radius * 1.2, 0, 2 * M_PI);
+        cairo_stroke(cr);
+    }
+
+    if (is_active && is_move_mode)
+    {
+        cairo_set_source_rgb(cr, r, g, b);
+        cairo_arc(cr, x, y, radius * 1.5, 0, 2 * M_PI);
+        cairo_stroke(cr);
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -941,6 +1032,7 @@ static void draw_cb(
     int             height,
     gpointer        user_pointer)
 {
+    int                     node_idx;
     const struct csfg_node* n;
     const struct csfg_edge* e;
     GraphEditor*            editor = user_pointer;
@@ -979,7 +1071,7 @@ static void draw_cb(
             editor->zoom);
     }
 
-    csfg_graph_for_each_node (editor->graph, n)
+    csfg_graph_enumerate_nodes (editor->graph, node_idx, n)
     {
         double                  r = 0.2, g = 0.2, b = 0.2;
         const struct node_attr* na =
@@ -988,6 +1080,10 @@ static void draw_cb(
             continue;
         if (n->id == editor->active_node_id)
             r = 0.8, g = 0.5;
+        if (node_idx == editor->node_in_idx)
+            r = 0.5, g = 0.5;
+        if (node_idx == editor->node_out_idx)
+            g = 0.5, b = 0.5;
         draw_node(
             cr,
             na->x,
@@ -1099,20 +1195,47 @@ static int try_select_edge(
 }
 
 /* -------------------------------------------------------------------------- */
-static void finish_editing(GtkEntry* e, gpointer user_pointer)
+static void finish_editing(GtkEntry* entry, gpointer user_pointer)
 {
-    int               n_idx;
+    int               n_idx, e_idx;
     struct csfg_node* n;
+    struct csfg_edge* e;
+    struct edge_attr* ea;
     GraphEditor*      editor = user_pointer;
-    const char*       text = gtk_editable_get_text(GTK_EDITABLE(e));
-    csfg_graph_enumerate_nodes (editor->graph, n_idx, n)
-        if (n->id == editor->active_node_id)
-        {
-            str_set_cstr(&n->name, text);
-            break;
-        }
+
+    const char* text = gtk_editable_get_text(GTK_EDITABLE(entry));
+
+    if (editor->active_node_id > -1)
+    {
+        csfg_graph_enumerate_nodes (editor->graph, n_idx, n)
+            if (n->id == editor->active_node_id)
+            {
+                str_set_cstr(&n->name, text);
+                break;
+            }
+    }
+    else if (editor->active_edge_id > -1)
+    {
+        ea = edge_attr_hmap_find(editor->edge_attrs, editor->active_edge_id);
+        str_set_cstr(&ea->expr_str, text);
+
+        csfg_graph_for_each_edge (editor->graph, e)
+            if (e->id == editor->active_edge_id)
+            {
+                csfg_expr_pool_clear(e->pool);
+                e->expr = csfg_expr_parse(&e->pool, text);
+            }
+    }
+
     gtk_widget_unparent(editor->entry);
     editor->entry = NULL;
+
+    editor->icb->graph_changed(
+        editor->cb,
+        editor->plugin_ctx,
+        editor->node_in_idx,
+        editor->node_out_idx);
+
     gtk_widget_queue_draw(editor->drawing_area);
 }
 
@@ -1128,6 +1251,7 @@ static void click_begin(
     GraphEditor*            editor = user_pointer;
     const struct csfg_node* n;
     const struct node_attr* na;
+    const struct edge_attr* ea;
 
     x = (x - editor->pan_x) / editor->zoom;
     y = (y - editor->pan_y) / editor->zoom;
@@ -1148,6 +1272,12 @@ static void click_begin(
         na = node_attr_hmap_find(editor->node_attrs, editor->active_node_id);
         if (na != NULL)
             start_editing(editor, na->x, na->y, na->radius, str_cstr(n->name));
+    }
+    else if (editor->active_edge_id > -1 && n_press == 2 /* double-click */)
+    {
+        ea = edge_attr_hmap_find(editor->edge_attrs, editor->active_edge_id);
+        if (ea != NULL)
+            start_editing(editor, ea->x, ea->y, 10, str_cstr(ea->expr_str));
     }
 }
 
@@ -1319,6 +1449,8 @@ static void graph_editor_init(GraphEditor* self)
     self->graph = NULL;
     node_attr_hmap_init(&self->node_attrs);
     edge_attr_hmap_init(&self->edge_attrs);
+    self->node_in_idx = -1;
+    self->node_out_idx = -1;
 
     self->zoom = 1.0;
     self->pan_x = 500.0;
@@ -1420,9 +1552,16 @@ void graph_editor_register_type_internal(GTypeModule* type_module)
 }
 
 /* -------------------------------------------------------------------------- */
-GraphEditor* graph_editor_new(void)
+GraphEditor* graph_editor_new(
+    struct plugin_ctx*                       plugin_ctx,
+    const struct plugin_callbacks_interface* icb,
+    struct plugin_callbacks*                 cb)
 {
-    return g_object_new(PLUGIN_TYPE_GRAPH_EDITOR, NULL);
+    GraphEditor* editor = g_object_new(PLUGIN_TYPE_GRAPH_EDITOR, NULL);
+    editor->plugin_ctx = plugin_ctx;
+    editor->icb = icb;
+    editor->cb = cb;
+    return editor;
 }
 
 /* -------------------------------------------------------------------------- */

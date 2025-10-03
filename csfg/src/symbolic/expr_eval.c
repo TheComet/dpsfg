@@ -21,7 +21,7 @@ eval(struct csfg_expr_pool* expr, int n, const struct csfg_var_table* vt)
 
             return csfg_var_table_eval(
                 vt,
-                strlist_view(expr->var_names, expr->nodes[n].value.var_idx));
+                strlist_cstr(expr->var_names, expr->nodes[n].value.var_idx));
         }
         case CSFG_EXPR_INF: return INFINITY;
         case CSFG_EXPR_NEG:

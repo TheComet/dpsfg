@@ -1,13 +1,12 @@
 #include "csfg/graph/graph.h"
-#include "csfg/graph/graph_op.h"
 
 /* -------------------------------------------------------------------------- */
 static int find_paths_recurse(
     struct csfg_path_vec** paths,
     struct csfg_path_vec** stack,
-    struct csfg_graph*         graph,
-    int                        edge_idx,
-    int                        node_out)
+    struct csfg_graph*     graph,
+    int                    edge_idx,
+    int                    node_out)
 {
     struct csfg_edge* edge = csfg_graph_get_edge(graph, edge_idx);
     struct csfg_node* node = csfg_graph_get_node(graph, edge->to);
@@ -15,16 +14,16 @@ static int find_paths_recurse(
         return 0;
 
     node->visited = 1;
-    if (csfg_edge_idx_vec_push(stack, edge_idx) != 0)
+    if (csfg_path_vec_push(stack, edge_idx) != 0)
         return -1;
 
     if (edge->to == node_out)
     {
         const int* idx;
         vec_for_each (*stack, idx)
-            if (csfg_edge_idx_vec_push(paths, *idx) != 0)
+            if (csfg_path_vec_push(paths, *idx) != 0)
                 return -1;
-        if (csfg_edge_idx_vec_push(paths, -1) != 0)
+        if (csfg_path_vec_push(paths, -1) != 0)
             return -1;
     }
     else
@@ -39,7 +38,7 @@ static int find_paths_recurse(
         }
     }
 
-    csfg_edge_idx_vec_pop(*stack);
+    csfg_path_vec_pop(*stack);
     node->visited = 0;
 
     return 0;
@@ -47,17 +46,17 @@ static int find_paths_recurse(
 
 /* -------------------------------------------------------------------------- */
 int csfg_graph_find_forward_paths(
-    struct csfg_graph*         graph,
+    struct csfg_graph*     graph,
     struct csfg_path_vec** paths,
-    int                        node_in,
-    int                        node_out)
+    int                    node_in,
+    int                    node_out)
 {
     struct csfg_path_vec* stack;
-    struct csfg_node*         node;
-    struct csfg_edge*         edge;
-    int                       edge_idx;
+    struct csfg_node*     node;
+    struct csfg_edge*     edge;
+    int                   edge_idx;
 
-    csfg_edge_idx_vec_init(&stack);
+    csfg_path_vec_init(&stack);
     csfg_graph_for_each_node (graph, node)
         node->visited = 0;
 
@@ -69,11 +68,11 @@ int csfg_graph_find_forward_paths(
             goto find_paths_failed;
     }
 
-    csfg_edge_idx_vec_deinit(stack);
+    csfg_path_vec_deinit(stack);
     return 0;
 
 find_paths_failed:
-    csfg_edge_idx_vec_deinit(stack);
+    csfg_path_vec_deinit(stack);
     return -1;
 }
 
@@ -82,11 +81,11 @@ int csfg_graph_find_loops(
     struct csfg_graph* graph, struct csfg_path_vec** paths)
 {
     struct csfg_path_vec* stack;
-    struct csfg_node*         node;
-    struct csfg_edge*         edge;
-    int                       edge_idx, node_idx;
+    struct csfg_node*     node;
+    struct csfg_edge*     edge;
+    int                   edge_idx, node_idx;
 
-    csfg_edge_idx_vec_init(&stack);
+    csfg_path_vec_init(&stack);
     csfg_graph_for_each_node (graph, node)
         node->visited = 0;
 
@@ -102,10 +101,10 @@ int csfg_graph_find_loops(
         node->visited = 1;
     }
 
-    csfg_edge_idx_vec_deinit(stack);
+    csfg_path_vec_deinit(stack);
     return 0;
 
 find_paths_failed:
-    csfg_edge_idx_vec_deinit(stack);
+    csfg_path_vec_deinit(stack);
     return -1;
 }
