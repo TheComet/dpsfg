@@ -369,14 +369,14 @@ static void activate(GtkApplication* app, gpointer user_data)
     paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_paned_set_start_child(GTK_PANED(paned2), center_area);
     gtk_paned_set_end_child(GTK_PANED(paned2), property_pane_scrolled_window);
-    gtk_paned_set_position(GTK_PANED(paned2), 1600);
+    gtk_paned_set_position(GTK_PANED(paned2), 800);
 
     paned1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_paned_set_start_child(GTK_PANED(paned1), project_browser);
     gtk_paned_set_end_child(GTK_PANED(paned1), paned2);
     gtk_paned_set_resize_start_child(GTK_PANED(paned1), FALSE);
     gtk_paned_set_resize_end_child(GTK_PANED(paned1), TRUE);
-    gtk_paned_set_position(GTK_PANED(paned1), 100);
+    gtk_paned_set_position(GTK_PANED(paned1), 200);
 
     gtk_window_set_child(GTK_WINDOW(window), paned1);
     gtk_window_maximize(GTK_WINDOW(window));

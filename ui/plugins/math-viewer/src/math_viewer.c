@@ -8,10 +8,14 @@ struct _MathViewer
     GtkWidget* drawing_area;
 
     const struct csfg_expr_pool* pool;
+    const struct csfg_expr_pool* den_pool;
     int                          expr;
+    int                          den_expr;
 };
 
 G_DEFINE_DYNAMIC_TYPE(MathViewer, math_viewer, GTK_TYPE_BOX)
+
+/* -------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------- */
 static void draw_cb(
@@ -44,23 +48,40 @@ static void draw_cb(
         struct str*           str;
         PangoLayout*          layout;
         PangoFontDescription* desc;
-        int                   tw, th;
+        int                   tw1, th1;
         double                tx = 0.0;
         double                ty = 0.0;
 
         str_init(&str);
-        csfg_expr_to_str(&str, viewer->pool, viewer->expr);
+
+        cairo_set_source_rgb(cr, 0, 0, 0);
 
         layout = pango_cairo_create_layout(cr);
-        pango_layout_set_text(layout, str_cstr(str), -1);
         desc = pango_font_description_from_string("Sans 24");
         pango_layout_set_font_description(layout, desc);
 
-        pango_layout_get_pixel_size(layout, &tw, &th);
-
-        cairo_set_source_rgb(cr, 0, 0, 0);
+        csfg_expr_to_str(&str, viewer->pool, viewer->expr);
+        pango_layout_set_text(layout, str_cstr(str), -1);
         cairo_move_to(cr, tx, ty);
         pango_cairo_show_layout(cr, layout);
+        pango_layout_get_pixel_size(layout, &tw1, &th1);
+
+        if (viewer->den_pool != NULL && viewer->den_expr > -1)
+        {
+            int tw2, th2;
+            ty += th1;
+
+            str_clear(str);
+            csfg_expr_to_str(&str, viewer->den_pool, viewer->den_expr);
+            pango_layout_set_text(layout, str_cstr(str), -1);
+            cairo_move_to(cr, tx, ty);
+            pango_cairo_show_layout(cr, layout);
+
+            pango_layout_get_pixel_size(layout, &tw2, &th2);
+            cairo_move_to(cr, tx, ty);
+            cairo_line_to(cr, tx + tw2 > tw1 ? tw2 : tw1, ty);
+            cairo_stroke(cr);
+        }
 
         g_object_unref(layout);
         pango_font_description_free(desc);
@@ -125,5 +146,20 @@ void math_viewer_set_expr(
 {
     viewer->pool = pool;
     viewer->expr = expr;
+    gtk_widget_queue_draw(viewer->drawing_area);
+}
+
+/* -------------------------------------------------------------------------- */
+void math_viewer_set_tf(
+    MathViewer*                  viewer,
+    const struct csfg_expr_pool* num_pool,
+    int                          num_expr,
+    const struct csfg_expr_pool* den_pool,
+    int                          den_expr)
+{
+    viewer->pool = num_pool;
+    viewer->expr = num_expr;
+    viewer->den_pool = den_pool;
+    viewer->den_expr = den_expr;
     gtk_widget_queue_draw(viewer->drawing_area);
 }

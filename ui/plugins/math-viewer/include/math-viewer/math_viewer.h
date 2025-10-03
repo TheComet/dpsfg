@@ -11,3 +11,9 @@ void        math_viewer_register_type_internal(GTypeModule* type_module);
 MathViewer* math_viewer_new(void);
 void        math_viewer_set_expr(
            MathViewer* viewer, const struct csfg_expr_pool* pool, int expr);
+void math_viewer_set_tf(
+    MathViewer*                  viewer,
+    const struct csfg_expr_pool* num_pool,
+    int                          num_expr,
+    const struct csfg_expr_pool* den_pool,
+    int                          den_expr);

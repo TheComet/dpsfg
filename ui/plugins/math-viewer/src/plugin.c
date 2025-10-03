@@ -67,7 +67,8 @@ static void on_graph_tf(
     const struct csfg_expr_pool* den_pool,
     int                          den_expr)
 {
-    math_viewer_set_expr(ctx->standard_tf_viewer, num_pool, num_expr);
+    math_viewer_set_tf(
+        ctx->standard_tf_viewer, num_pool, num_expr, den_pool, den_expr);
 }
 
 /* -------------------------------------------------------------------------- */
