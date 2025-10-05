@@ -5,6 +5,7 @@
 struct plugin_ctx;
 struct csfg_graph;
 struct csfg_expr_pool;
+struct csfg_var_table;
 
 typedef struct _GtkWidget   GtkWidget;
 typedef struct _GTypeModule GTypeModule;
@@ -17,6 +18,8 @@ struct plugin_callbacks_interface
         const struct plugin_ctx* source_plugin,
         int                      node_in,
         int                      node_out);
+    void (*substitutions_changed)(
+        struct plugin_callbacks* ctx, const struct plugin_ctx* source_plugin);
 };
 
 struct dpsfg_ui_center_interface
@@ -42,12 +45,23 @@ struct dpsfg_expr_interface
 {
     void (*on_graph_expr)(
         struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr);
+    void (*on_substituted_expr)(
+        struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr);
     void (*on_graph_tf)(
         struct plugin_ctx*           ctx,
         const struct csfg_expr_pool* num_pool,
         int                          num_expr,
         const struct csfg_expr_pool* den_pool,
         int                          den_expr);
+};
+
+struct dpsfg_substitutions_interface
+{
+    void (*on_set)(
+        struct plugin_ctx* ctx, struct csfg_var_table* substitutions);
+    void (*on_changed)(
+        struct plugin_ctx* ctx, struct csfg_var_table* substitutions);
+    void (*on_clear)(struct plugin_ctx* ctx);
 };
 
 struct plugin_info
@@ -69,8 +83,9 @@ struct plugin_interface
         struct plugin_callbacks*                 cb,
         GTypeModule*                             type_module);
     void (*destroy)(struct plugin_ctx* ctx, GTypeModule* type_module);
-    const struct dpsfg_ui_center_interface* ui_center;
-    const struct dpsfg_ui_pane_interface*   ui_pane;
-    const struct dpsfg_graph_interface*     graph;
-    const struct dpsfg_expr_interface*      expr;
+    const struct dpsfg_ui_center_interface*     ui_center;
+    const struct dpsfg_ui_pane_interface*       ui_pane;
+    const struct dpsfg_graph_interface*         graph;
+    const struct dpsfg_substitutions_interface* substitutions;
+    const struct dpsfg_expr_interface*          expr;
 };

@@ -29,8 +29,8 @@ struct NAME : public Test
 
 TEST_F(NAME, one_product)
 {
-    int r1 = csfg_expr_parse(&p1, "(a+2)*(a+2)");
-    int r2 = csfg_expr_parse(&p2, "(a+2)^2");
+    int r1 = csfg_expr_parse(&p1, cstr_view("(a+2)*(a+2)"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("(a+2)^2"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_simplify_products(&p1), Gt(0));
@@ -39,8 +39,8 @@ TEST_F(NAME, one_product)
 
 TEST_F(NAME, product_with_exponent_1)
 {
-    int r1 = csfg_expr_parse(&p1, "(a+2)^2*(a+2)");
-    int r2 = csfg_expr_parse(&p2, "(a+2)^(2+1)");
+    int r1 = csfg_expr_parse(&p1, cstr_view("(a+2)^2*(a+2)"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("(a+2)^(2+1)"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_simplify_products(&p1), Gt(0));
@@ -49,8 +49,8 @@ TEST_F(NAME, product_with_exponent_1)
 
 TEST_F(NAME, product_with_exponent_2)
 {
-    int r1 = csfg_expr_parse(&p1, "(a+2)*(a+2)^2");
-    int r2 = csfg_expr_parse(&p2, "(a+2)^(2+1)");
+    int r1 = csfg_expr_parse(&p1, cstr_view("(a+2)*(a+2)^2"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("(a+2)^(2+1)"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_simplify_products(&p1), Gt(0));
@@ -60,8 +60,8 @@ TEST_F(NAME, product_with_exponent_2)
 TEST_F(NAME, parity)
 {
     GTEST_SKIP();
-    int r1 = csfg_expr_parse(&p1, "(a+2)*(2+a)");
-    int r2 = csfg_expr_parse(&p2, "(a+2)^2");
+    int r1 = csfg_expr_parse(&p1, cstr_view("(a+2)*(2+a)"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("(a+2)^2"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_simplify_products(&p1), Gt(0));
@@ -70,8 +70,8 @@ TEST_F(NAME, parity)
 
 TEST_F(NAME, multiple_products)
 {
-    int r1 = csfg_expr_parse(&p1, "(s*a)*(s*s)");
-    int r2 = csfg_expr_parse(&p2, "a*(s^(2+1))");
+    int r1 = csfg_expr_parse(&p1, cstr_view("(s*a)*(s*s)"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("a*(s^(2+1))"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_simplify_products(&p1), Gt(0));
@@ -80,8 +80,8 @@ TEST_F(NAME, multiple_products)
 
 TEST_F(NAME, products_of_exponents)
 {
-    int r1 = csfg_expr_parse(&p1, "s^3*a*s^-5*s^-1");
-    int r2 = csfg_expr_parse(&p2, "s^-3*a");
+    int r1 = csfg_expr_parse(&p1, cstr_view("s^3*a*s^-5*s^-1"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("s^-3*a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     csfg_expr_opt_fold_constants(&p1);

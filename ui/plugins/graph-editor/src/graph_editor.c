@@ -712,7 +712,7 @@ create_new_edge(GraphEditor* editor, int n_id_selected, int n_id_active)
     na_active = node_attr_hmap_find(editor->node_attrs, n_id_active);
 
     csfg_expr_pool_init(&pool);
-    expr = csfg_expr_parse(&pool, "1");
+    expr = csfg_expr_parse(&pool, cstr_view("1"));
     e_idx = csfg_graph_add_edge(
         editor->graph, n_idx_selected, n_idx_active, pool, expr);
     e = csfg_graph_get_edge(editor->graph, e_idx);
@@ -1434,7 +1434,7 @@ static void finish_editing(GtkEntry* entry, gpointer user_pointer)
             if (e->id == editor->active_edge_id)
             {
                 csfg_expr_pool_clear(e->pool);
-                e->expr = csfg_expr_parse(&e->pool, text);
+                e->expr = csfg_expr_parse(&e->pool, cstr_view(text));
             }
     }
 

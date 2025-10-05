@@ -44,6 +44,7 @@ struct csfg_expr_pool
 void csfg_expr_pool_init(struct csfg_expr_pool** pool);
 void csfg_expr_pool_deinit(struct csfg_expr_pool* pool);
 void csfg_expr_pool_clear(struct csfg_expr_pool* pool);
+#define csfg_expr_pool_count(pool) (pool ? pool->count : 0)
 
 /*!
  * @brief Parses a string into a syntax tree. The resulting expression can be
@@ -59,7 +60,7 @@ void csfg_expr_pool_clear(struct csfg_expr_pool* pool);
  * @return Returns the root node index of the expression tree, or a negative
  * error code if an error occurred.
  */
-int csfg_expr_parse(struct csfg_expr_pool** pool, const char* text);
+int csfg_expr_parse(struct csfg_expr_pool** pool, struct strview text);
 
 /*!
  * @brief Evaluates the syntax tree and computes a numerical value.
@@ -79,6 +80,17 @@ int csfg_expr_new(
     enum csfg_expr_type     type,
     int                     left,
     int                     right);
+
+/*!
+ * @brief Tries to resolve as many variable names as possible in the
+ * expression using the specified variable table. If a variable is not
+ * found in the variable table then it will remain unresolved.
+ * @note The expression is not optimized after this operation.
+ * @return Returns -1 if a cyclic dependency exists. In this case the
+ * expression is left in a modified state. Returns 0 otherwise.
+ */
+int csfg_expr_insert_substitutions(
+    struct csfg_expr_pool** pool, int expr, const struct csfg_var_table* vt);
 
 /* Leaf nodes */
 int csfg_expr_lit(struct csfg_expr_pool** pool, double value);

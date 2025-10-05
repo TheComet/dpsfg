@@ -29,8 +29,8 @@ struct NAME : public Test
 
 TEST_F(NAME, expand_positive)
 {
-    int r1 = csfg_expr_parse(&p1, "a^5");
-    int r2 = csfg_expr_parse(&p2, "(a*a*a*a*a)^1");
+    int r1 = csfg_expr_parse(&p1, cstr_view("a^5"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("(a*a*a*a*a)^1"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_expand_constant_exponents(&p1), Gt(0));
@@ -39,8 +39,8 @@ TEST_F(NAME, expand_positive)
 
 TEST_F(NAME, expand_negative)
 {
-    int r1 = csfg_expr_parse(&p1, "a^-5");
-    int r2 = csfg_expr_parse(&p2, "(a*a*a*a*a)^-1");
+    int r1 = csfg_expr_parse(&p1, cstr_view("a^-5"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("(a*a*a*a*a)^-1"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     // neg(5) are 2 separate nodes, but the pass expects literal negative values

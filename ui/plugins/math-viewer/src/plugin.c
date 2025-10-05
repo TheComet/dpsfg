@@ -6,6 +6,7 @@ struct plugin_ctx
 {
     GtkWidget*                         top_level;
     MathViewer*                        graph_expr_viewer;
+    MathViewer*                        substituted_expr_viewer;
     MathViewer*                        standard_tf_viewer;
     MathViewer*                        tf_after_limit_viewer;
     struct plugin_callbacks_interface* callbacks;
@@ -15,6 +16,7 @@ struct plugin_ctx
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
     ctx->graph_expr_viewer = math_viewer_new();
+    ctx->substituted_expr_viewer = math_viewer_new();
     ctx->standard_tf_viewer = math_viewer_new();
     ctx->tf_after_limit_viewer = math_viewer_new();
 
@@ -27,6 +29,10 @@ static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
         GTK_NOTEBOOK(ctx->top_level),
         GTK_WIDGET(ctx->standard_tf_viewer),
         gtk_label_new("Transfer Function"));
+    gtk_notebook_append_page(
+        GTK_NOTEBOOK(ctx->top_level),
+        GTK_WIDGET(ctx->substituted_expr_viewer),
+        gtk_label_new("Substituted Graph Expression"));
     gtk_notebook_append_page(
         GTK_NOTEBOOK(ctx->top_level),
         GTK_WIDGET(ctx->graph_expr_viewer),
@@ -60,6 +66,11 @@ static void on_graph_expr(
 {
     math_viewer_set_expr(ctx->graph_expr_viewer, pool, expr);
 }
+static void on_substituted_expr(
+    struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr)
+{
+    math_viewer_set_expr(ctx->substituted_expr_viewer, pool, expr);
+}
 static void on_graph_tf(
     struct plugin_ctx*           ctx,
     const struct csfg_expr_pool* num_pool,
@@ -69,13 +80,16 @@ static void on_graph_tf(
 {
     math_viewer_set_tf(
         ctx->standard_tf_viewer, num_pool, num_expr, den_pool, den_expr);
+    math_viewer_set_tf(
+        ctx->tf_after_limit_viewer, num_pool, num_expr, den_pool, den_expr);
 }
 
 /* -------------------------------------------------------------------------- */
 static struct dpsfg_ui_pane_interface ui_pane = {
     ui_pane_create, ui_pane_destroy};
 
-static struct dpsfg_expr_interface expr = {on_graph_expr, on_graph_tf};
+static struct dpsfg_expr_interface expr = {
+    on_graph_expr, on_substituted_expr, on_graph_tf};
 
 static struct plugin_info info = {
     "Math Viewer",
@@ -85,4 +99,13 @@ static struct plugin_info info = {
     "Renders various mathematical expressions"};
 
 PLUGIN_API struct plugin_interface dpsfg_plugin = {
-    PLUGIN_VERSION, 0, &info, create, destroy, NULL, &ui_pane, NULL, &expr};
+    PLUGIN_VERSION,
+    0,
+    &info,
+    create,
+    destroy,
+    NULL,
+    &ui_pane,
+    NULL,
+    NULL,
+    &expr};

@@ -3,6 +3,7 @@
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
 #include "csfg/symbolic/expr_tf.h"
+#include "csfg/symbolic/var_table.h"
 #include "csfg/util/log.h"
 #include "csfg/util/tracker.h"
 #include "csfg/util/vec.h"
@@ -81,10 +82,14 @@ struct app_ctx
     struct csfg_path_vec* paths;
     struct csfg_path_vec* loops;
 
+    struct csfg_var_table substitutions;
+
     struct csfg_expr_pool* graph_pool;
+    struct csfg_expr_pool* subs_pool;
     struct csfg_expr_pool* num_pool;
     struct csfg_expr_pool* den_pool;
     int                    graph_expr;
+    int                    subs_expr;
     int                    num_expr;
     int                    den_expr;
 };
@@ -93,6 +98,81 @@ struct plugin_callbacks
 {
     struct app_ctx* app;
 };
+
+static void substitutions_changed_cb(
+    struct plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
+{
+    struct plugin*  plugin;
+    struct app_ctx* app = cb->app;
+
+    if (app->graph_expr > -1)
+    {
+        csfg_expr_op_run(
+            &app->graph_pool,
+            csfg_expr_opt_fold_constants,
+            csfg_expr_opt_remove_useless_ops,
+            NULL);
+        app->graph_expr = csfg_expr_gc(app->graph_pool, app->graph_expr);
+    }
+
+    vec_for_each (*app->plugins, plugin)
+    {
+        if (plugin->lib.i->expr)
+            plugin->lib.i->expr->on_graph_expr(
+                plugin->ctx, app->graph_pool, app->graph_expr);
+    }
+
+    csfg_expr_pool_clear(app->subs_pool);
+    app->subs_expr =
+        csfg_expr_dup_from(&app->subs_pool, app->graph_pool, app->graph_expr);
+    if (app->graph_expr > -1)
+    {
+        if (csfg_expr_insert_substitutions(
+                &app->subs_pool, app->subs_expr, &app->substitutions) != 0)
+        {
+            app->subs_expr = -1;
+        }
+    }
+
+    vec_for_each (*app->plugins, plugin)
+    {
+        if (plugin->lib.i->expr)
+            plugin->lib.i->expr->on_substituted_expr(
+                plugin->ctx, app->subs_pool, app->subs_expr);
+    }
+
+    csfg_expr_pool_clear(app->num_pool);
+    csfg_expr_pool_clear(app->den_pool);
+    app->num_expr = -1;
+    app->den_expr = -1;
+
+    app->num_expr =
+        csfg_expr_dup_from(&app->num_pool, app->subs_pool, app->subs_expr);
+    if (app->num_expr > -1)
+    {
+        if (csfg_expr_to_standard_tf(
+                &app->num_pool,
+                &app->num_expr,
+                &app->den_pool,
+                &app->den_expr,
+                cstr_view("s")) != 0)
+        {
+            app->num_expr = -1;
+            app->den_expr = -1;
+        }
+    }
+
+    vec_for_each (*app->plugins, plugin)
+    {
+        if (plugin->lib.i->expr)
+            plugin->lib.i->expr->on_graph_tf(
+                plugin->ctx,
+                app->num_pool,
+                app->num_expr,
+                app->den_pool,
+                app->den_expr);
+    }
+}
 
 static void graph_changed_cb(
     struct plugin_callbacks* cb,
@@ -120,54 +200,12 @@ static void graph_changed_cb(
     csfg_graph_find_loops(&app->graph, &app->loops);
     app->graph_expr =
         csfg_graph_mason(&app->graph, &app->graph_pool, app->paths, app->loops);
-    if (app->graph_expr > -1)
-    {
-        csfg_expr_op_run(
-            &app->graph_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
-        app->graph_expr = csfg_expr_gc(app->graph_pool, app->graph_expr);
-    }
 
-    vec_for_each (*app->plugins, plugin)
-    {
-        if (plugin->lib.i->expr)
-            plugin->lib.i->expr->on_graph_expr(
-                plugin->ctx, app->graph_pool, app->graph_expr);
-    }
-
-    csfg_expr_pool_clear(app->num_pool);
-    csfg_expr_pool_clear(app->den_pool);
-    app->num_expr =
-        csfg_expr_dup_from(&app->num_pool, app->graph_pool, app->graph_expr);
-    if (app->num_expr > -1)
-    {
-        if (csfg_expr_to_standard_tf(
-                &app->num_pool,
-                &app->num_expr,
-                &app->den_pool,
-                &app->den_expr,
-                cstr_view("s")) != 0)
-        {
-            app->num_expr = -1;
-            app->den_expr = -1;
-        }
-    }
-
-    vec_for_each (*app->plugins, plugin)
-    {
-        if (plugin->lib.i->expr)
-            plugin->lib.i->expr->on_graph_tf(
-                plugin->ctx,
-                app->num_pool,
-                app->num_expr,
-                app->den_pool,
-                app->den_expr);
-    }
+    substitutions_changed_cb(cb, source_plugin);
 }
 
-static struct plugin_callbacks_interface plugin_callbacks = {&graph_changed_cb};
+static struct plugin_callbacks_interface plugin_callbacks = {
+    &graph_changed_cb, &substitutions_changed_cb};
 
 static gboolean
 shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
@@ -389,8 +427,13 @@ static void activate(GtkApplication* app, gpointer user_data)
     plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
 
     vec_for_each (*ctx->plugins, plugin)
+    {
         if (plugin->lib.i->graph)
             plugin->lib.i->graph->on_set(plugin->ctx, &ctx->graph);
+        if (plugin->lib.i->substitutions)
+            plugin->lib.i->substitutions->on_set(
+                plugin->ctx, &ctx->substitutions);
+    }
 }
 
 int main(int argc, char** argv)
@@ -431,10 +474,14 @@ int main(int argc, char** argv)
     csfg_path_vec_init(&app_ctx.paths);
     csfg_path_vec_init(&app_ctx.loops);
 
+    csfg_var_table_init(&app_ctx.substitutions);
+
     csfg_expr_pool_init(&app_ctx.graph_pool);
+    csfg_expr_pool_init(&app_ctx.subs_pool);
     csfg_expr_pool_init(&app_ctx.num_pool);
     csfg_expr_pool_init(&app_ctx.den_pool);
     app_ctx.graph_expr = -1;
+    app_ctx.subs_expr = -1;
     app_ctx.num_expr = -1;
     app_ctx.den_expr = -1;
 
@@ -446,7 +493,9 @@ int main(int argc, char** argv)
 
     csfg_expr_pool_deinit(app_ctx.den_pool);
     csfg_expr_pool_deinit(app_ctx.num_pool);
+    csfg_expr_pool_deinit(app_ctx.subs_pool);
     csfg_expr_pool_deinit(app_ctx.graph_pool);
+    csfg_var_table_deinit(&app_ctx.substitutions);
     csfg_path_vec_deinit(app_ctx.loops);
     csfg_path_vec_deinit(app_ctx.paths);
     csfg_graph_deinit(&app_ctx.graph);

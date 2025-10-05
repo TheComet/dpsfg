@@ -5,6 +5,7 @@
 struct plugin_ctx
 {
     GraphEditor*                             graph_editor;
+    GtkWidget*                               subtitutions_view;
     const struct plugin_callbacks_interface* icb;
     struct plugin_callbacks*                 cb;
 };
@@ -67,4 +68,13 @@ static struct plugin_info info = {
     "Signal Flow Graph Editor"};
 
 PLUGIN_API struct plugin_interface dpsfg_plugin = {
-    PLUGIN_VERSION, 0, &info, create, destroy, &ui_center, NULL, &graph};
+    PLUGIN_VERSION,
+    0,
+    &info,
+    create,
+    destroy,
+    &ui_center,
+    NULL,
+    &graph,
+    NULL,
+    NULL};

@@ -29,8 +29,8 @@ struct NAME : public Test
 
 TEST_F(NAME, product)
 {
-    int r1 = csfg_expr_parse(&p1, "-(a*b)");
-    int r2 = csfg_expr_parse(&p2, "-a*b");
+    int r1 = csfg_expr_parse(&p1, cstr_view("-(a*b)"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("-a*b"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_lower_negates(&p1), Gt(0));
@@ -39,8 +39,8 @@ TEST_F(NAME, product)
 
 TEST_F(NAME, power)
 {
-    int r1 = csfg_expr_parse(&p1, "-s^a");
-    int r2 = csfg_expr_parse(&p2, "(-1)*s^a");
+    int r1 = csfg_expr_parse(&p1, cstr_view("-s^a"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("(-1)*s^a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     csfg_expr_opt_fold_constants(&p2);

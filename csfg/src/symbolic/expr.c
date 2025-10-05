@@ -1,4 +1,5 @@
 #include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/var_table.h"
 #include "csfg/util/mem.h"
 #include <assert.h>
 #include <stddef.h>
@@ -30,7 +31,7 @@ void csfg_expr_pool_clear(struct csfg_expr_pool* pool)
 }
 
 /* ------------------------------------------------------------------------- */
-static void expr_init(struct csfg_expr_pool* pool)
+static void pool_init(struct csfg_expr_pool* pool)
 {
     pool->count = 0;
     strlist_init(&pool->var_names);
@@ -53,7 +54,7 @@ int csfg_expr_new(
         if (new_pool == NULL)
             return -1;
         if (*pool == NULL)
-            expr_init(new_pool);
+            pool_init(new_pool);
         new_pool->capacity = new_cap;
         *pool = new_pool;
     }
@@ -65,6 +66,63 @@ int csfg_expr_new(
     (*pool)->nodes[n].visited = 0;
 
     return n;
+}
+
+/* ------------------------------------------------------------------------- */
+static int insert_substitutions(
+    struct csfg_expr_pool** pool, int n, const struct csfg_var_table* vt)
+{
+    int                                left, right;
+    const struct csfg_var_table_entry* entry = NULL;
+
+    if ((*pool)->nodes[n].type == CSFG_EXPR_VAR)
+    {
+        entry = csfg_var_hmap_find(
+            vt->map,
+            strlist_view((*pool)->var_names, (*pool)->nodes[n].value.var_idx));
+    }
+
+    if (entry != NULL)
+    {
+        int dup;
+        if (entry->pool->nodes[entry->root].visited)
+            return -1;
+        entry->pool->nodes[entry->root].visited = 1;
+
+        dup = csfg_expr_dup_from(pool, entry->pool, entry->root);
+        if (dup == -1)
+            return -1;
+        (*pool)->nodes[n] = (*pool)->nodes[dup];
+        csfg_expr_mark_deleted(*pool, dup);
+
+        if (insert_substitutions(pool, n, vt) != 0)
+            return -1;
+    }
+
+    left = (*pool)->nodes[n].child[0];
+    right = (*pool)->nodes[n].child[1];
+    if (left > -1)
+        if (insert_substitutions(pool, left, vt) != 0)
+            return -1;
+    if (right > -1)
+        if (insert_substitutions(pool, right, vt) != 0)
+            return -1;
+
+    if (entry != NULL)
+        entry->pool->nodes[entry->root].visited = 0;
+
+    return 0;
+}
+int csfg_expr_insert_substitutions(
+    struct csfg_expr_pool** pool, int expr, const struct csfg_var_table* vt)
+{
+    int                          slot;
+    struct str*                  key;
+    struct csfg_var_table_entry* entry;
+    hmap_for_each (vt->map, slot, key, entry)
+        (void)slot, (void)key, entry->pool->nodes[entry->root].visited = 0;
+
+    return insert_substitutions(pool, expr, vt);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -327,7 +385,7 @@ void csfg_expr_mark_deleted_recursive(struct csfg_expr_pool* pool, int n)
 int csfg_expr_gc(struct csfg_expr_pool* pool, int root)
 {
     int n;
-    for (n = 0; n < pool->count; ++n)
+    for (n = 0; n < csfg_expr_pool_count(pool); ++n)
     {
         int parent, end = pool->count - 1;
         if (pool->nodes[n].type != CSFG_EXPR_GC)
@@ -388,7 +446,7 @@ void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n)
 int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n)
 {
     int p;
-    for (p = 0; p != pool->count; ++p)
+    for (p = 0; p != csfg_expr_pool_count(pool); ++p)
         if (pool->nodes[p].child[0] == n || pool->nodes[p].child[1] == n)
             if (pool->nodes[p].type != CSFG_EXPR_GC)
                 return p;

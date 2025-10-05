@@ -29,8 +29,8 @@ struct NAME : public Test
 
 TEST_F(NAME, remove_chained_negates)
 {
-    int r1 = csfg_expr_parse(&p1, "-(-a)");
-    int r2 = csfg_expr_parse(&p2, "a");
+    int r1 = csfg_expr_parse(&p1, cstr_view("-(-a)"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
@@ -39,8 +39,8 @@ TEST_F(NAME, remove_chained_negates)
 
 TEST_F(NAME, two_negated_products)
 {
-    int r1 = csfg_expr_parse(&p1, "-a*-b");
-    int r2 = csfg_expr_parse(&p2, "a*b");
+    int r1 = csfg_expr_parse(&p1, cstr_view("-a*-b"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("a*b"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
@@ -49,8 +49,8 @@ TEST_F(NAME, two_negated_products)
 
 TEST_F(NAME, remove_zero_summands)
 {
-    int r1 = csfg_expr_parse(&p1, "0+a+0");
-    int r2 = csfg_expr_parse(&p2, "a");
+    int r1 = csfg_expr_parse(&p1, cstr_view("0+a+0"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
@@ -59,8 +59,8 @@ TEST_F(NAME, remove_zero_summands)
 
 TEST_F(NAME, remove_one_products)
 {
-    int r1 = csfg_expr_parse(&p1, "1*a*1");
-    int r2 = csfg_expr_parse(&p2, "a");
+    int r1 = csfg_expr_parse(&p1, cstr_view("1*a*1"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
@@ -69,8 +69,8 @@ TEST_F(NAME, remove_one_products)
 
 TEST_F(NAME, remove_negative_one_products_left)
 {
-    int r1 = csfg_expr_parse(&p1, "-1*a");
-    int r2 = csfg_expr_parse(&p2, "-a");
+    int r1 = csfg_expr_parse(&p1, cstr_view("-1*a"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("-a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     csfg_expr_opt_fold_constants(&p1);
@@ -80,8 +80,8 @@ TEST_F(NAME, remove_negative_one_products_left)
 
 TEST_F(NAME, remove_negative_one_products_right)
 {
-    int r1 = csfg_expr_parse(&p1, "a*-1");
-    int r2 = csfg_expr_parse(&p2, "-a");
+    int r1 = csfg_expr_parse(&p1, cstr_view("a*-1"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("-a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     csfg_expr_opt_fold_constants(&p1);
@@ -91,8 +91,8 @@ TEST_F(NAME, remove_negative_one_products_right)
 
 TEST_F(NAME, remove_one_exponents)
 {
-    int r1 = csfg_expr_parse(&p1, "a^1");
-    int r2 = csfg_expr_parse(&p2, "a");
+    int r1 = csfg_expr_parse(&p1, cstr_view("a^1"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     csfg_expr_opt_fold_constants(&p1);
@@ -102,8 +102,8 @@ TEST_F(NAME, remove_one_exponents)
 
 TEST_F(NAME, remove_zero_exponents)
 {
-    int r1 = csfg_expr_parse(&p1, "a^0");
-    int r2 = csfg_expr_parse(&p2, "1");
+    int r1 = csfg_expr_parse(&p1, cstr_view("a^0"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("1"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     csfg_expr_opt_fold_constants(&p1);

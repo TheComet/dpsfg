@@ -51,10 +51,10 @@ TEST_F(NAME, simple)
      *   --- - ---         a - s
      *    s     a
      */
-    int num_root = csfg_expr_parse(&num, "1/(1/s - 1/a)");
+    int num_root = csfg_expr_parse(&num, cstr_view("1/(1/s - 1/a)"));
     int den_root;
-    int num_expected_root = csfg_expr_parse(&num_expected, "a*s");
-    int den_expected_root = csfg_expr_parse(&den_expected, "a-s");
+    int num_expected_root = csfg_expr_parse(&num_expected, cstr_view("a*s"));
+    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("a-s"));
     ASSERT_THAT(num_root, Ge(0));
     ASSERT_THAT(num_expected_root, Ge(0));
     ASSERT_THAT(den_expected_root, Ge(0));
@@ -79,10 +79,11 @@ TEST_F(NAME, light)
      *   --- - ---          a+4 - s+1            a - s + 5
      *   s-1   a+4
      */
-    int num_root = csfg_expr_parse(&num, "1/(1/(s-1)-1/(a+4))");
+    int num_root = csfg_expr_parse(&num, cstr_view("1/(1/(s-1)-1/(a+4))"));
     int den_root;
-    int num_expected_root = csfg_expr_parse(&num_expected, "s*a + s*4 -(a+4)");
-    int den_expected_root = csfg_expr_parse(&den_expected, "a+5-s");
+    int num_expected_root =
+        csfg_expr_parse(&num_expected, cstr_view("s*a + s*4 -(a+4)"));
+    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("a+5-s"));
     ASSERT_THAT(num_root, Ge(0));
     ASSERT_THAT(num_expected_root, Ge(0));
     ASSERT_THAT(den_expected_root, Ge(0));
@@ -113,11 +114,12 @@ TEST_F(NAME, medium)
      *
      *   a + 3 + 2s - s^2
      */
-    int num_root = csfg_expr_parse(&num, "1/(1/(s-1)^2-1/(a+4))");
+    int num_root = csfg_expr_parse(&num, cstr_view("1/(1/(s-1)^2-1/(a+4))"));
     int den_root;
-    int num_expected_root =
-        csfg_expr_parse(&num_expected, "(a+4)*s^2 - (2*a+8)*s + a + 4");
-    int den_expected_root = csfg_expr_parse(&den_expected, "s^2 + 2*s + a + 3");
+    int num_expected_root = csfg_expr_parse(
+        &num_expected, cstr_view("(a+4)*s^2 - (2*a+8)*s + a + 4"));
+    int den_expected_root =
+        csfg_expr_parse(&den_expected, cstr_view("s^2 + 2*s + a + 3"));
     ASSERT_THAT(num_root, Ge(0));
     ASSERT_THAT(num_expected_root, Ge(0));
     ASSERT_THAT(den_expected_root, Ge(0));
@@ -135,8 +137,10 @@ TEST_F(NAME, medium)
 
 TEST_F(NAME, harder)
 {
-    int num_root = csfg_expr_parse(&num, "1/(1/s^3 - 4/(1+s)^2 - 8/(a+4))");
-    // int e = csfg_expr_parse(&p, "(s+a)^2 / (((s+b)^2 * s^2)*(a+b*s)*s)");
+    int num_root =
+        csfg_expr_parse(&num, cstr_view("1/(1/s^3 - 4/(1+s)^2 - 8/(a+4))"));
+    // int e = csfg_expr_parse(&p, cstr_view("(s+a)^2 / (((s+b)^2 *
+    // s^2)*(a+b*s)*s)"));
     ASSERT_THAT(num_root, Ge(0));
 
     /*
@@ -261,6 +265,70 @@ TEST_F(NAME, compute_transfer_function)
 
     Reference<VariableTable> vt = new VariableTable;
     vt->set("a", 7.2);
+    TransferFunction tf = TFManipulator::calculateTransferFunction(tfc, vt);
+    ASSERT_THAT(tf.roots(), Eq(5));
+    ASSERT_THAT(tf.poles(), Eq(5));
+#endif
+}
+
+TEST_F(NAME, inverting_amplifier)
+{
+    /*
+     *                    G2
+     *             +-----\/\/\----+
+     *             |              |
+     * Vin   G1    |  |'-.        |
+     * O---\/\/\---o--| -  '-.    |     Vout
+     *                |        >--o------O
+     *             +--| +  .-'
+     *            _|_ |.-'
+     *                                               1
+     *                                              --- = y2 = G1 + G2
+     * Vin        I2        V2                       z2
+     *  o---->----o---->----o-.  -1
+     *      G1    |    z2       '-.          Vout
+     *            |                 o---->----o
+     *            |             .-'      A    |
+     *             \        o-'  1           /
+     *              '-,                   ,-'
+     *                  '-------<-------'
+     *                          G2
+     *
+     * P1 = -G1*z2*A
+     * L1 = -A*G2*z2
+     *
+     *  -G1^2 - G1*G2   -G1 (G1+G2)   -G1
+     *  ------------- = ----------- = ---
+     *  G1*G2 + G2^2    G2 (G1+G2)     G2
+     */
+#if 0
+    Reference<Expression> e = Expression::parse("P1/(1-L1)");
+    e->dump("active_lowpass_filter.dot");
+
+    Reference<VariableTable> vt = new VariableTable;
+    vt->set("P1", "-G1*z2*A");
+    vt->set("L1", "-A*(G2+s*C)*z2");
+    vt->set("z2", "1/(G1 + G2 + s*C)");
+    e->insertSubstitutions(vt);
+    e->dump("active_lowpass_filter.dot", true, "Substitution");
+
+    TFManipulator::TFCoefficients tfc =
+        TFManipulator::calculateTransferFunctionCoefficients(e, "s");
+    for (std::size_t i = 0; i != tfc.numerator.size(); ++i)
+    {
+        std::stringstream ss;
+        ss << "numerator, degree " << i;
+        tfc.numerator[i]->dump(
+            "compute_transfer_function.dot", true, ss.str().c_str());
+    }
+    for (std::size_t i = 0; i != tfc.denominator.size(); ++i)
+    {
+        std::stringstream ss;
+        ss << "denominator, degree " << i;
+        tfc.denominator[i]->dump(
+            "compute_transfer_function.dot", true, ss.str().c_str());
+    }
+
     TransferFunction tf = TFManipulator::calculateTransferFunction(tfc, vt);
     ASSERT_THAT(tf.roots(), Eq(5));
     ASSERT_THAT(tf.poles(), Eq(5));

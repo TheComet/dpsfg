@@ -1,6 +1,7 @@
 #pragma once
 
 #include "csfg/util/vec.h"
+#include "csfg/util/strview.h"
 
 struct str;
 
@@ -49,7 +50,7 @@ int csfg_graph_add_edge(
     struct csfg_expr_pool* pool,
     int                    expr);
 int csfg_graph_add_edge_parse_expr(
-    struct csfg_graph* g, int n_from, int n_to, const char* text);
+    struct csfg_graph* g, int n_from, int n_to, struct strview text);
 void csfg_graph_mark_node_deleted(struct csfg_graph* g, int n);
 void csfg_graph_mark_edge_deleted(struct csfg_graph* g, int e);
 

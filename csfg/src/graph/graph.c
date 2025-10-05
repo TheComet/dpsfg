@@ -87,7 +87,7 @@ int csfg_graph_add_edge(
 
 /* -------------------------------------------------------------------------- */
 int csfg_graph_add_edge_parse_expr(
-    struct csfg_graph* g, int n_from, int n_to, const char* text)
+    struct csfg_graph* g, int n_from, int n_to, struct strview text)
 {
     int                    expr, edge;
     struct csfg_expr_pool* pool;

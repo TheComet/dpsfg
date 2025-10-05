@@ -97,6 +97,7 @@ if (CSFG_TESTS)
         "tests/LogHelper.cpp"
 
         "tests/test_expr.cpp"
+        "tests/test_expr_insert_substitutions.cpp"
         "tests/test_expr_op_distribute_products.cpp"
         "tests/test_expr_op_expand_constant_exponents.cpp"
         "tests/test_expr_op_expand_exponent_products.cpp"

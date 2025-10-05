@@ -31,8 +31,8 @@ TEST_F(NAME, single_forward_path)
     int n2 = csfg_graph_add_node(&g, "V2");
     int n3 = csfg_graph_add_node(&g, "V3");
 
-    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "5");
-    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
+    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("5"));
+    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("11"));
 
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n3), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(3));
@@ -48,11 +48,11 @@ TEST_F(NAME, two_separate_forward_paths)
     int n3 = csfg_graph_add_node(&g, "V3");
     int n4 = csfg_graph_add_node(&g, "V4");
 
-    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "5");
-    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
+    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("5"));
+    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("11"));
 
-    int e3 = csfg_graph_add_edge_parse_expr(&g, n1, n4, "3");
-    int e4 = csfg_graph_add_edge_parse_expr(&g, n4, n3, "13");
+    int e3 = csfg_graph_add_edge_parse_expr(&g, n1, n4, cstr_view("3"));
+    int e4 = csfg_graph_add_edge_parse_expr(&g, n4, n3, cstr_view("13"));
 
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n3), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(6));
@@ -70,9 +70,9 @@ TEST_F(NAME, two_joined_forward_paths)
     int n2 = csfg_graph_add_node(&g, "V2");
     int n3 = csfg_graph_add_node(&g, "V3");
 
-    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "5");
-    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
-    int e3 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "3");
+    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("5"));
+    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("11"));
+    int e3 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("3"));
 
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n3), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(6));
@@ -101,12 +101,12 @@ TEST_F(NAME, multiple_paths_with_dead_ends)
      *       -----
      */
 
-    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "5");
-    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
-    int e3 = csfg_graph_add_edge_parse_expr(&g, n3, n4, "3");
-    int e4 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
-    int e5 = csfg_graph_add_edge_parse_expr(&g, n2, n4, "3");
-    int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, "3");
+    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("5"));
+    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("11"));
+    int e3 = csfg_graph_add_edge_parse_expr(&g, n3, n4, cstr_view("3"));
+    int e4 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("11"));
+    int e5 = csfg_graph_add_edge_parse_expr(&g, n2, n4, cstr_view("3"));
+    int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, cstr_view("3"));
 
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n4), Eq(0));
     ASSERT_THAT(vec_count(paths), Eq(11));
@@ -152,12 +152,12 @@ TEST_F(NAME, multiple_paths_with_loops_and_dead_ends)
      *       -----
      */
 
-    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "5");
-    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
-    int e3 = csfg_graph_add_edge_parse_expr(&g, n3, n4, "3");
-    int e4 = csfg_graph_add_edge_parse_expr(&g, n3, n2, "11");
-    int e5 = csfg_graph_add_edge_parse_expr(&g, n2, n4, "3");
-    int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, "3");
+    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("5"));
+    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("11"));
+    int e3 = csfg_graph_add_edge_parse_expr(&g, n3, n4, cstr_view("3"));
+    int e4 = csfg_graph_add_edge_parse_expr(&g, n3, n2, cstr_view("11"));
+    int e5 = csfg_graph_add_edge_parse_expr(&g, n2, n4, cstr_view("3"));
+    int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, cstr_view("3"));
     (void)e4;
 
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n4), Eq(0));

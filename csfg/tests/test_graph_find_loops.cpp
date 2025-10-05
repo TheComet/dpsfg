@@ -28,7 +28,7 @@ struct NAME : public Test
 TEST_F(NAME, single_loop_to_self)
 {
     int n1 = csfg_graph_add_node(&g, "V1");
-    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n1, "5");
+    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n1, cstr_view("5"));
 
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
     ASSERT_THAT(vec_count(loops), Eq(2));
@@ -41,8 +41,8 @@ TEST_F(NAME, single_loop_with_two_nodes)
     int n1 = csfg_graph_add_node(&g, "V1");
     int n2 = csfg_graph_add_node(&g, "V2");
 
-    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "5");
-    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n1, "11");
+    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("5"));
+    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n1, cstr_view("11"));
 
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
     ASSERT_THAT(vec_count(loops), Eq(3));
@@ -68,12 +68,12 @@ TEST_F(NAME, multiple_overlapping_loops)
      *       -----
      */
 
-    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "5");
-    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "11");
-    int e3 = csfg_graph_add_edge_parse_expr(&g, n4, n3, "3");
-    int e4 = csfg_graph_add_edge_parse_expr(&g, n3, n2, "11");
-    int e5 = csfg_graph_add_edge_parse_expr(&g, n2, n4, "3");
-    int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, "3");
+    int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("5"));
+    int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("11"));
+    int e3 = csfg_graph_add_edge_parse_expr(&g, n4, n3, cstr_view("3"));
+    int e4 = csfg_graph_add_edge_parse_expr(&g, n3, n2, cstr_view("11"));
+    int e5 = csfg_graph_add_edge_parse_expr(&g, n2, n4, cstr_view("3"));
+    int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, cstr_view("3"));
     (void)e1, (void)e3, (void)e5, (void)e6;
 
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));

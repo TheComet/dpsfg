@@ -35,10 +35,10 @@ struct parser
 };
 
 /* ------------------------------------------------------------------------- */
-static void parser_init(struct parser* p, const char* text)
+static void parser_init(struct parser* p, struct strview text)
 {
-    p->text = text;
-    p->end = strlen(text);
+    p->text = text.data + text.off;
+    p->end = text.len;
     p->head = 0;
     p->tail = 0;
     p->tok = TOK_ERROR;
@@ -216,7 +216,7 @@ static int parse_expr(struct parser* p, struct csfg_expr_pool** e)
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_parse(struct csfg_expr_pool** expr, const char* text)
+int csfg_expr_parse(struct csfg_expr_pool** expr, struct strview text)
 {
     int           root;
     struct parser p;

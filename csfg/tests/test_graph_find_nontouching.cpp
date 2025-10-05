@@ -58,18 +58,18 @@ TEST_F(NAME, andersen_ang_example2)
      *          --<--   --<--
      *            H6      H7
      */
-    int G1 = csfg_graph_add_edge_parse_expr(&g, n1, n5, "G1");
-    int G2 = csfg_graph_add_edge_parse_expr(&g, n5, n6, "G2");
-    int G3 = csfg_graph_add_edge_parse_expr(&g, n6, n7, "G3");
-    int G4 = csfg_graph_add_edge_parse_expr(&g, n7, n8, "G4");
-    int G5 = csfg_graph_add_edge_parse_expr(&g, n1, n2, "G5");
-    int G6 = csfg_graph_add_edge_parse_expr(&g, n2, n3, "G6");
-    int G7 = csfg_graph_add_edge_parse_expr(&g, n3, n4, "G7");
-    int G8 = csfg_graph_add_edge_parse_expr(&g, n4, n8, "G8");
-    int H2 = csfg_graph_add_edge_parse_expr(&g, n6, n5, "H2");
-    int H3 = csfg_graph_add_edge_parse_expr(&g, n7, n6, "H3");
-    int H6 = csfg_graph_add_edge_parse_expr(&g, n3, n2, "H6");
-    int H7 = csfg_graph_add_edge_parse_expr(&g, n4, n3, "H7");
+    int G1 = csfg_graph_add_edge_parse_expr(&g, n1, n5, cstr_view("G1"));
+    int G2 = csfg_graph_add_edge_parse_expr(&g, n5, n6, cstr_view("G2"));
+    int G3 = csfg_graph_add_edge_parse_expr(&g, n6, n7, cstr_view("G3"));
+    int G4 = csfg_graph_add_edge_parse_expr(&g, n7, n8, cstr_view("G4"));
+    int G5 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("G5"));
+    int G6 = csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("G6"));
+    int G7 = csfg_graph_add_edge_parse_expr(&g, n3, n4, cstr_view("G7"));
+    int G8 = csfg_graph_add_edge_parse_expr(&g, n4, n8, cstr_view("G8"));
+    int H2 = csfg_graph_add_edge_parse_expr(&g, n6, n5, cstr_view("H2"));
+    int H3 = csfg_graph_add_edge_parse_expr(&g, n7, n6, cstr_view("H3"));
+    int H6 = csfg_graph_add_edge_parse_expr(&g, n3, n2, cstr_view("H6"));
+    int H7 = csfg_graph_add_edge_parse_expr(&g, n4, n3, cstr_view("H7"));
     (void)G1, (void)G4, (void)G5, (void)G8;
 
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n8), Eq(0));
