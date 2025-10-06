@@ -1,4 +1,7 @@
+#include "csfg/config.h"
+#include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
+#include <assert.h>
 #include <stddef.h>
 
 /* ------------------------------------------------------------------------- */
@@ -11,7 +14,10 @@ again:
     {
         case -1: return -1;
         case 0: break;
-        case 1: modified = 1; goto again;
+        case 1:
+            modified = 1;
+            CSFG_DEBUG_ASSERT(csfg_expr_integrity_check(*pool) == 0);
+            goto again;
     }
     return modified;
 }
@@ -39,6 +45,7 @@ again:
             case 1:
                 pass_modified = 1;
                 modified = 1;
+                CSFG_DEBUG_ASSERT(csfg_expr_integrity_check(*pool) == 0);
                 break;
         }
     }

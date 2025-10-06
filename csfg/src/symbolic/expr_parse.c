@@ -19,6 +19,7 @@ enum token
     CHAR_TOKEN_LIST
 #undef X
         TOK_LIT = 256,
+    TOK_INF,
     TOK_IDENT
 };
 
@@ -76,6 +77,14 @@ static enum token scan_next(struct parser* p)
             return p->tok = TOK_LIT;
         }
 
+        /* Infinity */
+        if (p->text[p->head] == 'o' && p->head + 1 != p->end &&
+            p->text[p->head + 1] == 'o')
+        {
+            p->head += 2;
+            return p->tok = TOK_INF;
+        }
+
         /* Identifier [a-zA-Z_][a-zA-Z0-9_]* */
         if (isalpha(p->text[p->head]) || p->text[p->head] == '_')
         {
@@ -117,6 +126,11 @@ static int parse_base(struct parser* p, struct csfg_expr_pool** e)
     {
         case TOK_LIT:
             n = csfg_expr_lit(e, p->value.lit);
+            scan_next(p);
+            return n;
+
+        case TOK_INF:
+            n = csfg_expr_inf(e);
             scan_next(p);
             return n;
 

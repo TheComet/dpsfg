@@ -2,7 +2,7 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/expr_tf.h"
 #include "csfg/symbolic/expr_opt.h"
 }
 
@@ -44,7 +44,7 @@ TEST_F(NAME, distribute_single)
     ASSERT_THAT(dr1, Ge(0));
     ASSERT_THAT(dr2, Ge(0));
     csfg_expr_opt_fold_constants(&n1);
-    ASSERT_THAT(csfg_expr_op_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
+    ASSERT_THAT(csfg_expr_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(n1, nr1, n2, nr2), IsTrue());
     ASSERT_THAT(csfg_expr_equal(d1, dr1, d2, dr2), IsTrue());
 }
@@ -60,7 +60,7 @@ TEST_F(NAME, distribute_multiple_products)
     ASSERT_THAT(dr1, Ge(0));
     ASSERT_THAT(dr2, Ge(0));
     csfg_expr_opt_fold_constants(&n1);
-    ASSERT_THAT(csfg_expr_op_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
+    ASSERT_THAT(csfg_expr_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(n1, nr1, n2, nr2), IsTrue());
     ASSERT_THAT(csfg_expr_equal(d1, dr1, d2, dr2), IsTrue());
 }
@@ -77,7 +77,7 @@ TEST_F(NAME, dont_distribute_if_top_is_not_mul)
     ASSERT_THAT(dr2, Ge(0));
     csfg_expr_opt_fold_constants(&n1);
     csfg_expr_opt_fold_constants(&n2);
-    ASSERT_THAT(csfg_expr_op_rebalance_fraction(&n1, nr1, &d1, dr1), Eq(0));
+    ASSERT_THAT(csfg_expr_rebalance_fraction(&n1, nr1, &d1, dr1), Eq(0));
     ASSERT_THAT(csfg_expr_equal(n1, nr1, n2, nr2), IsTrue());
     ASSERT_THAT(csfg_expr_equal(d1, dr1, d2, dr2), IsTrue());
 }
@@ -94,7 +94,7 @@ TEST_F(NAME, distribute_num_and_den)
     ASSERT_THAT(dr2, Ge(0));
     csfg_expr_opt_fold_constants(&n1);
     csfg_expr_opt_fold_constants(&d1);
-    ASSERT_THAT(csfg_expr_op_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
+    ASSERT_THAT(csfg_expr_rebalance_fraction(&n1, nr1, &d1, dr1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(n1, nr1, n2, nr2), IsTrue());
     ASSERT_THAT(csfg_expr_equal(d1, dr1, d2, dr2), IsTrue());
 }

@@ -63,7 +63,7 @@ static int move_reciprocs(
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_op_rebalance_fraction(
+int csfg_expr_rebalance_fraction(
     struct csfg_expr_pool** num_pool,
     int                     num_root,
     struct csfg_expr_pool** den_pool,

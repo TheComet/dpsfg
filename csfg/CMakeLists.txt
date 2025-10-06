@@ -38,6 +38,7 @@ set (csfg_SOURCES
 
     "src/symbolic/expr.c"
     "src/symbolic/expr_eval.c"
+    "src/symbolic/expr_integrity_check.c"
     "src/symbolic/expr_parse.c"
     "src/symbolic/expr_op.c"
     "src/symbolic/expr_op_distribute_products.c"
@@ -97,6 +98,8 @@ if (CSFG_TESTS)
         "tests/LogHelper.cpp"
 
         "tests/test_expr.cpp"
+        "tests/test_expr_apply_limit.cpp"
+        "tests/test_expr_extract_poly_coeff.cpp"
         "tests/test_expr_insert_substitutions.cpp"
         "tests/test_expr_op_distribute_products.cpp"
         "tests/test_expr_op_expand_constant_exponents.cpp"

@@ -54,8 +54,18 @@ int csfg_expr_to_standard_tf(
     struct csfg_expr_pool** num_pool,
     int*                    num_root,
     struct csfg_expr_pool** den_pool,
-    int*                    den_root,
-    struct strview          variable);
+    int*                    den_root);
+
+/*!
+ * Moves all common reciprocs from numerator to denominator or vice-versa, such
+ * that no more reciprocs exist. Combined with other operations, this will
+ * normalize the fraction.
+ */
+int csfg_expr_rebalance_fraction(
+    struct csfg_expr_pool** num_pool,
+    int                     num_root,
+    struct csfg_expr_pool** den_pool,
+    int                     den_root);
 
 /*!
  * @brief Given an expression in "standard polynomial form", this function
@@ -79,6 +89,8 @@ int csfg_expr_to_standard_tf(
  */
 int csfg_expr_extract_poly_coeff(
     struct csfg_expr_pool** pool,
-    int                     root,
+    int                     expr,
     struct strview          variable,
     struct csfg_expr_vec**  coeff);
+
+int csfg_expr_apply_limit(struct csfg_expr_pool* pool);

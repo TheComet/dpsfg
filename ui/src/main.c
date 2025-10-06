@@ -154,8 +154,7 @@ static void substitutions_changed_cb(
                 &app->num_pool,
                 &app->num_expr,
                 &app->den_pool,
-                &app->den_expr,
-                cstr_view("s")) != 0)
+                &app->den_expr) != 0)
         {
             app->num_expr = -1;
             app->den_expr = -1;

@@ -48,7 +48,7 @@ def plot_expr_graph(pool, root):
     def print_node_style(n, node_style, name):
         nonlocal text
         s = style[node_style]
-        text += f'  n{n} [label="{name}", shape="{s[0]}", color="{s[1]}", fontcolor="{s[2]}"];\n'
+        text += f'  n{n} [label="[{n}] {name}", shape="{s[0]}", color="{s[1]}", fontcolor="{s[2]}"];\n'
     def print_node(n):
         node = pool["nodes"][n]
         if node["type"] == 0:
@@ -94,13 +94,18 @@ def plot_expr_graph(pool, root):
         if right != -1:
             print_nodes(right)
         print_node(n)
-    unvisited = set(range(pool["count"]))
     text = "digraph {\n"
     text += f'  bgcolor="{style['bgcolor']}";\n'
-    print_nodes(root)
-    print_edges(root)
-    for n in unvisited:
-        print_node(n)
+    if root is not None:
+        unvisited = set(range(pool["count"]))
+        print_nodes(root)
+        print_edges(root)
+        for n in unvisited:
+            print_node(n)
+    else:
+        for n in range(pool["count"]):
+            print_node(n)
+            print_edge(n)
     text += "}\n"
     p = subprocess.Popen(
         ["dot", "-Tx11"],
@@ -127,7 +132,7 @@ class Plot(gdb.Command):
                 val = val.dereference()
             if str(val.type).endswith("csfg_expr_pool"):
                 pool = val
-                i, val = next(it)
+                i, val = next(it, (None, None))
                 plot_expr_graph(pool, val)
 
 Plot()

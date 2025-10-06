@@ -147,6 +147,8 @@ int  csfg_expr_gc(struct csfg_expr_pool* pool, int root);
 void csfg_expr_collapse_into_parent(
     struct csfg_expr_pool* pool, int child, int parent);
 void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n);
+int  csfg_expr_collapse_sibling_into_parent_steal_orphan(
+     struct csfg_expr_pool* pool, int n);
 
 /* Returns the parent node if it exists, or -1. Ignores nodes marked for GC */
 int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n);
@@ -162,3 +164,5 @@ int csfg_expr_equal(
     int                          root1,
     const struct csfg_expr_pool* p2,
     int                          root2);
+
+int csfg_expr_integrity_check(struct csfg_expr_pool* pool);

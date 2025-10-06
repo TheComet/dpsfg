@@ -64,17 +64,10 @@ int csfg_expr_op_simplify_products(struct csfg_expr_pool** pool);
 /*!
  * s+s                      --> 2*s
  * s+c*s (c=const)          --> (c+1)*s
+ * s+s*c (c=const)          --> (c+1)*s
  * s*c1+s*c2 (c1,c2=const)  --> (c1+c2)*s
+ * c1*s+s*c2 (c1,c2=const)  --> (c1+c2)*s
+ * s*c1+c2*s (c1,c2=const)  --> (c1+c2)*s
+ * c1*s+c2*s (c1,c2=const)  --> (c1+c2)*s
  */
 int csfg_expr_op_simplify_sums(struct csfg_expr_pool** pool);
-
-/*!
- * Moves all common reciprocs from numerator to denominator or vice-versa, such
- * that no more reciprocs exist. Combined with other operations, this will
- * normalize the fraction.
- */
-int csfg_expr_op_rebalance_fraction(
-    struct csfg_expr_pool** num_pool,
-    int                     num_root,
-    struct csfg_expr_pool** den_pool,
-    int                     den_root);

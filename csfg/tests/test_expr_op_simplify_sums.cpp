@@ -30,21 +30,25 @@ struct NAME : public Test
 TEST_F(NAME, single_sums)
 {
     int r1 = csfg_expr_parse(&p1, cstr_view("s+s+a+s"));
-    int r2 = csfg_expr_parse(&p2, cstr_view("3*s+a"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("s*3+a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     ASSERT_THAT(csfg_expr_op_simplify_sums(&p1), Gt(0));
+    csfg_expr_opt_fold_constants(&p1);
+    r1 = csfg_expr_gc(p1, r1);
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
 
-TEST_F(NAME, sums_of_exponents)
+TEST_F(NAME, sums_of_products)
 {
-    int r1 = csfg_expr_parse(&p1, cstr_view("3*s+a+s*-5-1*s"));
+    int r1 = csfg_expr_parse(&p1, cstr_view("3*s+a+s*(-5-1)*s"));
     int r2 = csfg_expr_parse(&p2, cstr_view("-3*s+a"));
     ASSERT_THAT(r1, Ge(0));
     ASSERT_THAT(r2, Ge(0));
     csfg_expr_opt_fold_constants(&p1);
     csfg_expr_opt_fold_constants(&p2);
     ASSERT_THAT(csfg_expr_op_simplify_sums(&p1), Gt(0));
+    csfg_expr_opt_fold_constants(&p1);
+    r1 = csfg_expr_gc(p1, r1);
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }

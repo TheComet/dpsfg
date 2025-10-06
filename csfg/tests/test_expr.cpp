@@ -61,6 +61,24 @@ TEST_F(NAME, eval_constant_expression)
     ASSERT_THAT(csfg_expr_eval(p, e, NULL), DoubleEq(200));
 }
 
+TEST_F(NAME, float_numbers)
+{
+    int e;
+    ASSERT_THAT(
+        e = csfg_expr_parse(&p, cstr_view("(2.5-3.54*4.5)^2 + 4.2")), Ge(0));
+    ASSERT_THAT(csfg_expr_eval(p, e, NULL), DoubleEq(184.56489519844058));
+}
+
+TEST_F(NAME, infinity)
+{
+    int e;
+    ASSERT_THAT(e = csfg_expr_parse(&p, cstr_view("oo")), Ge(0));
+    ASSERT_THAT(p->nodes[e].type, Eq(CSFG_EXPR_INF));
+    ASSERT_THAT(
+        csfg_expr_eval(p, e, NULL),
+        DoubleEq(std::numeric_limits<double>::infinity()));
+}
+
 TEST_F(NAME, evaluate_with_variables)
 {
     int e;

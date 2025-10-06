@@ -14,7 +14,7 @@ int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool);
  * -(-c)           -->  c
  * 0+a             -->  a
  * 1*a             -->  a
- * -1*a            -->  -a
+ * -1*a            --> -a
  * a^1             -->  a
  * a^0             -->  1
  * a*a^-1          -->  1

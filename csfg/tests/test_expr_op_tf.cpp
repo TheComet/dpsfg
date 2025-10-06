@@ -1,6 +1,7 @@
 #include "gmock/gmock.h"
 
 extern "C" {
+#include "csfg/graph/graph.h"
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_tf.h"
 #include "csfg/symbolic/var_table.h"
@@ -14,32 +15,47 @@ struct NAME : public Test
 {
     void SetUp() override
     {
+        csfg_graph_init(&g);
+        csfg_path_vec_init(&paths);
+        csfg_path_vec_init(&loops);
+
         csfg_expr_pool_init(&num);
         csfg_expr_pool_init(&den);
         csfg_expr_pool_init(&num_expected);
         csfg_expr_pool_init(&den_expected);
+
         csfg_var_table_init(&vt);
-        csfg_expr_vec_init(&num_roots);
-        csfg_expr_vec_init(&den_roots);
+        csfg_expr_vec_init(&num_exprs);
+        csfg_expr_vec_init(&den_exprs);
     }
     void TearDown() override
     {
-        csfg_expr_vec_deinit(den_roots);
-        csfg_expr_vec_deinit(num_roots);
+        csfg_expr_vec_deinit(den_exprs);
+        csfg_expr_vec_deinit(num_exprs);
         csfg_var_table_deinit(&vt);
+
         csfg_expr_pool_deinit(num_expected);
         csfg_expr_pool_deinit(den_expected);
         csfg_expr_pool_deinit(den);
         csfg_expr_pool_deinit(num);
+
+        csfg_path_vec_deinit(loops);
+        csfg_path_vec_deinit(paths);
+        csfg_graph_deinit(&g);
     }
+
+    struct csfg_graph     g;
+    struct csfg_path_vec* paths;
+    struct csfg_path_vec* loops;
 
     struct csfg_expr_pool* num;
     struct csfg_expr_pool* den;
     struct csfg_expr_pool* num_expected;
     struct csfg_expr_pool* den_expected;
-    struct csfg_var_table  vt;
-    struct csfg_expr_vec*  num_roots;
-    struct csfg_expr_vec*  den_roots;
+
+    struct csfg_var_table vt;
+    struct csfg_expr_vec* num_exprs;
+    struct csfg_expr_vec* den_exprs;
 };
 
 TEST_F(NAME, simple)
@@ -59,9 +75,7 @@ TEST_F(NAME, simple)
     ASSERT_THAT(num_expected_root, Ge(0));
     ASSERT_THAT(den_expected_root, Ge(0));
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(
-            &num, &num_root, &den, &den_root, cstr_view("s")),
-        Eq(0));
+        csfg_expr_to_standard_tf(&num, &num_root, &den, &den_root), Eq(0));
     ASSERT_THAT(
         csfg_expr_equal(num, num_root, num_expected, num_expected_root),
         IsTrue());
@@ -88,9 +102,7 @@ TEST_F(NAME, light)
     ASSERT_THAT(num_expected_root, Ge(0));
     ASSERT_THAT(den_expected_root, Ge(0));
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(
-            &num, &num_root, &den, &den_root, cstr_view("s")),
-        Eq(0));
+        csfg_expr_to_standard_tf(&num, &num_root, &den, &den_root), Eq(0));
     ASSERT_THAT(
         csfg_expr_equal(num, num_root, num_expected, num_expected_root),
         IsTrue());
@@ -124,9 +136,7 @@ TEST_F(NAME, medium)
     ASSERT_THAT(num_expected_root, Ge(0));
     ASSERT_THAT(den_expected_root, Ge(0));
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(
-            &num, &num_root, &den, &den_root, cstr_view("s")),
-        Eq(0));
+        csfg_expr_to_standard_tf(&num, &num_root, &den, &den_root), Eq(0));
     ASSERT_THAT(
         csfg_expr_equal(num, num_root, num_expected, num_expected_root),
         IsTrue());
@@ -170,9 +180,7 @@ TEST_F(NAME, harder)
      */
     int den_root;
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(
-            &num, &num_root, &den, &den_root, cstr_view("s")),
-        Eq(0));
+        csfg_expr_to_standard_tf(&num, &num_root, &den, &den_root), Eq(0));
     ASSERT_TRUE(false);
 
 #if 0
@@ -301,38 +309,107 @@ TEST_F(NAME, inverting_amplifier)
      *  ------------- = ----------- = ---
      *  G1*G2 + G2^2    G2 (G1+G2)     G2
      */
-#if 0
-    Reference<Expression> e = Expression::parse("P1/(1-L1)");
-    e->dump("active_lowpass_filter.dot");
+    int Vin = csfg_graph_add_node(&g, "Vin");
+    int I2 = csfg_graph_add_node(&g, "I2");
+    int V2 = csfg_graph_add_node(&g, "V2");
+    int V3 = csfg_graph_add_node(&g, "V3");
+    int V4 = csfg_graph_add_node(&g, "V4");
+    int Vout = csfg_graph_add_node(&g, "Vout");
 
-    Reference<VariableTable> vt = new VariableTable;
-    vt->set("P1", "-G1*z2*A");
-    vt->set("L1", "-A*(G2+s*C)*z2");
-    vt->set("z2", "1/(G1 + G2 + s*C)");
-    e->insertSubstitutions(vt);
-    e->dump("active_lowpass_filter.dot", true, "Substitution");
+    csfg_graph_add_edge_parse_expr(&g, Vin, I2, cstr_view("G1"));
+    csfg_graph_add_edge_parse_expr(&g, I2, V2, cstr_view("z2"));
+    csfg_graph_add_edge_parse_expr(&g, V2, V3, cstr_view("-1"));
+    csfg_graph_add_edge_parse_expr(&g, V4, V3, cstr_view("1"));
+    csfg_graph_add_edge_parse_expr(&g, V3, Vout, cstr_view("A"));
+    csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("G2"));
 
-    TFManipulator::TFCoefficients tfc =
-        TFManipulator::calculateTransferFunctionCoefficients(e, "s");
-    for (std::size_t i = 0; i != tfc.numerator.size(); ++i)
-    {
-        std::stringstream ss;
-        ss << "numerator, degree " << i;
-        tfc.numerator[i]->dump(
-            "compute_transfer_function.dot", true, ss.str().c_str());
-    }
-    for (std::size_t i = 0; i != tfc.denominator.size(); ++i)
-    {
-        std::stringstream ss;
-        ss << "denominator, degree " << i;
-        tfc.denominator[i]->dump(
-            "compute_transfer_function.dot", true, ss.str().c_str());
-    }
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
+    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
 
-    TransferFunction tf = TFManipulator::calculateTransferFunction(tfc, vt);
-    ASSERT_THAT(tf.roots(), Eq(5));
-    ASSERT_THAT(tf.poles(), Eq(5));
-#endif
+    csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
+    csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2"));
+    csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+
+    int num_expr, den_expr;
+    num_expr = csfg_graph_mason(&g, &num, paths, loops);
+    ASSERT_THAT(num_expr, Ge(0));
+    ASSERT_THAT(csfg_expr_insert_substitutions(&num, num_expr, &vt), Eq(0));
+    ASSERT_THAT(
+        csfg_expr_to_standard_tf(&num, &num_expr, &den, &den_expr), Eq(0));
+
+    int num_expected_root = csfg_expr_parse(&num_expected, cstr_view("-G2"));
+    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("G1"));
+    ASSERT_THAT(
+        csfg_expr_equal(num, num_expr, num_expected, num_expected_root),
+        IsTrue());
+    ASSERT_THAT(
+        csfg_expr_equal(den, den_expr, den_expected, den_expected_root),
+        IsTrue());
+}
+
+TEST_F(NAME, integrator)
+{
+    /*
+     *                    C
+     *             +------||------+
+     *             |              |
+     * Vin   G1    |  |'-.        |
+     * O---\/\/\---o--| -  '-.    |     Vout
+     *                |        >--o------O
+     *             +--| +  .-'
+     *            _|_ |.-'
+     *                                               1
+     *                                              --- = y2 = G1 + sC
+     * Vin        I2        V2                       z2
+     *  o---->----o---->----o-.  -1
+     *      G1    |    z2       '-. V3       Vout
+     *            |                 o---->----o
+     *            |             .-'      A    |
+     *             \        o-'  1           /
+     *              '-,     V4            ,-'
+     *                  '-------<-------'
+     *                         s*C
+     *
+     * P1 = -G1*z2*A
+     * L1 = -A*(G2+s*C)*z2
+     */
+    int Vin = csfg_graph_add_node(&g, "Vin");
+    int I2 = csfg_graph_add_node(&g, "I2");
+    int V2 = csfg_graph_add_node(&g, "V2");
+    int V3 = csfg_graph_add_node(&g, "V3");
+    int V4 = csfg_graph_add_node(&g, "V4");
+    int Vout = csfg_graph_add_node(&g, "Vout");
+
+    csfg_graph_add_edge_parse_expr(&g, Vin, I2, cstr_view("G1"));
+    csfg_graph_add_edge_parse_expr(&g, I2, V2, cstr_view("z2"));
+    csfg_graph_add_edge_parse_expr(&g, V2, V3, cstr_view("-1"));
+    csfg_graph_add_edge_parse_expr(&g, V4, V3, cstr_view("1"));
+    csfg_graph_add_edge_parse_expr(&g, V3, Vout, cstr_view("A"));
+    csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("s*C"));
+
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
+    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+
+    csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
+    csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
+    // csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+
+    int num_expr, den_expr;
+    num_expr = csfg_graph_mason(&g, &num, paths, loops);
+    ASSERT_THAT(num_expr, Ge(0));
+    ASSERT_THAT(csfg_expr_insert_substitutions(&num, num_expr, &vt), Eq(0));
+    num_expr = csfg_expr_gc(num, num_expr);
+    ASSERT_THAT(
+        csfg_expr_to_standard_tf(&num, &num_expr, &den, &den_expr), Eq(0));
+
+    int num_expected_root = csfg_expr_parse(&num_expected, cstr_view("-G2"));
+    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("G1"));
+    ASSERT_THAT(
+        csfg_expr_equal(num, num_expr, num_expected, num_expected_root),
+        IsTrue());
+    ASSERT_THAT(
+        csfg_expr_equal(den, den_expr, den_expected, den_expected_root),
+        IsTrue());
 }
 
 TEST_F(NAME, active_lowpass_filter)
@@ -353,47 +430,51 @@ TEST_F(NAME, active_lowpass_filter)
      *                                              --- = y2 = G1 + G2 + sC
      * Vin        I2        V2                       z2
      *  o---->----o---->----o-.  -1
-     *      G1    |    z2       '-.          Vout
+     *      G1    |    z2       '-. V3       Vout
      *            |                 o---->----o
      *            |             .-'      A    |
      *             \        o-'  1           /
-     *              '-,                   ,-'
+     *              '-,     V4            ,-'
      *                  '-------<-------'
      *                       G2 + sC
      *
      * P1 = -G1*z2*A
      * L1 = -A*(G2+s*C)*z2
      */
-#if 0
-    Reference<Expression> e = Expression::parse("P1/(1-L1)");
-    e->dump("active_lowpass_filter.dot");
+    int Vin = csfg_graph_add_node(&g, "Vin");
+    int I2 = csfg_graph_add_node(&g, "I2");
+    int V2 = csfg_graph_add_node(&g, "V2");
+    int V3 = csfg_graph_add_node(&g, "V3");
+    int V4 = csfg_graph_add_node(&g, "V4");
+    int Vout = csfg_graph_add_node(&g, "Vout");
 
-    Reference<VariableTable> vt = new VariableTable;
-    vt->set("P1", "-G1*z2*A");
-    vt->set("L1", "-A*(G2+s*C)*z2");
-    vt->set("z2", "1/(G1 + G2 + s*C)");
-    e->insertSubstitutions(vt);
-    e->dump("active_lowpass_filter.dot", true, "Substitution");
+    csfg_graph_add_edge_parse_expr(&g, Vin, I2, cstr_view("G1"));
+    csfg_graph_add_edge_parse_expr(&g, I2, V2, cstr_view("z2"));
+    csfg_graph_add_edge_parse_expr(&g, V2, V3, cstr_view("-1"));
+    csfg_graph_add_edge_parse_expr(&g, V4, V3, cstr_view("1"));
+    csfg_graph_add_edge_parse_expr(&g, V3, Vout, cstr_view("A"));
+    csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("G2+s*C"));
 
-    TFManipulator::TFCoefficients tfc =
-        TFManipulator::calculateTransferFunctionCoefficients(e, "s");
-    for (std::size_t i = 0; i != tfc.numerator.size(); ++i)
-    {
-        std::stringstream ss;
-        ss << "numerator, degree " << i;
-        tfc.numerator[i]->dump(
-            "compute_transfer_function.dot", true, ss.str().c_str());
-    }
-    for (std::size_t i = 0; i != tfc.denominator.size(); ++i)
-    {
-        std::stringstream ss;
-        ss << "denominator, degree " << i;
-        tfc.denominator[i]->dump(
-            "compute_transfer_function.dot", true, ss.str().c_str());
-    }
+    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
+    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
 
-    TransferFunction tf = TFManipulator::calculateTransferFunction(tfc, vt);
-    ASSERT_THAT(tf.roots(), Eq(5));
-    ASSERT_THAT(tf.poles(), Eq(5));
-#endif
+    csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
+    csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
+    csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+
+    int num_expr, den_expr;
+    num_expr = csfg_graph_mason(&g, &num, paths, loops);
+    ASSERT_THAT(num_expr, Ge(0));
+    ASSERT_THAT(csfg_expr_insert_substitutions(&num, num_expr, &vt), Eq(0));
+    ASSERT_THAT(
+        csfg_expr_to_standard_tf(&num, &num_expr, &den, &den_expr), Eq(0));
+
+    int num_expected_root = csfg_expr_parse(&num_expected, cstr_view("-G2"));
+    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("G1"));
+    ASSERT_THAT(
+        csfg_expr_equal(num, num_expr, num_expected, num_expected_root),
+        IsTrue());
+    ASSERT_THAT(
+        csfg_expr_equal(den, den_expr, den_expected, den_expected_root),
+        IsTrue());
 }
