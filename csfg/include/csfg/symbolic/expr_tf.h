@@ -67,30 +67,4 @@ int csfg_expr_rebalance_fraction(
     struct csfg_expr_pool** den_pool,
     int                     den_root);
 
-/*!
- * @brief Given an expression in "standard polynomial form", this function
- * returns an array containing the root nodes of each coefficient of the
- * numerator and denominator polynomials. @see csfg_expr_to_standard_tf().
- *
- * Assumed Input:
- *   a0 + a1*s^1 + a2*s^2 + ...
- * Output:
- *   coeff = [a0, a1, a2, ...]
- *
- * The coefficients are required to build a transfer_function object, which is
- * required for calculating impulse/step responses, frequency responses,
- * pole-zero diagrams, etc.
- * @param[inout] pool The expression to extract the coefficients from. All
- * occurrences of the input variable will be removed from the expression, and
- * it will be split into multiple sub-expressions. The old "root" will become
- * invalid after this function returns.
- * @param[in] variable This is the dependent variable, usually "s".
- * @return Returns -1 on failure, 0 on succes.
- */
-int csfg_expr_extract_poly_coeff(
-    struct csfg_expr_pool** pool,
-    int                     expr,
-    struct strview          variable,
-    struct csfg_expr_vec**  coeff);
-
 int csfg_expr_apply_limit(struct csfg_expr_pool* pool);

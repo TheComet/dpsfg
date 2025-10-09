@@ -53,6 +53,7 @@ set (csfg_SOURCES
     "src/symbolic/expr_op_tf.c"
     "src/symbolic/expr_opt_remove_useless_ops.c"
     "src/symbolic/expr_opt_fold_constants.c"
+    "src/symbolic/rational.c"
     "src/symbolic/var_table.c")
 
 if (CSFG_DEBUG_MEMORY)
@@ -99,7 +100,6 @@ if (CSFG_TESTS)
 
         "tests/test_expr.cpp"
         "tests/test_expr_apply_limit.cpp"
-        "tests/test_expr_extract_poly_coeff.cpp"
         "tests/test_expr_insert_substitutions.cpp"
         "tests/test_expr_op_distribute_products.cpp"
         "tests/test_expr_op_expand_constant_exponents.cpp"
@@ -113,6 +113,7 @@ if (CSFG_TESTS)
         "tests/test_expr_op_tf.cpp"
         "tests/test_expr_opt_remove_useless_ops.cpp"
         "tests/test_expr_opt_fold_constants.cpp"
+        "tests/test_expr_to_rational.cpp"
 
         "tests/test_graph_find_forward_paths.cpp"
         "tests/test_graph_find_loops.cpp"

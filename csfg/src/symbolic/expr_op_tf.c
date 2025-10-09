@@ -122,16 +122,6 @@ int csfg_expr_to_standard_tf(
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_extract_poly_coeff(
-    struct csfg_expr_pool** pool,
-    int                     expr,
-    struct strview          variable,
-    struct csfg_expr_vec**  coeff)
-{
-    return -1;
-}
-
-/* ------------------------------------------------------------------------- */
 int csfg_expr_apply_limit(struct csfg_expr_pool* pool)
 {
     return -1;
