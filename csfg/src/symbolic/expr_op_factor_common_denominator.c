@@ -71,7 +71,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
                 mul,
                 csfg_expr_pow(
                     pool,
-                    csfg_expr_dup(pool, (*pool)->nodes[pow].child[0]),
+                    csfg_expr_dup_recurse(pool, (*pool)->nodes[pow].child[0]),
                     csfg_expr_lit(pool, neg_exp)));
             csfg_expr_set_mul(
                 pool,
@@ -96,7 +96,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
                             other_summand,
                             csfg_expr_pow(
                                 pool,
-                                csfg_expr_dup(
+                                csfg_expr_dup_recurse(
                                     pool, (*pool)->nodes[pow].child[0]),
                                 csfg_expr_lit(pool, neg_exp))),
                         csfg_expr_lit(pool, 1.0))) == -1)

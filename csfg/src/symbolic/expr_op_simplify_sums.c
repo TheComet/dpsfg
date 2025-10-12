@@ -59,10 +59,10 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
         if ((*pool)->nodes[n].type == CSFG_EXPR_OP_MUL)
         {
             int prod1 = (*pool)->nodes[n].child[1];
-            int sum1 = csfg_expr_copy(pool, prod1);
+            int sum1 = csfg_expr_dup_single(pool, prod1);
             int sum2 =
                 (*pool)->nodes[match].type == CSFG_EXPR_OP_MUL
-                    ? csfg_expr_copy(pool, (*pool)->nodes[match].child[1])
+                    ? csfg_expr_dup_single(pool, (*pool)->nodes[match].child[1])
                     : csfg_expr_lit(pool, 1.0);
             if (csfg_expr_set_add(pool, prod1, sum1, sum2) == -1)
                 return -1;
@@ -73,10 +73,10 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
                 (*pool)->nodes[match].type == CSFG_EXPR_OP_MUL
                     ? csfg_expr_add(
                           pool,
-                          csfg_expr_copy(pool, (*pool)->nodes[match].child[1]),
+                          csfg_expr_dup_single(pool, (*pool)->nodes[match].child[1]),
                           csfg_expr_lit(pool, 1.0))
                     : csfg_expr_lit(pool, 2.0);
-            if (csfg_expr_set_pow(pool, n, csfg_expr_copy(pool, n), exp) == -1)
+            if (csfg_expr_set_pow(pool, n, csfg_expr_dup_single(pool, n), exp) == -1)
                 return -1;
         }
         csfg_expr_collapse_sibling_into_parent(*pool, match);

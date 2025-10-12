@@ -30,7 +30,7 @@ static int distribute_products(struct csfg_expr_pool** pool)
                 n,
                 csfg_expr_mul(pool, fact, sum1),
                 csfg_expr_set_mul(
-                    pool, sum, csfg_expr_dup(pool, fact), sum2)) == -1)
+                    pool, sum, csfg_expr_dup_recurse(pool, fact), sum2)) == -1)
         {
             return -1;
         }

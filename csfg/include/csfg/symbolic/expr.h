@@ -128,11 +128,11 @@ int csfg_expr_set_mul(struct csfg_expr_pool** pool, int n, int left, int right);
 int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp);
 
 /* Recursively duplicate a subtree */
-int csfg_expr_dup_from(
+int csfg_expr_dup_recurse_from(
     struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n);
-int csfg_expr_dup(struct csfg_expr_pool** pool, int n);
+int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n);
 /* Copy a single node. All fields. */
-int csfg_expr_copy(struct csfg_expr_pool** pool, int n);
+int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n);
 
 /* Mark for deletion (does not modify any other nodes, i.e. iterators remain
  * valid). csfg_expr_gc() removes all marked nodes and shrinks the array.

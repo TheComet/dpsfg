@@ -25,7 +25,7 @@ static int expand_exponent_sums(struct csfg_expr_pool** pool)
                 n,
                 csfg_expr_pow(pool, base, exp1),
                 csfg_expr_set_pow(
-                    pool, sum, csfg_expr_dup(pool, base), exp2)) == -1)
+                    pool, sum, csfg_expr_dup_recurse(pool, base), exp2)) == -1)
         {
             return -1;
         }

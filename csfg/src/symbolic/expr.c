@@ -89,7 +89,7 @@ static int insert_substitutions(
             return -1;
         entry->pool->nodes[entry->root].visited = 1;
 
-        dup = csfg_expr_dup_from(pool, entry->pool, entry->root);
+        dup = csfg_expr_dup_recurse_from(pool, entry->pool, entry->root);
         if (dup == -1)
             return -1;
         (*pool)->nodes[n] = (*pool)->nodes[dup];
@@ -284,7 +284,7 @@ int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp)
 /* clang-format on */
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_dup_from(
+int csfg_expr_dup_recurse_from(
     struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n)
 {
     int dup, left, right;
@@ -294,10 +294,10 @@ int csfg_expr_dup_from(
     left = src->nodes[n].child[0];
     right = src->nodes[n].child[1];
     if (left != -1)
-        if ((left = csfg_expr_dup_from(dst, src, left)) == -1)
+        if ((left = csfg_expr_dup_recurse_from(dst, src, left)) == -1)
             return -1;
     if (right != -1)
-        if ((right = csfg_expr_dup_from(dst, src, right)) == -1)
+        if ((right = csfg_expr_dup_recurse_from(dst, src, right)) == -1)
             return -1;
 
     dup = csfg_expr_new(dst, src->nodes[n].type, left, right);
@@ -328,7 +328,7 @@ int csfg_expr_dup_from(
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_dup(struct csfg_expr_pool** pool, int n)
+int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n)
 {
     int dup, left, right;
     if (n == -1)
@@ -337,10 +337,10 @@ int csfg_expr_dup(struct csfg_expr_pool** pool, int n)
     left = (*pool)->nodes[n].child[0];
     right = (*pool)->nodes[n].child[1];
     if (left != -1)
-        if ((left = csfg_expr_dup(pool, left)) == -1)
+        if ((left = csfg_expr_dup_recurse(pool, left)) == -1)
             return -1;
     if (right != -1)
-        if ((right = csfg_expr_dup(pool, right)) == -1)
+        if ((right = csfg_expr_dup_recurse(pool, right)) == -1)
             return -1;
 
     dup = csfg_expr_new(pool, (*pool)->nodes[n].type, left, right);
@@ -353,7 +353,7 @@ int csfg_expr_dup(struct csfg_expr_pool** pool, int n)
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_expr_copy(struct csfg_expr_pool** pool, int n)
+int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n)
 {
     int dup = csfg_expr_new(pool, CSFG_EXPR_GC, -1, -1);
     if (n == -1 || dup == -1)

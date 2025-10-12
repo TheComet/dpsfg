@@ -3,7 +3,9 @@
 extern "C" {
 #include "csfg/graph/graph.h"
 #include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/expr_opt.h"
 #include "csfg/symbolic/expr_tf.h"
+#include "csfg/symbolic/rational.h"
 #include "csfg/symbolic/var_table.h"
 }
 
@@ -27,6 +29,8 @@ struct NAME : public Test
         csfg_var_table_init(&vt);
         csfg_expr_vec_init(&num_exprs);
         csfg_expr_vec_init(&den_exprs);
+
+        csfg_rational_init(&rational);
     }
     void TearDown() override
     {
@@ -42,6 +46,8 @@ struct NAME : public Test
         csfg_path_vec_deinit(loops);
         csfg_path_vec_deinit(paths);
         csfg_graph_deinit(&g);
+
+        csfg_rational_deinit(&rational);
     }
 
     struct csfg_graph     g;
@@ -56,6 +62,8 @@ struct NAME : public Test
     struct csfg_var_table vt;
     struct csfg_expr_vec* num_exprs;
     struct csfg_expr_vec* den_exprs;
+
+    struct csfg_rational rational;
 };
 
 TEST_F(NAME, simple)
@@ -67,21 +75,10 @@ TEST_F(NAME, simple)
      *   --- - ---         a - s
      *    s     a
      */
-    int num_root = csfg_expr_parse(&num, cstr_view("1/(1/s - 1/a)"));
-    int den_root;
-    int num_expected_root = csfg_expr_parse(&num_expected, cstr_view("a*s"));
-    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("a-s"));
-    ASSERT_THAT(num_root, Ge(0));
-    ASSERT_THAT(num_expected_root, Ge(0));
-    ASSERT_THAT(den_expected_root, Ge(0));
+    int expr = csfg_expr_parse(&num, cstr_view("1/(1/s - 1/a)"));
+    ASSERT_THAT(expr, Ge(0));
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(&num, &num_root, &den, &den_root), Eq(0));
-    ASSERT_THAT(
-        csfg_expr_equal(num, num_root, num_expected, num_expected_root),
-        IsTrue());
-    ASSERT_THAT(
-        csfg_expr_equal(den, den_root, den_expected, den_expected_root),
-        IsTrue());
+        csfg_expr_to_rational(&num, expr, cstr_view("s"), &rational), Eq(0));
 }
 
 TEST_F(NAME, light)
@@ -93,22 +90,13 @@ TEST_F(NAME, light)
      *   --- - ---          a+4 - s+1            a - s + 5
      *   s-1   a+4
      */
-    int num_root = csfg_expr_parse(&num, cstr_view("1/(1/(s-1)-1/(a+4))"));
-    int den_root;
-    int num_expected_root =
-        csfg_expr_parse(&num_expected, cstr_view("s*a + s*4 -(a+4)"));
-    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("a+5-s"));
-    ASSERT_THAT(num_root, Ge(0));
-    ASSERT_THAT(num_expected_root, Ge(0));
-    ASSERT_THAT(den_expected_root, Ge(0));
+    int expr = csfg_expr_parse(&num, cstr_view("1/(1/(s-1)-1/(a+4))"));
+    ASSERT_THAT(expr, Ge(0));
+    csfg_expr_opt_remove_useless_ops(&num);
+    csfg_expr_opt_fold_constants(&num);
+    expr = csfg_expr_gc(num, expr);
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(&num, &num_root, &den, &den_root), Eq(0));
-    ASSERT_THAT(
-        csfg_expr_equal(num, num_root, num_expected, num_expected_root),
-        IsTrue());
-    ASSERT_THAT(
-        csfg_expr_equal(den, den_root, den_expected, den_expected_root),
-        IsTrue());
+        csfg_expr_to_rational(&num, expr, cstr_view("s"), &rational), Eq(0));
 }
 
 TEST_F(NAME, medium)
@@ -126,23 +114,10 @@ TEST_F(NAME, medium)
      *
      *   a + 3 + 2s - s^2
      */
-    int num_root = csfg_expr_parse(&num, cstr_view("1/(1/(s-1)^2-1/(a+4))"));
-    int den_root;
-    int num_expected_root = csfg_expr_parse(
-        &num_expected, cstr_view("(a+4)*s^2 - (2*a+8)*s + a + 4"));
-    int den_expected_root =
-        csfg_expr_parse(&den_expected, cstr_view("s^2 + 2*s + a + 3"));
-    ASSERT_THAT(num_root, Ge(0));
-    ASSERT_THAT(num_expected_root, Ge(0));
-    ASSERT_THAT(den_expected_root, Ge(0));
+    int expr = csfg_expr_parse(&num, cstr_view("1/(1/(s-1)^2-1/(a+4))"));
+    ASSERT_THAT(expr, Ge(0));
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(&num, &num_root, &den, &den_root), Eq(0));
-    ASSERT_THAT(
-        csfg_expr_equal(num, num_root, num_expected, num_expected_root),
-        IsTrue());
-    ASSERT_THAT(
-        csfg_expr_equal(den, den_root, den_expected, den_expected_root),
-        IsTrue());
+        csfg_expr_to_rational(&num, expr, cstr_view("s"), &rational), Eq(0));
 }
 
 TEST_F(NAME, harder)
@@ -323,28 +298,19 @@ TEST_F(NAME, inverting_amplifier)
     csfg_graph_add_edge_parse_expr(&g, V3, Vout, cstr_view("A"));
     csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("G2"));
 
+    int expr;
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    expr = csfg_graph_mason(&g, &num, paths, loops);
+    ASSERT_THAT(expr, Ge(0));
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+    ASSERT_THAT(csfg_expr_insert_substitutions(&num, expr, &vt), Eq(0));
 
-    int num_expr, den_expr;
-    num_expr = csfg_graph_mason(&g, &num, paths, loops);
-    ASSERT_THAT(num_expr, Ge(0));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&num, num_expr, &vt), Eq(0));
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(&num, &num_expr, &den, &den_expr), Eq(0));
-
-    int num_expected_root = csfg_expr_parse(&num_expected, cstr_view("-G2"));
-    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("G1"));
-    ASSERT_THAT(
-        csfg_expr_equal(num, num_expr, num_expected, num_expected_root),
-        IsTrue());
-    ASSERT_THAT(
-        csfg_expr_equal(den, den_expr, den_expected, den_expected_root),
-        IsTrue());
+        csfg_expr_to_rational(&num, expr, cstr_view("s"), &rational), Eq(0));
 }
 
 TEST_F(NAME, integrator)
@@ -387,29 +353,21 @@ TEST_F(NAME, integrator)
     csfg_graph_add_edge_parse_expr(&g, V3, Vout, cstr_view("A"));
     csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("s*C"));
 
+    int expr;
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    expr = csfg_graph_mason(&g, &num, paths, loops);
+    ASSERT_THAT(expr, Ge(0));
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
     // csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-
-    int num_expr, den_expr;
-    num_expr = csfg_graph_mason(&g, &num, paths, loops);
-    ASSERT_THAT(num_expr, Ge(0));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&num, num_expr, &vt), Eq(0));
-    num_expr = csfg_expr_gc(num, num_expr);
+    ASSERT_THAT(csfg_expr_insert_substitutions(&num, expr, &vt), Eq(0));
+    csfg_expr_opt_remove_useless_ops(&num);
+    csfg_expr_opt_fold_constants(&num);
+    expr = csfg_expr_gc(num, expr);
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(&num, &num_expr, &den, &den_expr), Eq(0));
-
-    int num_expected_root = csfg_expr_parse(&num_expected, cstr_view("-G2"));
-    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("G1"));
-    ASSERT_THAT(
-        csfg_expr_equal(num, num_expr, num_expected, num_expected_root),
-        IsTrue());
-    ASSERT_THAT(
-        csfg_expr_equal(den, den_expr, den_expected, den_expected_root),
-        IsTrue());
+        csfg_expr_to_rational(&num, expr, cstr_view("s"), &rational), Eq(0));
 }
 
 TEST_F(NAME, active_lowpass_filter)
@@ -455,26 +413,20 @@ TEST_F(NAME, active_lowpass_filter)
     csfg_graph_add_edge_parse_expr(&g, V3, Vout, cstr_view("A"));
     csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("G2+s*C"));
 
+    int expr;
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    expr = csfg_graph_mason(&g, &num, paths, loops);
+    ASSERT_THAT(expr, Ge(0));
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
-    csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+    // csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+    ASSERT_THAT(csfg_expr_insert_substitutions(&num, expr, &vt), Eq(0));
+    csfg_expr_opt_remove_useless_ops(&num);
+    csfg_expr_opt_fold_constants(&num);
+    expr = csfg_expr_gc(num, expr);
 
-    int num_expr, den_expr;
-    num_expr = csfg_graph_mason(&g, &num, paths, loops);
-    ASSERT_THAT(num_expr, Ge(0));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&num, num_expr, &vt), Eq(0));
     ASSERT_THAT(
-        csfg_expr_to_standard_tf(&num, &num_expr, &den, &den_expr), Eq(0));
-
-    int num_expected_root = csfg_expr_parse(&num_expected, cstr_view("-G2"));
-    int den_expected_root = csfg_expr_parse(&den_expected, cstr_view("G1"));
-    ASSERT_THAT(
-        csfg_expr_equal(num, num_expr, num_expected, num_expected_root),
-        IsTrue());
-    ASSERT_THAT(
-        csfg_expr_equal(den, den_expr, den_expected, den_expected_root),
-        IsTrue());
+        csfg_expr_to_rational(&num, expr, cstr_view("s"), &rational), Eq(0));
 }

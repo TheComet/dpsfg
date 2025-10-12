@@ -48,9 +48,9 @@ static int move_reciprocs(
             to_root,
             csfg_expr_pow(
                 to,
-                csfg_expr_dup_from(to, *from, base),
+                csfg_expr_dup_recurse_from(to, *from, base),
                 csfg_expr_lit(to, -value)),
-            csfg_expr_copy(to, to_root)) == -1)
+            csfg_expr_dup_single(to, to_root)) == -1)
     {
         return -1;
     }

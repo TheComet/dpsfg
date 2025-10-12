@@ -11,6 +11,84 @@ static int is_almost_integer(double value, double epsilon)
     return fabs(value - nearest) < epsilon;
 }
 
+static int combine_exprs_and_factors_if_necessary(
+    struct csfg_expr_pool**  pool,
+    const struct csfg_coeff* c1,
+    const struct csfg_coeff* c2)
+{
+    if (c1->factor == 0.0) /* 0a + 3b = 3b */
+        return c2->expr;
+    else if (c2->factor == 0.0) /* 2a + 0b = 2a */
+        return c1->expr;
+    else if (c1->factor == 1.0 && c2->factor == 1.0) /* 1a + 1b = 1(a+b) */
+    {
+        if (c1->expr > -1 && c2->expr > -1) /* 1a + 1b = 1(a+b) */
+            return csfg_expr_add(pool, c1->expr, c2->expr);
+        else if (c1->expr > -1) /* 1a + 1 = 1(a+1) */
+            return csfg_expr_add(pool, c1->expr, csfg_expr_lit(pool, 1.0));
+        else if (c2->expr > -1) /* 1 + 1b = 1(1+b) */
+            return csfg_expr_add(pool, c2->expr, csfg_expr_lit(pool, 1.0));
+        else /* 1 + 1 = 2 */
+            return -1;
+    }
+    else if (c1->factor == 1.0) /* 1a + 3b = 1(a+3b) */
+    {
+        if (c1->expr > -1 && c2->expr > -1) /* 1a + 3b = 1(a+3b) */
+            return csfg_expr_add(
+                pool,
+                c1->expr,
+                csfg_expr_mul(pool, csfg_expr_lit(pool, c2->factor), c2->expr));
+        else if (c1->expr > -1) /* 1a + 3 = 1(a+3) */
+            return csfg_expr_add(
+                pool, csfg_expr_lit(pool, c2->factor), c1->expr);
+        else if (c2->expr > -1) /* 1 + 3b = 1(1+3b) */
+            return csfg_expr_add(
+                pool,
+                csfg_expr_lit(pool, 1.0),
+                csfg_expr_mul(pool, csfg_expr_lit(pool, c2->factor), c2->expr));
+        else
+            return -1;
+    }
+    else if (c2->factor == 1.0) /* 2a + 1b = 1(2a+b) */
+    {
+        if (c1->expr > -1 && c2->expr > -1) /* 2a + b = 1(2a+b) */
+            return csfg_expr_add(
+                pool,
+                csfg_expr_mul(pool, csfg_expr_lit(pool, c1->factor), c1->expr),
+                c2->expr);
+        else if (c1->expr > -1) /* 2a + 1 = 1(2a+1) */
+            return csfg_expr_add(
+                pool,
+                csfg_expr_mul(pool, csfg_expr_lit(pool, c1->factor), c1->expr),
+                csfg_expr_lit(pool, 1.0));
+        else if (c2->expr > -1) /* 2 + 1b = 1(2+b) */
+            return csfg_expr_add(
+                pool, csfg_expr_lit(pool, c1->factor), c2->expr);
+        else
+            return -1;
+    }
+    else /* 2a + 3b = 1(2a + 3b) */
+    {
+        if (c1->expr > -1 && c2->expr > -1)
+            return csfg_expr_add(
+                pool,
+                csfg_expr_mul(pool, csfg_expr_lit(pool, c1->factor), c1->expr),
+                csfg_expr_mul(pool, csfg_expr_lit(pool, c2->factor), c2->expr));
+        else if (c1->expr > -1) /* 2a + 3  = 1(2a+3) */
+            return csfg_expr_add(
+                pool,
+                csfg_expr_mul(pool, csfg_expr_lit(pool, c1->factor), c1->expr),
+                csfg_expr_lit(pool, c2->factor));
+        else if (c2->expr > -1) /* 2 + 3b = 1(2+3b) */
+            return csfg_expr_add(
+                pool,
+                csfg_expr_lit(pool, c1->factor),
+                csfg_expr_mul(pool, csfg_expr_lit(pool, c2->factor), c2->expr));
+        else /* 2 + 3 = 5 */
+            return -1;
+    }
+}
+
 /* ------------------------------------------------------------------------- */
 static int poly_add(
     struct csfg_expr_pool**      pool,
@@ -32,20 +110,8 @@ static int poly_add(
         const struct csfg_coeff* c1 = vec_get(p1, i);
         const struct csfg_coeff* c2 = vec_get(p2, i);
 
-        int expr1 =
-            c1->expr > -1
-                ? csfg_expr_mul(pool, c1->expr, csfg_expr_lit(pool, c1->factor))
-                : -1;
-        int expr2 =
-            c2->expr > -1
-                ? csfg_expr_mul(pool, c2->expr, csfg_expr_lit(pool, c2->factor))
-                : -1;
-        int expr = expr1 > -1 && expr1 > -1 ? csfg_expr_add(pool, expr1, expr2)
-                   : expr1 > -1             ? expr1
-                   : expr2 > -1             ? expr2
-                                            : -1;
-        double factor =
-            c1->expr == -1 && c2->expr == -1 ? c1->factor + c2->factor : 1.0;
+        int    expr = combine_exprs_and_factors_if_necessary(pool, c1, c2);
+        double factor = expr > -1 ? 1.0 : c1->factor + c2->factor;
 
         csfg_coeff_vec_push(out, csfg_coeff(factor, expr));
     }
@@ -111,8 +177,10 @@ int csfg_expr_to_rational(
     struct strview          main_var,
     struct csfg_rational*   r)
 {
-    int            left, right;
-    struct strview var;
+    int                left, right, k;
+    struct strview     var;
+    struct csfg_coeff* coeff;
+    double             value;
 
     struct csfg_rational r1, r2;
     csfg_rational_init(&r1);
@@ -129,17 +197,19 @@ int csfg_expr_to_rational(
                 &r->num, csfg_coeff((*pool)->nodes[expr].value.lit, -1));
             csfg_coeff_vec_push(&r->den, csfg_coeff(1.0, -1));
             break;
+
         case CSFG_EXPR_INF:
             csfg_coeff_vec_push(
-                &r->num, csfg_coeff(1.0, csfg_expr_copy(pool, expr)));
+                &r->num, csfg_coeff(1.0, csfg_expr_dup_single(pool, expr)));
             csfg_coeff_vec_push(&r->den, csfg_coeff(1.0, -1));
             break;
+
         case CSFG_EXPR_VAR:
             var = strlist_view(
                 (*pool)->var_names, (*pool)->nodes[expr].value.var_idx);
             if (!strview_eq(var, main_var))
                 csfg_coeff_vec_push(
-                    &r->num, csfg_coeff(1.0, csfg_expr_copy(pool, expr)));
+                    &r->num, csfg_coeff(1.0, csfg_expr_dup_single(pool, expr)));
             else
             {
                 /* 0 + 1*s */
@@ -148,7 +218,13 @@ int csfg_expr_to_rational(
             }
             csfg_coeff_vec_push(&r->den, csfg_coeff(1.0, -1));
             break;
-        case CSFG_EXPR_NEG: break;
+
+        case CSFG_EXPR_NEG:
+            csfg_expr_to_rational(pool, left, main_var, r);
+            vec_for_each (r->num, coeff)
+                coeff->factor *= -1;
+            break;
+
         case CSFG_EXPR_OP_ADD:
             /*
              * N1   N2   N1*D2 + N2*D1
@@ -168,16 +244,8 @@ int csfg_expr_to_rational(
             poly_add(pool, &r->num, r1.num, r2.num);
             /* D1*D2 */
             poly_mul(pool, &r->den, r1.den, r2.den);
-            // gcd_cancel()
-            /*
-            *num = csfg_expr_set_add(
-                pool,
-                expr,
-                csfg_expr_mul(pool, num_left, den_right),
-                csfg_expr_mul(pool, num_right, den_left));
-            *den = csfg_expr_mul(pool, den_left, den_right);
-            */
             break;
+
         case CSFG_EXPR_OP_MUL:
             /*
              * N1   N2   N1*N2
@@ -189,19 +257,51 @@ int csfg_expr_to_rational(
             poly_mul(pool, &r->num, r1.num, r2.num);
             poly_mul(pool, &r->den, r1.den, r2.den);
             break;
+
         case CSFG_EXPR_OP_POW:
             /*
              *     k
-             * /N1\   N1^k
-             * |--| = ----
-             * \D1/   D1^k
+             * /N1\   N1^k   D1^-k
+             * |--| = ---- = -----
+             * \D1/   D1^k   N1^-k
              */
             if ((*pool)->nodes[right].type != CSFG_EXPR_LIT)
                 return -1;
-            if (!is_almost_integer((*pool)->nodes[right].value.lit, 0.0000001))
+
+            value = (*pool)->nodes[right].value.lit;
+            if (!is_almost_integer(value, 0.0000001))
                 return -1;
-            csfg_expr_to_rational(pool, left, main_var, &r1);
-            // TODO
+            k = (int)round(value);
+
+            if (k == 0) /* a^0 = 1 */
+            {
+                csfg_coeff_vec_push(&r->num, csfg_coeff(1.0, -1));
+                csfg_coeff_vec_push(&r->den, csfg_coeff(1.0, -1));
+            }
+            else if (k > 0)
+            {
+                csfg_expr_to_rational(pool, left, main_var, r);
+                while (--k > 0)
+                {
+                    poly_mul(pool, &r1.num, r->num, r->num);
+                    poly_mul(pool, &r1.den, r->den, r->den);
+                    csfg_coeff_vec_swap(&r->num, &r1.num);
+                    csfg_coeff_vec_swap(&r->den, &r1.den);
+                }
+            }
+            else if (k < 0)
+            {
+                csfg_expr_to_rational(pool, left, main_var, &r1);
+                csfg_coeff_vec_swap(&r->num, &r1.den);
+                csfg_coeff_vec_swap(&r->den, &r1.num);
+                while (++k < 0)
+                {
+                    poly_mul(pool, &r1.num, r->num, r->num);
+                    poly_mul(pool, &r1.den, r->den, r->den);
+                    csfg_coeff_vec_swap(&r->num, &r1.num);
+                    csfg_coeff_vec_swap(&r->den, &r1.den);
+                }
+            }
             break;
     }
 

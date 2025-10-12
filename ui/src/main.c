@@ -124,7 +124,7 @@ static void substitutions_changed_cb(
 
     csfg_expr_pool_clear(app->subs_pool);
     app->subs_expr =
-        csfg_expr_dup_from(&app->subs_pool, app->graph_pool, app->graph_expr);
+        csfg_expr_dup_recurse_from(&app->subs_pool, app->graph_pool, app->graph_expr);
     if (app->graph_expr > -1)
     {
         if (csfg_expr_insert_substitutions(
@@ -147,7 +147,7 @@ static void substitutions_changed_cb(
     app->den_expr = -1;
 
     app->num_expr =
-        csfg_expr_dup_from(&app->num_pool, app->subs_pool, app->subs_expr);
+        csfg_expr_dup_recurse_from(&app->num_pool, app->subs_pool, app->subs_expr);
     if (app->num_expr > -1)
     {
         if (csfg_expr_to_standard_tf(
