@@ -5,21 +5,27 @@
 VEC_DEFINE(csfg_coeff_vec, struct csfg_coeff, 8)
 
 /* ------------------------------------------------------------------------- */
-static int is_almost_integer(double value, double epsilon)
-{
-    double nearest = round(value);
-    return fabs(value - nearest) < epsilon;
-}
-
 static int combine_exprs_and_factors_if_necessary(
     struct csfg_expr_pool**  pool,
     const struct csfg_coeff* c1,
     const struct csfg_coeff* c2)
 {
     if (c1->factor == 0.0) /* 0a + 3b = 3b */
+    {
+        if (c2->factor == 0.0)
+            return -1;
+        if (c2->expr > -1 && c2->factor != 1.0)
+            return csfg_expr_mul(
+                pool, c2->expr, csfg_expr_lit(pool, c2->factor));
         return c2->expr;
+    }
     else if (c2->factor == 0.0) /* 2a + 0b = 2a */
+    {
+        if (c1->expr > -1 && c1->factor != 1.0)
+            return csfg_expr_mul(
+                pool, c1->expr, csfg_expr_lit(pool, c1->factor));
         return c1->expr;
+    }
     else if (c1->factor == 1.0 && c2->factor == 1.0) /* 1a + 1b = 1(a+b) */
     {
         if (c1->expr > -1 && c2->expr > -1) /* 1a + 1b = 1(a+b) */
@@ -90,6 +96,18 @@ static int combine_exprs_and_factors_if_necessary(
 }
 
 /* ------------------------------------------------------------------------- */
+static int
+poly_copy(struct csfg_coeff_vec** dst, const struct csfg_coeff_vec* src)
+{
+    const struct csfg_coeff* c;
+    CSFG_DEBUG_ASSERT(vec_count(*dst) == 0);
+    vec_for_each (src, c)
+        if (csfg_coeff_vec_push(dst, *c) != 0)
+            return -1;
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
 static int poly_add(
     struct csfg_expr_pool**      pool,
     struct csfg_coeff_vec**      out,
@@ -141,9 +159,6 @@ static int poly_mul(
         return -1;
     CSFG_DEBUG_ASSERT(vec_count(*out) == 0);
 
-    /* (1x^2 + 2x + 3)(9x^2 + 5x + 1) */
-    /* (1*9)x^4 + (1*5+2*9)x^3 + (1*1+2*5+3*9)x^2 + (2*1+3*5)x + (3*1) */
-    /* 9x^4 + 23x^3 + 38x^2 + 17x + 3 */
     for (i = 0; i != degree; ++i)
     {
         double factor = 0.0;
@@ -269,37 +284,47 @@ int csfg_expr_to_rational(
                 return -1;
 
             value = (*pool)->nodes[right].value.lit;
-            if (!is_almost_integer(value, 0.0000001))
-                return -1;
             k = (int)round(value);
+            if (fabs(value - (double)k) >= 0.0000001)
+                return -1;
 
             if (k == 0) /* a^0 = 1 */
             {
                 csfg_coeff_vec_push(&r->num, csfg_coeff(1.0, -1));
                 csfg_coeff_vec_push(&r->den, csfg_coeff(1.0, -1));
+                break;
             }
-            else if (k > 0)
+
+            if (k > 0)
             {
-                csfg_expr_to_rational(pool, left, main_var, r);
+                csfg_expr_to_rational(pool, left, main_var, &r1);
+                poly_copy(&r->num, r1.num);
+                poly_copy(&r->den, r1.den);
                 while (--k > 0)
                 {
-                    poly_mul(pool, &r1.num, r->num, r->num);
-                    poly_mul(pool, &r1.den, r->den, r->den);
-                    csfg_coeff_vec_swap(&r->num, &r1.num);
-                    csfg_coeff_vec_swap(&r->den, &r1.den);
+                    csfg_coeff_vec_clear(r2.num);
+                    csfg_coeff_vec_clear(r2.den);
+                    poly_mul(pool, &r2.num, r->num, r1.num);
+                    poly_mul(pool, &r2.den, r->den, r1.den);
+                    csfg_coeff_vec_swap(&r->num, &r2.num);
+                    csfg_coeff_vec_swap(&r->den, &r2.den);
                 }
             }
             else if (k < 0)
             {
-                csfg_expr_to_rational(pool, left, main_var, &r1);
-                csfg_coeff_vec_swap(&r->num, &r1.den);
-                csfg_coeff_vec_swap(&r->den, &r1.num);
+                csfg_expr_to_rational(pool, left, main_var, &r2);
+                csfg_coeff_vec_swap(&r2.num, &r1.den);
+                csfg_coeff_vec_swap(&r2.den, &r1.num);
+                poly_copy(&r->num, r1.num);
+                poly_copy(&r->den, r1.den);
                 while (++k < 0)
                 {
-                    poly_mul(pool, &r1.num, r->num, r->num);
-                    poly_mul(pool, &r1.den, r->den, r->den);
-                    csfg_coeff_vec_swap(&r->num, &r1.num);
-                    csfg_coeff_vec_swap(&r->den, &r1.den);
+                    csfg_coeff_vec_clear(r2.num);
+                    csfg_coeff_vec_clear(r2.den);
+                    poly_mul(pool, &r2.num, r->num, r1.num);
+                    poly_mul(pool, &r2.den, r->den, r1.den);
+                    csfg_coeff_vec_swap(&r->num, &r2.num);
+                    csfg_coeff_vec_swap(&r->den, &r2.den);
                 }
             }
             break;
