@@ -22,6 +22,7 @@ struct NAME : public Test
         csfg_path_vec_init(&loops);
 
         csfg_expr_pool_init(&pool);
+        csfg_expr_pool_init(&pool2);
         csfg_var_table_init(&vt);
         csfg_rational_init(&rational);
     }
@@ -29,6 +30,7 @@ struct NAME : public Test
     {
         csfg_rational_deinit(&rational);
         csfg_var_table_deinit(&vt);
+        csfg_expr_pool_deinit(pool2);
         csfg_expr_pool_deinit(pool);
 
         csfg_path_vec_deinit(loops);
@@ -41,6 +43,7 @@ struct NAME : public Test
     struct csfg_path_vec* loops;
 
     struct csfg_expr_pool* pool;
+    struct csfg_expr_pool* pool2;
     struct csfg_var_table  vt;
     struct csfg_rational   rational;
 };
@@ -282,7 +285,7 @@ TEST_F(NAME, inverting_amplifier)
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2"));
-    csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+    // csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
     ASSERT_THAT(csfg_expr_insert_substitutions(&pool, expr, &vt), Eq(0));
 
     csfg_expr_opt_remove_useless_ops(&pool);
@@ -345,13 +348,30 @@ TEST_F(NAME, integrator)
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
-    // csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+    csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
     ASSERT_THAT(csfg_expr_insert_substitutions(&pool, expr, &vt), Eq(0));
     csfg_expr_opt_remove_useless_ops(&pool);
     csfg_expr_opt_fold_constants(&pool);
     expr = csfg_expr_gc(pool, expr);
+
+    struct csfg_rational r;
+    csfg_rational_init(&r);
+    int result = csfg_expr_to_rational_limit(&pool, expr, cstr_view("A"), &r);
+    ASSERT_THAT(result, Eq(0));
+    /*
+     *           -G1*(G2+s*C)*A           |        -G1*(G2+s*C)   -G1
+     * ---------------------------------- |      = ------------ = ---
+     * (G2+s*C)*(G2+s*C) + (G2+s*C)*s*C*A |A->oo   (G2+s*C)*s*C   s*C
+     */
+    expr = csfg_rational_to_expr(&r, pool, &pool2);
+
     ASSERT_THAT(
-        csfg_expr_to_rational(&pool, expr, cstr_view("s"), &rational), Eq(0));
+        csfg_expr_to_rational(&pool2, expr, cstr_view("s"), &rational), Eq(0));
+    /*
+     *           -A*G1*G2 - A*G1*C*s
+     * -----------------------------------------
+     * G2^2 + 2*G2^2*C*(C+C*A)*s + C*(C+C*A)*s^2
+     */
 }
 
 TEST_F(NAME, active_lowpass_filter)

@@ -120,9 +120,3 @@ int csfg_expr_to_standard_tf(
 
     return 0;
 }
-
-/* ------------------------------------------------------------------------- */
-int csfg_expr_apply_limit(struct csfg_expr_pool* pool)
-{
-    return -1;
-}

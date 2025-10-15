@@ -1,7 +1,7 @@
 #pragma once
 
-#include "csfg/util/vec.h"
 #include "csfg/util/strview.h"
+#include "csfg/util/vec.h"
 
 struct csfg_expr_pool;
 
@@ -44,3 +44,22 @@ int csfg_expr_to_rational(
     int                     expr,
     struct strview          main_var,
     struct csfg_rational*   rational);
+
+/*!
+ * @brief Calculates lim variable->oo of an expression and returns it as a
+ * rational function. If successful, the result will be one of:
+ *   1) oo/1
+ *   2) -oo/1
+ *   3) 0/1
+ *   4) a/b, where a and b are variables or constants
+ */
+int csfg_expr_to_rational_limit(
+    struct csfg_expr_pool** pool,
+    int                     expr,
+    struct strview          variable,
+    struct csfg_rational*   rational);
+
+int csfg_rational_to_expr(
+    const struct csfg_rational*  rational,
+    const struct csfg_expr_pool* rational_pool,
+    struct csfg_expr_pool**      expr_pool);

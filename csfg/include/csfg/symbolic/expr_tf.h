@@ -66,5 +66,3 @@ int csfg_expr_rebalance_fraction(
     int                     num_root,
     struct csfg_expr_pool** den_pool,
     int                     den_root);
-
-int csfg_expr_apply_limit(struct csfg_expr_pool* pool);

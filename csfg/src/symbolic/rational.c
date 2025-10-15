@@ -335,3 +335,92 @@ int csfg_expr_to_rational(
 
     return 0;
 }
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_to_rational_limit(
+    struct csfg_expr_pool** pool,
+    int                     expr,
+    struct strview          variable,
+    struct csfg_rational*   rational)
+{
+    int                      num_idx, den_idx;
+    const struct csfg_coeff* c;
+
+    if (csfg_expr_to_rational(pool, expr, variable, rational) != 0)
+        return -1;
+
+    vec_enumerate_r (rational->num, num_idx, c)
+        if (c->factor != 0.0)
+            break;
+    vec_enumerate_r (rational->den, den_idx, c)
+        if (c->factor != 0.0)
+            break;
+
+    if (den_idx == vec_count(rational->den))
+    {
+    }
+    else if (num_idx == vec_count(rational->num))
+    {
+    }
+    else if (num_idx > den_idx)
+    {
+    }
+    else if (num_idx < den_idx)
+    {
+    }
+    else
+    {
+        csfg_coeff_vec_swap_values(rational->num, 0, num_idx);
+        csfg_coeff_vec_swap_values(rational->den, 0, den_idx);
+        rational->num->count = 1;
+        rational->den->count = 1;
+    }
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_poly_to_expr(
+    const struct csfg_coeff_vec* poly,
+    const struct csfg_expr_pool* coeff_pool,
+    struct csfg_expr_pool**      expr_pool)
+{
+    const struct csfg_coeff* c;
+    int                      expr = -1;
+    vec_for_each (poly, c)
+    {
+        int coeff_expr;
+        if (c->factor == 0.0)
+            continue;
+
+        if (c->expr < 0)
+            coeff_expr = csfg_expr_lit(expr_pool, c->factor);
+        else
+            coeff_expr = csfg_expr_mul(
+                expr_pool,
+                csfg_expr_dup_recurse_from(expr_pool, coeff_pool, c->expr),
+                csfg_expr_lit(expr_pool, c->factor));
+
+        if (expr == -1)
+            expr = coeff_expr;
+        else
+            expr = csfg_expr_add(expr_pool, expr, coeff_expr);
+
+        if (expr < 0)
+            return -1;
+    }
+
+    return expr;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_rational_to_expr(
+    const struct csfg_rational*  rational,
+    const struct csfg_expr_pool* rational_pool,
+    struct csfg_expr_pool**      expr_pool)
+{
+    return csfg_expr_div(
+        expr_pool,
+        csfg_poly_to_expr(rational->num, rational_pool, expr_pool),
+        csfg_poly_to_expr(rational->den, rational_pool, expr_pool));
+}

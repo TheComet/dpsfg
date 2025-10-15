@@ -72,9 +72,10 @@ int csfg_expr_new(
 static int insert_substitutions(
     struct csfg_expr_pool** pool, int n, const struct csfg_var_table* vt)
 {
-    int                                left, right;
-    const struct csfg_var_table_entry* entry = NULL;
+    int                                left, right, dup;
+    const struct csfg_var_table_entry* entry;
 
+    entry = NULL;
     if ((*pool)->nodes[n].type == CSFG_EXPR_VAR)
     {
         entry = csfg_var_hmap_find(
@@ -84,7 +85,9 @@ static int insert_substitutions(
 
     if (entry != NULL)
     {
-        int dup;
+        if (entry->pool->nodes[entry->root].type == CSFG_EXPR_INF)
+            return 0;
+
         if (entry->pool->nodes[entry->root].visited)
             return -1;
         entry->pool->nodes[entry->root].visited = 1;
