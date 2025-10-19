@@ -3,9 +3,10 @@
 #include <gtk/gtk.h>
 
 #define PLUGIN_TYPE_MATH_VIEWER (math_viewer_get_type())
-G_DECLARE_FINAL_TYPE(MathViewer, math_viewer, PLUGIN, MATH_VIEWER, GtkBox);
+G_DECLARE_FINAL_TYPE(MathViewer, math_viewer, PLUGIN, MATH_VIEWER, GtkBox)
 
 struct csfg_expr_pool;
+struct csfg_rational;
 
 void        math_viewer_register_type_internal(GTypeModule* type_module);
 MathViewer* math_viewer_new(void);
@@ -13,7 +14,5 @@ void        math_viewer_set_expr(
            MathViewer* viewer, const struct csfg_expr_pool* pool, int expr);
 void math_viewer_set_tf(
     MathViewer*                  viewer,
-    const struct csfg_expr_pool* num_pool,
-    int                          num_expr,
-    const struct csfg_expr_pool* den_pool,
-    int                          den_expr);
+    const struct csfg_expr_pool* pool,
+    const struct csfg_rational*  rational);

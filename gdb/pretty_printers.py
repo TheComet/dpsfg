@@ -19,6 +19,8 @@ def factories(val):
         return rb_PrettyPrinter(val)
     if str(val.type).endswith("_vec *"):
         return vec_PrettyPrinter(val)
+    if str(val.type).endswith("csfg_poly *"):
+        return vec_PrettyPrinter(val)
     if str(val.type).endswith("_bmap *"):
         return bmap_PrettyPrinter(val)
     if str(val.type).endswith("_hmap *"):

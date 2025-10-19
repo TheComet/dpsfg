@@ -18,6 +18,7 @@ static GtkWidget* ui_center_create(struct plugin_ctx* ctx)
 }
 static void ui_center_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+    (void)ctx;
     g_object_unref(ui);
 }
 
@@ -51,6 +52,7 @@ static struct plugin_ctx* create(
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 {
+    (void)type_module;
     mem_free(ctx);
 }
 

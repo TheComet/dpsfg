@@ -26,4 +26,3 @@ dpsfg_add_plugin ("math-viewer"
         GTK4::gdk-pixbuf
         GTK4::graphene
         GTK4::gtk)
-

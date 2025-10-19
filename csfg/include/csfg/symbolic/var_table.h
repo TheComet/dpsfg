@@ -8,7 +8,7 @@ struct csfg_expr_pool;
 struct csfg_var_table_entry
 {
     struct csfg_expr_pool* pool;
-    int                    root;
+    int                    expr;
 };
 
 HMAP_DECLARE_STR(extern, csfg_var_hmap, struct csfg_var_table_entry, 16)

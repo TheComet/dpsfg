@@ -105,7 +105,7 @@ int csfg_var_table_set_lit(
         csfg_var_hmap_erase(vt->map, name);
         return -1;
     }
-    entry->root = n;
+    entry->expr = n;
     return 0;
 }
 
@@ -126,7 +126,7 @@ int csfg_var_table_set_expr(
     }
 
     entry->pool = pool;
-    entry->root = root;
+    entry->expr = root;
     return 0;
 }
 
@@ -158,7 +158,7 @@ struct csfg_expr_pool* csfg_var_table_get(
     struct csfg_var_table_entry* entry = csfg_var_hmap_find(vt->map, name);
     if (entry == NULL)
         return NULL;
-    *root = entry->root;
+    *root = entry->expr;
     return entry->pool;
 }
 

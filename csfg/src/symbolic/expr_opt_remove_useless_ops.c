@@ -197,6 +197,78 @@ static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
 }
 
 /* ------------------------------------------------------------------------- */
+static int
+find_common_products(struct csfg_expr_pool* pool, int expr1, int expr2)
+{
+    int left, right, rc;
+    if (csfg_expr_equal(pool, expr1, pool, expr2))
+    {
+        // TODO: This crashes if there is no parent. Need to replace with "1" in
+        // this case
+        csfg_expr_collapse_sibling_into_parent(pool, expr1);
+        csfg_expr_collapse_sibling_into_parent(pool, expr2);
+        return 1;
+    }
+
+    if (pool->nodes[expr1].type == CSFG_EXPR_OP_MUL ||
+        pool->nodes[expr1].type == CSFG_EXPR_NEG)
+    {
+        left = pool->nodes[expr1].child[0];
+        right = pool->nodes[expr1].child[1];
+        if ((rc = find_common_products(pool, left, expr2)))
+            return rc;
+        if ((rc = find_common_products(pool, right, expr2)))
+            return rc;
+    }
+
+    if (pool->nodes[expr2].type == CSFG_EXPR_OP_MUL ||
+        pool->nodes[expr2].type == CSFG_EXPR_NEG)
+    {
+        left = pool->nodes[expr2].child[0];
+        right = pool->nodes[expr2].child[1];
+        if ((rc = find_common_products(pool, expr1, left)))
+            return rc;
+        if ((rc = find_common_products(pool, expr1, right)))
+            return rc;
+    }
+
+    return 0;
+}
+static int cancel_products(struct csfg_expr_pool** pool)
+{
+    int n, modified = 0;
+    for (n = 0; n != (*pool)->count; ++n)
+    {
+        double value;
+        int    left, right, parent;
+        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_POW)
+            continue;
+
+        left = (*pool)->nodes[n].child[0];
+        right = (*pool)->nodes[n].child[1];
+        if ((*pool)->nodes[right].type != CSFG_EXPR_LIT)
+            continue;
+
+        value = (*pool)->nodes[right].value.lit;
+        if (!floats_equal(value, -1.0, 0.0000001))
+            continue;
+
+        parent = csfg_expr_find_parent(*pool, n);
+        if (parent < 0)
+            continue;
+
+        switch (find_common_products(*pool, parent, left))
+        {
+            case -1: return -1;
+            case 1: modified = 1;
+            case 0: break;
+        }
+    }
+
+    return modified;
+}
+
+/* ------------------------------------------------------------------------- */
 int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool)
 {
     return csfg_expr_op_run(
@@ -206,6 +278,7 @@ int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool)
         remove_zero_summands,
         remove_one_products,
         remove_one_and_zero_exponents,
+        cancel_products,
         remove_double_reciprocs,
         NULL);
 }

@@ -70,6 +70,41 @@ double csfg_expr_eval(
 }
 
 /* ------------------------------------------------------------------------- */
+static int has_any_op_as_parent(const struct csfg_expr_pool* pool, int n)
+{
+    int parent = csfg_expr_find_parent(pool, n);
+    if (parent < 0)
+        return 0;
+    switch (pool->nodes[parent].type)
+    {
+        case CSFG_EXPR_GC: assert(0); break;
+
+        case CSFG_EXPR_LIT:
+        case CSFG_EXPR_VAR:
+        case CSFG_EXPR_INF: break;
+
+        case CSFG_EXPR_NEG:
+        case CSFG_EXPR_OP_ADD:
+        case CSFG_EXPR_OP_MUL:
+        case CSFG_EXPR_OP_POW: return 1;
+    }
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+static int
+has_parent_op_stronger_than_add(const struct csfg_expr_pool* pool, int n)
+{
+    int parent = csfg_expr_find_parent(pool, n);
+    if (parent < 0)
+        return 0;
+    return pool->nodes[parent].type == CSFG_EXPR_OP_MUL ||
+           pool->nodes[parent].type == CSFG_EXPR_OP_POW ||
+           pool->nodes[parent].type == CSFG_EXPR_NEG;
+}
+
+/* ------------------------------------------------------------------------- */
 int csfg_expr_to_str(
     struct str** str, const struct csfg_expr_pool* pool, int expr)
 {
@@ -102,38 +137,45 @@ int csfg_expr_to_str(
             if (str_append_cstr(str, "oo") != 0)
                 return -1;
             break;
-        case CSFG_EXPR_NEG:
-            if (str_append_cstr(str, "-(") != 0)
+        case CSFG_EXPR_NEG: {
+            int need_parens = has_parent_op_stronger_than_add(pool, expr);
+            if (str_append_char(str, '-') != 0)
                 return -1;
+            if (need_parens)
+                if (str_append_char(str, '(') != 0)
+                    return -1;
             if (csfg_expr_to_str(str, pool, left) != 0)
                 return -1;
-            if (str_append_cstr(str, ")") != 0)
-                return -1;
+            if (need_parens)
+                if (str_append_char(str, ')') != 0)
+                    return -1;
             break;
-        case CSFG_EXPR_OP_ADD:
-            if (str_append_cstr(str, "(") != 0)
-                return -1;
+        }
+        case CSFG_EXPR_OP_ADD: {
+            int need_parens = has_parent_op_stronger_than_add(pool, expr);
+            if (need_parens)
+                if (str_append_char(str, '(') != 0)
+                    return -1;
             if (csfg_expr_to_str(str, pool, left) != 0)
                 return -1;
             if (str_append_cstr(str, " + ") != 0)
                 return -1;
             if (csfg_expr_to_str(str, pool, right) != 0)
                 return -1;
-            if (str_append_cstr(str, ")") != 0)
-                return -1;
+            if (need_parens)
+                if (str_append_char(str, ')') != 0)
+                    return -1;
             break;
-        case CSFG_EXPR_OP_MUL:
-            if (str_append_cstr(str, "(") != 0)
-                return -1;
+        }
+        case CSFG_EXPR_OP_MUL: {
             if (csfg_expr_to_str(str, pool, left) != 0)
                 return -1;
             if (str_append_cstr(str, "*") != 0)
                 return -1;
             if (csfg_expr_to_str(str, pool, right) != 0)
                 return -1;
-            if (str_append_cstr(str, ")") != 0)
-                return -1;
             break;
+        }
         case CSFG_EXPR_OP_POW:
             if (str_append_cstr(str, "(") != 0)
                 return -1;

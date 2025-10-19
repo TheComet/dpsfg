@@ -1,4 +1,5 @@
 #include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/rational.h"
 #include "csfg/util/str.h"
 #include "math-viewer/math_viewer.h"
 
@@ -7,15 +8,84 @@ struct _MathViewer
     GtkBox     parent_instance;
     GtkWidget* drawing_area;
 
+    const struct csfg_rational*  rational;
     const struct csfg_expr_pool* pool;
-    const struct csfg_expr_pool* den_pool;
     int                          expr;
-    int                          den_expr;
 };
 
 G_DEFINE_DYNAMIC_TYPE(MathViewer, math_viewer, GTK_TYPE_BOX)
 
 /* -------------------------------------------------------------------------- */
+static void draw_expr(cairo_t* cr, const struct csfg_expr_pool* pool, int expr)
+{
+    struct str*           str;
+    PangoLayout*          layout;
+    PangoFontDescription* desc;
+    int                   tw1, th1;
+
+    str_init(&str);
+    cairo_set_source_rgb(cr, 0, 0, 0);
+
+    layout = pango_cairo_create_layout(cr);
+    desc = pango_font_description_from_string("Sans 16");
+    pango_layout_set_font_description(layout, desc);
+
+    csfg_expr_to_str(&str, pool, expr);
+    pango_layout_set_text(layout, str_cstr(str), -1);
+    cairo_move_to(cr, 0.0, 0.0);
+    pango_cairo_show_layout(cr, layout);
+    pango_layout_get_pixel_size(layout, &tw1, &th1);
+
+    g_object_unref(layout);
+    pango_font_description_free(desc);
+    str_deinit(str);
+}
+
+/* -------------------------------------------------------------------------- */
+static void draw_rational(
+    cairo_t*                     cr,
+    const struct csfg_expr_pool* pool,
+    const struct csfg_rational*  rational)
+{
+    struct str*           str;
+    PangoLayout*          layout;
+    PangoFontDescription* desc;
+    int                   tw, th;
+    int                   widest;
+    double                tx = 0.0;
+    double                ty = 0.0;
+
+    str_init(&str);
+    cairo_set_source_rgb(cr, 0, 0, 0);
+
+    layout = pango_cairo_create_layout(cr);
+    desc = pango_font_description_from_string("Sans 16");
+    pango_layout_set_font_description(layout, desc);
+
+    csfg_poly_to_str(&str, pool, rational->num);
+    pango_layout_set_text(layout, str_cstr(str), -1);
+    cairo_move_to(cr, tx, ty);
+    pango_cairo_show_layout(cr, layout);
+    pango_layout_get_pixel_size(layout, &tw, &th);
+    widest = tw;
+
+    str_clear(str);
+    csfg_poly_to_str(&str, pool, rational->den);
+    pango_layout_set_text(layout, str_cstr(str), -1);
+    cairo_move_to(cr, tx, ty + th);
+    pango_cairo_show_layout(cr, layout);
+    pango_layout_get_pixel_size(layout, &tw, &th);
+    widest = tw > widest ? tw : widest;
+
+    cairo_move_to(cr, 0.0, th + 1.0);
+    cairo_line_to(cr, widest, th + 1.0);
+    cairo_set_line_width(cr, 1.0);
+    cairo_stroke(cr);
+
+    g_object_unref(layout);
+    pango_font_description_free(desc);
+    str_deinit(str);
+}
 
 /* -------------------------------------------------------------------------- */
 static void draw_cb(
@@ -25,9 +95,8 @@ static void draw_cb(
     int             height,
     gpointer        user_pointer)
 {
-    const struct csfg_node* n;
-    const struct csfg_edge* e;
-    MathViewer*             viewer = user_pointer;
+    MathViewer* viewer = user_pointer;
+    (void)area, (void)width, (void)height;
 
     cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
     for (int x = -1000; x < 1000; x += 20)
@@ -44,49 +113,9 @@ static void draw_cb(
     cairo_stroke(cr);
 
     if (viewer->pool != NULL && viewer->expr > -1)
-    {
-        struct str*           str;
-        PangoLayout*          layout;
-        PangoFontDescription* desc;
-        int                   tw1, th1;
-        double                tx = 0.0;
-        double                ty = 0.0;
-
-        str_init(&str);
-
-        cairo_set_source_rgb(cr, 0, 0, 0);
-
-        layout = pango_cairo_create_layout(cr);
-        desc = pango_font_description_from_string("Sans 24");
-        pango_layout_set_font_description(layout, desc);
-
-        csfg_expr_to_str(&str, viewer->pool, viewer->expr);
-        pango_layout_set_text(layout, str_cstr(str), -1);
-        cairo_move_to(cr, tx, ty);
-        pango_cairo_show_layout(cr, layout);
-        pango_layout_get_pixel_size(layout, &tw1, &th1);
-
-        if (viewer->den_pool != NULL && viewer->den_expr > -1)
-        {
-            int tw2, th2;
-            ty += th1;
-
-            str_clear(str);
-            csfg_expr_to_str(&str, viewer->den_pool, viewer->den_expr);
-            pango_layout_set_text(layout, str_cstr(str), -1);
-            cairo_move_to(cr, tx, ty);
-            pango_cairo_show_layout(cr, layout);
-
-            pango_layout_get_pixel_size(layout, &tw2, &th2);
-            cairo_move_to(cr, tx, ty);
-            cairo_line_to(cr, tx + tw2 > tw1 ? tw2 : tw1, ty);
-            cairo_stroke(cr);
-        }
-
-        g_object_unref(layout);
-        pango_font_description_free(desc);
-        str_deinit(str);
-    }
+        draw_expr(cr, viewer->pool, viewer->expr);
+    if (viewer->pool != NULL && viewer->rational != NULL)
+        draw_rational(cr, viewer->pool, viewer->rational);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -111,21 +140,20 @@ static void math_viewer_init(MathViewer* self)
 /* -------------------------------------------------------------------------- */
 static void math_viewer_finalize(GObject* obj)
 {
-    MathViewer* self = PLUGIN_MATH_VIEWER(obj);
+    (void)obj;
 }
 
 /* -------------------------------------------------------------------------- */
 static void math_viewer_class_init(MathViewerClass* class)
 {
-    GObjectClass*   object_class = G_OBJECT_CLASS(class);
-    GtkWidgetClass* widget_class = GTK_WIDGET_CLASS(class);
-
+    GObjectClass* object_class = G_OBJECT_CLASS(class);
     object_class->finalize = math_viewer_finalize;
 }
 
 /* -------------------------------------------------------------------------- */
 static void math_viewer_class_finalize(MathViewerClass* class)
 {
+    (void)class;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -144,6 +172,7 @@ MathViewer* math_viewer_new(void)
 void math_viewer_set_expr(
     MathViewer* viewer, const struct csfg_expr_pool* pool, int expr)
 {
+    viewer->rational = NULL;
     viewer->pool = pool;
     viewer->expr = expr;
     gtk_widget_queue_draw(viewer->drawing_area);
@@ -152,14 +181,11 @@ void math_viewer_set_expr(
 /* -------------------------------------------------------------------------- */
 void math_viewer_set_tf(
     MathViewer*                  viewer,
-    const struct csfg_expr_pool* num_pool,
-    int                          num_expr,
-    const struct csfg_expr_pool* den_pool,
-    int                          den_expr)
+    const struct csfg_expr_pool* pool,
+    const struct csfg_rational*  rational)
 {
-    viewer->pool = num_pool;
-    viewer->expr = num_expr;
-    viewer->den_pool = den_pool;
-    viewer->den_expr = den_expr;
+    viewer->rational = rational;
+    viewer->pool = pool;
+    viewer->expr = -1;
     gtk_widget_queue_draw(viewer->drawing_area);
 }

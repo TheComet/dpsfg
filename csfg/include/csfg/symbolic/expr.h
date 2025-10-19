@@ -91,6 +91,11 @@ int csfg_expr_new(
  */
 int csfg_expr_insert_substitutions(
     struct csfg_expr_pool** pool, int expr, const struct csfg_var_table* vt);
+int csfg_expr_apply_limits(
+    const struct csfg_expr_pool* in_pool,
+    int                          in_expr,
+    const struct csfg_var_table* vt,
+    struct csfg_expr_pool**      out_pool);
 
 /* Leaf nodes */
 int csfg_expr_lit(struct csfg_expr_pool** pool, double value);
@@ -132,6 +137,8 @@ int csfg_expr_dup_recurse_from(
     struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n);
 int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n);
 /* Copy a single node. All fields. */
+int csfg_expr_dup_single_from(
+    struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n);
 int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n);
 
 /* Mark for deletion (does not modify any other nodes, i.e. iterators remain

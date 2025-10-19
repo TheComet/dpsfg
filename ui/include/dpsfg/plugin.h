@@ -6,6 +6,7 @@ struct plugin_ctx;
 struct csfg_graph;
 struct csfg_expr_pool;
 struct csfg_var_table;
+struct csfg_rational;
 
 typedef struct _GtkWidget   GtkWidget;
 typedef struct _GTypeModule GTypeModule;
@@ -47,12 +48,12 @@ struct dpsfg_expr_interface
         struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr);
     void (*on_substituted_expr)(
         struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr);
+    void (*on_limit_expr)(
+        struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr);
     void (*on_graph_tf)(
         struct plugin_ctx*           ctx,
-        const struct csfg_expr_pool* num_pool,
-        int                          num_expr,
-        const struct csfg_expr_pool* den_pool,
-        int                          den_expr);
+        const struct csfg_expr_pool* pool,
+        const struct csfg_rational*  rational);
 };
 
 struct dpsfg_substitutions_interface

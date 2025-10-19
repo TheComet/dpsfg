@@ -3,6 +3,7 @@
 extern "C" {
 #include "csfg/graph/graph.h"
 #include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
 #include "csfg/symbolic/expr_tf.h"
 #include "csfg/symbolic/rational.h"
@@ -21,8 +22,9 @@ struct NAME : public Test
         csfg_path_vec_init(&paths);
         csfg_path_vec_init(&loops);
 
-        csfg_expr_pool_init(&pool);
+        csfg_expr_pool_init(&pool1);
         csfg_expr_pool_init(&pool2);
+        csfg_expr_pool_init(&pool3);
         csfg_var_table_init(&vt);
         csfg_rational_init(&rational);
     }
@@ -30,8 +32,9 @@ struct NAME : public Test
     {
         csfg_rational_deinit(&rational);
         csfg_var_table_deinit(&vt);
+        csfg_expr_pool_deinit(pool3);
         csfg_expr_pool_deinit(pool2);
-        csfg_expr_pool_deinit(pool);
+        csfg_expr_pool_deinit(pool1);
 
         csfg_path_vec_deinit(loops);
         csfg_path_vec_deinit(paths);
@@ -42,8 +45,9 @@ struct NAME : public Test
     struct csfg_path_vec* paths;
     struct csfg_path_vec* loops;
 
-    struct csfg_expr_pool* pool;
+    struct csfg_expr_pool* pool1;
     struct csfg_expr_pool* pool2;
+    struct csfg_expr_pool* pool3;
     struct csfg_var_table  vt;
     struct csfg_rational   rational;
 };
@@ -57,10 +61,11 @@ TEST_F(NAME, simple)
      *   --- - ---         a - s
      *    s     a
      */
-    int expr = csfg_expr_parse(&pool, cstr_view("1/(1/s - 1/a)"));
+    int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/s - 1/a)"));
     ASSERT_THAT(expr, Ge(0));
     ASSERT_THAT(
-        csfg_expr_to_rational(&pool, expr, cstr_view("s"), &rational), Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
+        Eq(0));
 }
 
 TEST_F(NAME, light)
@@ -72,13 +77,14 @@ TEST_F(NAME, light)
      *   --- - ---          a+4 - s+1            a - s + 5
      *   s-1   a+4
      */
-    int expr = csfg_expr_parse(&pool, cstr_view("1/(1/(s-1)-1/(a+4))"));
+    int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/(s-1)-1/(a+4))"));
     ASSERT_THAT(expr, Ge(0));
-    csfg_expr_opt_remove_useless_ops(&pool);
-    csfg_expr_opt_fold_constants(&pool);
-    expr = csfg_expr_gc(pool, expr);
+    csfg_expr_opt_remove_useless_ops(&pool1);
+    csfg_expr_opt_fold_constants(&pool1);
+    expr = csfg_expr_gc(pool1, expr);
     ASSERT_THAT(
-        csfg_expr_to_rational(&pool, expr, cstr_view("s"), &rational), Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
+        Eq(0));
 }
 
 TEST_F(NAME, medium)
@@ -94,19 +100,20 @@ TEST_F(NAME, medium)
      * --->  -----------------------------  --->  --------------------------
      *            s^2 + 2s + a + 3                    s^2 + 2s + a + 3
      */
-    int expr = csfg_expr_parse(&pool, cstr_view("1/(1/(s-1)^2-1/(a+4))"));
+    int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/(s-1)^2-1/(a+4))"));
     ASSERT_THAT(expr, Ge(0));
-    csfg_expr_opt_remove_useless_ops(&pool);
-    csfg_expr_opt_fold_constants(&pool);
-    expr = csfg_expr_gc(pool, expr);
+    csfg_expr_opt_remove_useless_ops(&pool1);
+    csfg_expr_opt_fold_constants(&pool1);
+    expr = csfg_expr_gc(pool1, expr);
     ASSERT_THAT(
-        csfg_expr_to_rational(&pool, expr, cstr_view("s"), &rational), Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
+        Eq(0));
 }
 
 TEST_F(NAME, harder)
 {
     int expr =
-        csfg_expr_parse(&pool, cstr_view("1/(1/s^3 - 4/(1+s)^2 - 8/(a+4))"));
+        csfg_expr_parse(&pool1, cstr_view("1/(1/s^3 - 4/(1+s)^2 - 8/(a+4))"));
 
     /*
      *              1                            1
@@ -131,11 +138,12 @@ TEST_F(NAME, harder)
      * --->  -------------------------------------------------------------
      *       (-8)s^5 + (-16)s^4 + (-4a-24)s^3 + (a+4)s^2 + (2a+8)s + (a+4)
      */
-    csfg_expr_opt_remove_useless_ops(&pool);
-    csfg_expr_opt_fold_constants(&pool);
-    expr = csfg_expr_gc(pool, expr);
+    csfg_expr_opt_remove_useless_ops(&pool1);
+    csfg_expr_opt_fold_constants(&pool1);
+    expr = csfg_expr_gc(pool1, expr);
     ASSERT_THAT(
-        csfg_expr_to_rational(&pool, expr, cstr_view("s"), &rational), Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
+        Eq(0));
 
 #if 0
     for (std::size_t i = 0; i != tfc.numerator.size(); ++i)
@@ -280,24 +288,27 @@ TEST_F(NAME, inverting_amplifier)
     int expr;
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
-    expr = csfg_graph_mason(&g, &pool, paths, loops);
+    expr = csfg_graph_mason(&g, &pool1, paths, loops);
     ASSERT_THAT(expr, Ge(0));
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2"));
-    // csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&pool, expr, &vt), Eq(0));
+    csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+    ASSERT_THAT(csfg_expr_insert_substitutions(&pool1, expr, &vt), Eq(0));
+    csfg_expr_opt_remove_useless_ops(&pool1);
+    csfg_expr_opt_fold_constants(&pool1);
+    expr = csfg_expr_gc(pool1, expr);
 
-    csfg_expr_opt_remove_useless_ops(&pool);
-    csfg_expr_opt_fold_constants(&pool);
-    expr = csfg_expr_gc(pool, expr);
-    ASSERT_THAT(
-        csfg_expr_to_rational(&pool, expr, cstr_view("s"), &rational), Eq(0));
     /*
      *    -G1*G2*A      -G1*G2*A          -G1*G2   -G1
      * -------------- = --------------- = ------ = ---
      * G2*(G2+(A*G2))   G2*G2 + G2*G2*A   G2*G2    G2
      */
+    expr = csfg_expr_apply_limits(pool1, expr, &vt, &pool2);
+    ASSERT_THAT(expr, Ge(0));
+    ASSERT_THAT(
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &rational),
+        Eq(0));
 }
 
 TEST_F(NAME, integrator)
@@ -343,35 +354,33 @@ TEST_F(NAME, integrator)
     int expr;
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
-    expr = csfg_graph_mason(&g, &pool, paths, loops);
+    expr = csfg_graph_mason(&g, &pool1, paths, loops);
     ASSERT_THAT(expr, Ge(0));
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&pool, expr, &vt), Eq(0));
-    csfg_expr_opt_remove_useless_ops(&pool);
-    csfg_expr_opt_fold_constants(&pool);
-    expr = csfg_expr_gc(pool, expr);
+    ASSERT_THAT(csfg_expr_insert_substitutions(&pool1, expr, &vt), Eq(0));
+    csfg_expr_opt_remove_useless_ops(&pool1);
+    csfg_expr_opt_fold_constants(&pool1);
+    expr = csfg_expr_gc(pool1, expr);
 
-    struct csfg_rational r;
-    csfg_rational_init(&r);
-    int result = csfg_expr_to_rational_limit(&pool, expr, cstr_view("A"), &r);
-    ASSERT_THAT(result, Eq(0));
+    ASSERT_THAT(expr, Ge(0));
     /*
      *           -G1*(G2+s*C)*A           |        -G1*(G2+s*C)   -G1
      * ---------------------------------- |      = ------------ = ---
      * (G2+s*C)*(G2+s*C) + (G2+s*C)*s*C*A |A->oo   (G2+s*C)*s*C   s*C
      */
-    expr = csfg_rational_to_expr(&r, pool, &pool2);
+    expr = csfg_expr_apply_limits(pool1, expr, &vt, &pool2);
 
-    ASSERT_THAT(
-        csfg_expr_to_rational(&pool2, expr, cstr_view("s"), &rational), Eq(0));
     /*
      *           -A*G1*G2 - A*G1*C*s
      * -----------------------------------------
      * G2^2 + 2*G2^2*C*(C+C*A)*s + C*(C+C*A)*s^2
      */
+    ASSERT_THAT(
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &rational),
+        Eq(0));
 }
 
 TEST_F(NAME, active_lowpass_filter)
@@ -402,6 +411,12 @@ TEST_F(NAME, active_lowpass_filter)
      *
      * P1 = -G1*z2*A
      * L1 = -A*(G2+s*C)*z2
+     *
+     *
+     *
+     *       -G1*(s*C+G2+G1)              -G1
+     * -------------------------------- = -----------
+     * (s*C+G2+G1)*s*C + (s*C+G2+G1)*G2   G2 + s*C
      */
     int Vin = csfg_graph_add_node(&g, "Vin");
     int I2 = csfg_graph_add_node(&g, "I2");
@@ -417,20 +432,38 @@ TEST_F(NAME, active_lowpass_filter)
     csfg_graph_add_edge_parse_expr(&g, V3, Vout, cstr_view("A"));
     csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("G2+s*C"));
 
+    /*
+     *   P1         -A*G1/(G1+G2+s*C)
+     * ------ = --------------------------
+     * 1 - L1   1 + A*(G2+s*C)/(G1+G2+s*C)
+     */
     int expr;
     ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
     ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
-    expr = csfg_graph_mason(&g, &pool, paths, loops);
+    expr = csfg_graph_mason(&g, &pool1, paths, loops);
     ASSERT_THAT(expr, Ge(0));
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
-    csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
-    // csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&pool, expr, &vt), Eq(0));
-    csfg_expr_opt_remove_useless_ops(&pool);
-    csfg_expr_opt_fold_constants(&pool);
-    expr = csfg_expr_gc(pool, expr);
+    csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("s*C + G2"));
+    csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
+    ASSERT_THAT(csfg_expr_insert_substitutions(&pool1, expr, &vt), Eq(0));
+    csfg_expr_opt_remove_useless_ops(&pool1);
+    csfg_expr_opt_fold_constants(&pool1);
+    expr = csfg_expr_gc(pool1, expr);
+
+    /*
+     *             -A*G1             |          -G1
+     * ----------------------------- |      = --------
+     *   (G1+G2+s*C) - A*(G2+s*C)    |A->oo   G2 + s*C
+     */
+    expr = csfg_expr_apply_limits(pool1, expr, &vt, &pool2);
+    /*
+     * -G1*(G2+s*C)
+     * -----------------
+     * (G2+s*C)*(G2+s*C)
+     */
 
     ASSERT_THAT(
-        csfg_expr_to_rational(&pool, expr, cstr_view("s"), &rational), Eq(0));
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &rational),
+        Eq(0));
 }

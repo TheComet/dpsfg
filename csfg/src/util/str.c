@@ -123,8 +123,18 @@ int str_append_int(struct str** str, int value)
 /* ------------------------------------------------------------------------- */
 int str_append_float(struct str** str, double value)
 {
-    char buf[12];
+    char* p;
+    char  buf[12];
     sprintf(buf, "%.4f", (float)value);
+
+    /* Strip trailing 0's */
+    p = buf + strlen(buf) - 1;
+    while (*p == '0' && p > buf)
+        p--;
+    if (*p == '.')
+        p--;
+    p[1] = '\0';
+
     return str_append_cstr(str, buf);
 }
 

@@ -1,4 +1,5 @@
 #include "csfg/symbolic/expr.h"
+#include "csfg/symbolic/rational.h"
 #include "csfg/symbolic/var_table.h"
 #include "csfg/util/mem.h"
 #include <assert.h>
@@ -85,14 +86,14 @@ static int insert_substitutions(
 
     if (entry != NULL)
     {
-        if (entry->pool->nodes[entry->root].type == CSFG_EXPR_INF)
+        if (entry->pool->nodes[entry->expr].type == CSFG_EXPR_INF)
             return 0;
 
-        if (entry->pool->nodes[entry->root].visited)
+        if (entry->pool->nodes[entry->expr].visited)
             return -1;
-        entry->pool->nodes[entry->root].visited = 1;
+        entry->pool->nodes[entry->expr].visited = 1;
 
-        dup = csfg_expr_dup_recurse_from(pool, entry->pool, entry->root);
+        dup = csfg_expr_dup_recurse_from(pool, entry->pool, entry->expr);
         if (dup == -1)
             return -1;
         (*pool)->nodes[n] = (*pool)->nodes[dup];
@@ -112,7 +113,7 @@ static int insert_substitutions(
             return -1;
 
     if (entry != NULL)
-        entry->pool->nodes[entry->root].visited = 0;
+        entry->pool->nodes[entry->expr].visited = 0;
 
     return 0;
 }
@@ -123,9 +124,60 @@ int csfg_expr_insert_substitutions(
     struct str*                  key;
     struct csfg_var_table_entry* entry;
     hmap_for_each (vt->map, slot, key, entry)
-        (void)slot, (void)key, entry->pool->nodes[entry->root].visited = 0;
+        (void)slot, (void)key, entry->pool->nodes[entry->expr].visited = 0;
 
     return insert_substitutions(pool, expr, vt);
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_apply_limits(
+    const struct csfg_expr_pool* in_pool,
+    int                          in_expr,
+    const struct csfg_var_table* vt,
+    struct csfg_expr_pool**      out_pool)
+{
+    int                          slot, out_expr, result;
+    struct str*                  key;
+    struct csfg_var_table_entry* entry;
+    struct csfg_rational         rational;
+    struct csfg_expr_pool*       tmp_pool;
+
+    csfg_rational_init(&rational);
+    csfg_expr_pool_init(&tmp_pool);
+
+    out_expr = -1;
+    hmap_for_each (vt->map, slot, key, entry)
+    {
+        struct strview var_name = str_view(key);
+        if (entry->pool->nodes[entry->expr].type != CSFG_EXPR_INF)
+            continue;
+
+        result = csfg_expr_to_rational_limit(
+            in_pool, in_expr, var_name, &tmp_pool, &rational);
+        if (result != 0)
+            goto fail;
+
+        out_expr = csfg_rational_to_expr(&rational, tmp_pool, out_pool);
+        if (out_expr < 0)
+            goto fail;
+        csfg_rational_clear(&rational);
+
+        in_pool = *out_pool;
+        in_expr = out_expr;
+    }
+
+    /* If no INF variables were set, then we just copy */
+    if (out_expr < 0)
+        out_expr = csfg_expr_dup_recurse_from(out_pool, in_pool, in_expr);
+
+    csfg_expr_pool_deinit(tmp_pool);
+    csfg_rational_deinit(&rational);
+    return out_expr;
+
+fail:
+    csfg_expr_pool_deinit(tmp_pool);
+    csfg_rational_deinit(&rational);
+    return -1;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -303,29 +355,11 @@ int csfg_expr_dup_recurse_from(
         if ((right = csfg_expr_dup_recurse_from(dst, src, right)) == -1)
             return -1;
 
-    dup = csfg_expr_new(dst, src->nodes[n].type, left, right);
+    dup = csfg_expr_dup_single_from(dst, src, n);
     if (dup == -1)
         return -1;
-
-    switch ((*dst)->nodes[dup].type)
-    {
-        case CSFG_EXPR_GC: break;
-        case CSFG_EXPR_LIT:
-            (*dst)->nodes[dup].value = src->nodes[n].value;
-            break;
-        case CSFG_EXPR_VAR: {
-            int            orig_idx = src->nodes[n].value.var_idx;
-            struct strview orig = strlist_view(src->var_names, orig_idx);
-            if (csfg_expr_set_var(dst, dup, orig) == -1)
-                return -1;
-            break;
-        }
-        case CSFG_EXPR_INF: break;
-        case CSFG_EXPR_NEG: break;
-        case CSFG_EXPR_OP_ADD: break;
-        case CSFG_EXPR_OP_MUL: break;
-        case CSFG_EXPR_OP_POW: break;
-    }
+    (*dst)->nodes[dup].child[0] = left;
+    (*dst)->nodes[dup].child[1] = right;
 
     return dup;
 }
@@ -356,10 +390,47 @@ int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n)
 }
 
 /* ------------------------------------------------------------------------- */
+int csfg_expr_dup_single_from(
+    struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n)
+{
+    int dup;
+    if (n == -1)
+        return -1;
+    dup = csfg_expr_new(dst, src->nodes[n].type, -1, -1);
+    if (dup == -1)
+        return -1;
+
+    switch (src->nodes[n].type)
+    {
+        case CSFG_EXPR_GC: break;
+        case CSFG_EXPR_LIT:
+            (*dst)->nodes[dup].value = src->nodes[n].value;
+            break;
+        case CSFG_EXPR_VAR: {
+            int            orig_idx = src->nodes[n].value.var_idx;
+            struct strview orig = strlist_view(src->var_names, orig_idx);
+            if (csfg_expr_set_var(dst, dup, orig) == -1)
+                return -1;
+            break;
+        }
+        case CSFG_EXPR_INF: break;
+        case CSFG_EXPR_NEG: break;
+        case CSFG_EXPR_OP_ADD: break;
+        case CSFG_EXPR_OP_MUL: break;
+        case CSFG_EXPR_OP_POW: break;
+    }
+
+    return dup;
+}
+
+/* ------------------------------------------------------------------------- */
 int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n)
 {
-    int dup = csfg_expr_new(pool, CSFG_EXPR_GC, -1, -1);
-    if (n == -1 || dup == -1)
+    int dup;
+    if (n == -1)
+        return -1;
+    dup = csfg_expr_new(pool, CSFG_EXPR_GC, -1, -1);
+    if (dup == -1)
         return -1;
     (*pool)->nodes[dup] = (*pool)->nodes[n];
     return dup;

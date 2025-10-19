@@ -73,7 +73,8 @@ static void on_text_buffer_changed(GtkTextBuffer* buffer, gpointer user_data)
 
     g_free(text);
 
-    ctx->icb->substitutions_changed(ctx->cb, ctx);
+    if (modified)
+        ctx->icb->substitutions_changed(ctx->cb, ctx);
 }
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
@@ -88,6 +89,7 @@ static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+    (void)ctx;
     g_object_unref(ui);
 }
 
@@ -100,9 +102,11 @@ void substitutions_on_set(
 void substitutions_on_changed(
     struct plugin_ctx* ctx, struct csfg_var_table* substitutions)
 {
+    (void)ctx, (void)substitutions;
 }
 void substitutions_on_clear(struct plugin_ctx* ctx)
 {
+    (void)ctx;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -112,12 +116,14 @@ static struct plugin_ctx* create(
     GTypeModule*                             type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
+    (void)type_module;
     ctx->icb = icb;
     ctx->cb = cb;
     return ctx;
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 {
+    (void)type_module;
     mem_free(ctx);
 }
 

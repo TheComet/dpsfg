@@ -110,3 +110,21 @@ TEST_F(NAME, remove_zero_exponents)
     ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
     ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
 }
+
+TEST_F(NAME, cancel_products)
+{
+    /*
+     *   -G1*(G2+s*C)
+     * -----------------
+     * (G2+s*C)*(G2+s*C)
+     */
+    int r1 = csfg_expr_parse(
+        &p1, cstr_view("-1*(G1*(G2+s*C))/(1*((G2+s*C)*(s*C+G2)))"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("-G1/(s*C+G2)"));
+    ASSERT_THAT(r1, Ge(0));
+    ASSERT_THAT(r2, Ge(0));
+    csfg_expr_opt_fold_constants(&p1);
+    csfg_expr_opt_fold_constants(&p2);
+    ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&p1), Gt(0));
+    ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
+}

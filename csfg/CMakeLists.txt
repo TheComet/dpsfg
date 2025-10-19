@@ -53,6 +53,7 @@ set (csfg_SOURCES
     "src/symbolic/expr_op_tf.c"
     "src/symbolic/expr_opt_remove_useless_ops.c"
     "src/symbolic/expr_opt_fold_constants.c"
+    "src/symbolic/poly.c"
     "src/symbolic/rational.c"
     "src/symbolic/var_table.c")
 
@@ -98,6 +99,7 @@ if (CSFG_TESTS)
     target_sources (dpsfg-tests INTERFACE
         "tests/LogHelper.cpp"
 
+        # symbolic
         "tests/test_expr.cpp"
         "tests/test_expr_insert_substitutions.cpp"
         "tests/test_expr_op_distribute_products.cpp"
@@ -113,12 +115,17 @@ if (CSFG_TESTS)
         "tests/test_expr_opt_remove_useless_ops.cpp"
         "tests/test_expr_opt_fold_constants.cpp"
         "tests/test_expr_to_rational.cpp"
+        "tests/test_poly.cpp"
+        "tests/test_poly_add_permutations.cpp"
+        "tests/test_rational_simplify.cpp"
 
+        # graph
         "tests/test_graph_find_forward_paths.cpp"
         "tests/test_graph_find_loops.cpp"
         "tests/test_graph_find_nontouching.cpp"
         "tests/test_graph_mason.cpp"
 
+        # util
         "tests/test_hmap.cpp"
         "tests/test_hmap_full.cpp"
         "tests/test_hset.cpp"
