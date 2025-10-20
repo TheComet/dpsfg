@@ -32,17 +32,6 @@ struct NAME : public Test, public PolyHelper
         csfg_expr_pool_deinit(in_pool);
     }
 
-    bool NodeEqualsVar(int n, const char* var_name) const
-    {
-        if (n < 0)
-            return false;
-        if (in_pool->nodes[n].type != CSFG_EXPR_VAR)
-            return false;
-        int                  idx = in_pool->nodes[n].value.var_idx;
-        const struct strview view = strlist_view(in_pool->var_names, idx);
-        return strview_eq_cstr(view, var_name);
-    }
-
     struct csfg_expr_pool* in_pool;
     struct csfg_expr_pool* out_pool;
     struct csfg_rational   rational;

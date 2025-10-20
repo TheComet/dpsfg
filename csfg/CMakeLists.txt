@@ -101,6 +101,7 @@ if (CSFG_TESTS)
 
         # symbolic
         "tests/test_expr.cpp"
+        "tests/test_expr_apply_limits.cpp"
         "tests/test_expr_insert_substitutions.cpp"
         "tests/test_expr_op_distribute_products.cpp"
         "tests/test_expr_op_expand_constant_exponents.cpp"
@@ -115,6 +116,8 @@ if (CSFG_TESTS)
         "tests/test_expr_opt_remove_useless_ops.cpp"
         "tests/test_expr_opt_fold_constants.cpp"
         "tests/test_expr_to_rational.cpp"
+        "tests/test_expr_to_rational_limit.cpp"
+        "tests/test_expr_to_rational_limits.cpp"
         "tests/test_poly.cpp"
         "tests/test_poly_add_permutations.cpp"
         "tests/test_rational_simplify.cpp"

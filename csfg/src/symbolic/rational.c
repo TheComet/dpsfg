@@ -1,6 +1,7 @@
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/rational.h"
+#include "csfg/symbolic/var_table.h"
 #include <math.h>
 
 /* ------------------------------------------------------------------------- */
@@ -19,6 +20,9 @@ int csfg_expr_to_rational(
     struct csfg_rational r1, r2;
     csfg_rational_init(&r1);
     csfg_rational_init(&r2);
+
+    CSFG_DEBUG_ASSERT(vec_count(r->num) == 0);
+    CSFG_DEBUG_ASSERT(vec_count(r->den) == 0);
 
     left = in_pool->nodes[in_expr].child[0];
     right = in_pool->nodes[in_expr].child[1];
@@ -253,11 +257,15 @@ int csfg_expr_to_rational_limit(
     int                      rc, num_idx, den_idx;
     const struct csfg_coeff* c;
 
+    CSFG_DEBUG_ASSERT(vec_count(rational->num) == 0);
+    CSFG_DEBUG_ASSERT(vec_count(rational->den) == 0);
+
     rc = csfg_expr_to_rational(
         in_pool, in_expr, variable, rational_pool, rational);
     if (rc != 0)
         return -1;
 
+    /* Find the highest, non-zero coefficients */
     vec_enumerate_r (rational->num, num_idx, c)
         if (c->factor != 0.0)
             break;
@@ -265,15 +273,47 @@ int csfg_expr_to_rational_limit(
         if (c->factor != 0.0)
             break;
 
-    if (den_idx == vec_count(rational->den))
-        assert(0); // TODO
-    else if (num_idx == vec_count(rational->num))
-        assert(0); // TODO
-    else if (num_idx > den_idx)
-        assert(0); // TODO
-    else if (num_idx < den_idx)
-        assert(0); // TODO
-    else
+    if (den_idx < 0 && num_idx < 0) /* 0/0 */
+    {
+        csfg_rational_clear(rational);
+        csfg_poly_push(&rational->num, csfg_coeff(0.0, -1));
+        csfg_poly_push(&rational->den, csfg_coeff(0.0, -1));
+    }
+    else if (den_idx < 0) /* Denominator has factor 0 */
+    {
+        double factor =
+            vec_get(rational->num, num_idx)->factor < 0.0 ? -1.0 : 1.0;
+        int inf = csfg_expr_inf(rational_pool);
+        if (inf < 0)
+            return -1;
+        csfg_rational_clear(rational);
+        csfg_poly_push(&rational->num, csfg_coeff(factor, inf));
+        csfg_poly_push(&rational->den, csfg_coeff(0.0, -1));
+    }
+    else if (num_idx < 0) /* Numerator has factor 0 */
+    {
+        csfg_rational_clear(rational);
+        csfg_poly_push(&rational->num, csfg_coeff(0.0, -1));
+        csfg_poly_push(&rational->den, csfg_coeff(1.0, -1));
+    }
+    else if (num_idx > den_idx) /* Numerator diverges to inf */
+    {
+        double factor =
+            vec_get(rational->num, num_idx)->factor < 0.0 ? -1.0 : 1.0;
+        int inf = csfg_expr_inf(rational_pool);
+        if (inf < 0)
+            return -1;
+        csfg_rational_clear(rational);
+        csfg_poly_push(&rational->num, csfg_coeff(factor, inf));
+        csfg_poly_push(&rational->den, csfg_coeff(1.0, -1));
+    }
+    else if (num_idx < den_idx) /* Denominator diverges to inf */
+    {
+        csfg_rational_clear(rational);
+        csfg_poly_push(&rational->num, csfg_coeff(0.0, -1));
+        csfg_poly_push(&rational->den, csfg_coeff(1.0, -1));
+    }
+    else /* Convergent */
     {
         csfg_poly_swap_values(rational->num, 0, num_idx);
         csfg_poly_swap_values(rational->den, 0, den_idx);
@@ -282,6 +322,58 @@ int csfg_expr_to_rational_limit(
     }
 
     return 0;
+}
+
+/* ------------------------------------------------------------------------- */
+int csfg_expr_to_rational_limits(
+    const struct csfg_expr_pool* in_pool,
+    int                          in_expr,
+    const struct csfg_var_table* vt,
+    struct csfg_expr_pool**      rational_pool,
+    struct csfg_rational*        rational)
+{
+    int                          slot, tmp_expr;
+    struct str*                  key;
+    struct csfg_var_table_entry* entry;
+    struct csfg_expr_pool*       tmp_pool;
+
+    CSFG_DEBUG_ASSERT(vec_count(rational->num) == 0);
+    CSFG_DEBUG_ASSERT(vec_count(rational->den) == 0);
+
+    csfg_expr_pool_init(&tmp_pool);
+
+    tmp_expr = -1;
+    hmap_for_each (vt->map, slot, key, entry)
+    {
+        struct strview var_name = str_view(key);
+        if (entry->pool->nodes[entry->expr].type != CSFG_EXPR_INF)
+            continue;
+
+        if (vec_count(rational->num) > 0)
+        {
+            tmp_expr =
+                csfg_rational_to_expr(rational, *rational_pool, &tmp_pool);
+            if (tmp_expr < 0)
+                goto fail;
+            csfg_rational_clear(rational);
+            if (csfg_expr_to_rational_limit(
+                    tmp_pool, tmp_expr, var_name, rational_pool, rational) != 0)
+                goto fail;
+        }
+        else
+        {
+            if (csfg_expr_to_rational_limit(
+                    in_pool, in_expr, var_name, rational_pool, rational) != 0)
+                goto fail;
+        }
+    }
+
+    csfg_expr_pool_deinit(tmp_pool);
+    return 0;
+
+fail:
+    csfg_expr_pool_deinit(tmp_pool);
+    return -1;
 }
 
 /* ------------------------------------------------------------------------- */

@@ -152,6 +152,8 @@ int csfg_expr_apply_limits(
         if (entry->pool->nodes[entry->expr].type != CSFG_EXPR_INF)
             continue;
 
+        csfg_expr_pool_clear(tmp_pool);
+        csfg_rational_clear(&rational);
         result = csfg_expr_to_rational_limit(
             in_pool, in_expr, var_name, &tmp_pool, &rational);
         if (result != 0)
@@ -160,7 +162,6 @@ int csfg_expr_apply_limits(
         out_expr = csfg_rational_to_expr(&rational, tmp_pool, out_pool);
         if (out_expr < 0)
             goto fail;
-        csfg_rational_clear(&rational);
 
         in_pool = *out_pool;
         in_expr = out_expr;
@@ -445,11 +446,15 @@ void csfg_expr_mark_deleted(struct csfg_expr_pool* pool, int n)
 /* ------------------------------------------------------------------------- */
 void csfg_expr_mark_deleted_recursive(struct csfg_expr_pool* pool, int n)
 {
-    int left = pool->nodes[n].child[0];
-    int right = pool->nodes[n].child[1];
-    if (left != -1)
+    int left, right;
+    CSFG_DEBUG_ASSERT(n > -1);
+
+    left = pool->nodes[n].child[0];
+    right = pool->nodes[n].child[1];
+
+    if (left > -1)
         csfg_expr_mark_deleted_recursive(pool, left);
-    if (right != -1)
+    if (right > -1)
         csfg_expr_mark_deleted_recursive(pool, right);
 
     csfg_expr_mark_deleted(pool, n);
@@ -491,7 +496,7 @@ void csfg_expr_collapse_into_parent(
     int dangling_child = pool->nodes[parent].child[0] == child
                              ? pool->nodes[parent].child[1]
                              : pool->nodes[parent].child[0];
-    assert(
+    CSFG_DEBUG_ASSERT(
         pool->nodes[parent].child[0] == child ||
         pool->nodes[parent].child[1] == child);
 
@@ -507,10 +512,10 @@ void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n)
 {
     int sibling;
     int parent = csfg_expr_find_parent(pool, n);
-    assert(parent > -1);
+    CSFG_DEBUG_ASSERT(parent > -1);
     sibling = pool->nodes[parent].child[0] == n ? pool->nodes[parent].child[1]
                                                 : pool->nodes[parent].child[0];
-
+    CSFG_DEBUG_ASSERT(sibling > -1);
     pool->nodes[parent] = pool->nodes[sibling];
     csfg_expr_mark_deleted(pool, sibling);
     csfg_expr_mark_deleted_recursive(pool, n);
@@ -522,7 +527,7 @@ int csfg_expr_collapse_sibling_into_parent_steal_orphan(
 {
     int sibling;
     int parent = csfg_expr_find_parent(pool, n);
-    assert(parent > -1);
+    CSFG_DEBUG_ASSERT(parent > -1);
     sibling = pool->nodes[parent].child[0] == n ? pool->nodes[parent].child[1]
                                                 : pool->nodes[parent].child[0];
 

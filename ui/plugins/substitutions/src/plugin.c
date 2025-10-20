@@ -1,6 +1,7 @@
 #include "csfg/symbolic/var_table.h"
 #include "csfg/util/mem.h"
 #include "dpsfg/plugin.h"
+#include <ctype.h>
 #include <gtk/gtk.h>
 
 struct plugin_ctx
@@ -11,65 +12,168 @@ struct plugin_ctx
     struct csfg_var_table*                   substitutions_table;
 };
 
+enum token
+{
+    TOK_ERROR = -1,
+    TOK_END = 0,
+    TOK_EQUALS = '=',
+    TOK_TEXT = 256
+};
+
+struct parser
+{
+    const char* data;
+    union
+    {
+        struct strview str;
+    } value;
+    int head, tail, end;
+};
+
+/* -------------------------------------------------------------------------- */
+static void parser_init(struct parser* p, const char* text)
+{
+    p->data = text;
+    p->end = strlen(text);
+    p->head = 0;
+    p->tail = 0;
+}
+
+/* ------------------------------------------------------------------------- */
+static int parser_error(const struct parser* p, const char* fmt, ...)
+{
+    va_list        ap;
+    struct strview loc;
+
+    loc.off = p->tail;
+    loc.len = p->head - p->tail;
+
+    fprintf(
+        stderr,
+        "[substitutions] parser error %d-%d: ",
+        loc.off,
+        loc.off + loc.len);
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+
+    return -1;
+}
+
+/* ------------------------------------------------------------------------- */
+static enum token scan_next(struct parser* p)
+{
+    p->tail = p->head;
+    while (p->head != p->end)
+    {
+        if (p->data[p->head] == '/' && p->data[p->head + 1] == '*')
+        {
+            /* Find end of comment */
+            for (p->head += 2; p->head != p->end; p->head++)
+                if (p->data[p->head] == '*' && p->data[p->head + 1] == '/')
+                {
+                    p->head += 2;
+                    break;
+                }
+            if (p->head == p->end)
+                return parser_error(p, "Missing closing comment\n");
+            continue;
+        }
+        if (p->data[p->head] == '/' && p->data[p->head + 1] == '/')
+        {
+            /* Find end of comment */
+            for (p->head += 2; p->head != p->end; p->head++)
+                if (p->data[p->head] == '\n')
+                {
+                    p->head++;
+                    break;
+                }
+            continue;
+        }
+        if (p->data[p->head] == '#')
+        {
+            /* Find end of comment */
+            for (p->head += 1; p->head != p->end; p->head++)
+                if (p->data[p->head] == '\n')
+                {
+                    p->head++;
+                    break;
+                }
+            continue;
+        }
+
+        if (p->data[p->head] == '=')
+        {
+            p->head++;
+            return '=';
+        }
+
+        if (isalnum(p->data[p->head]) || p->data[p->head] == '_')
+        {
+            p->value.str.data = p->data;
+            p->value.str.off = p->head++;
+            while (p->head != p->end &&
+                   (p->data[p->head] != '\n' && p->data[p->head] != '='))
+            {
+                p->head++;
+            }
+            p->value.str.len = p->head - p->value.str.off;
+            while (p->data[p->value.str.off + p->value.str.len - 1] == ' ')
+                p->value.str.len--;
+            return TOK_TEXT;
+        }
+
+        p->tail = ++p->head;
+    }
+
+    return TOK_END;
+}
+
+/* -------------------------------------------------------------------------- */
+static int parse_text(struct parser* p, struct csfg_var_table* vt)
+{
+    struct strview var_name;
+    int            modified = 0;
+
+next_token:
+    switch (scan_next(p))
+    {
+        case TOK_ERROR: return -1;
+        case TOK_END: break;
+
+        case TOK_TEXT:
+            var_name = p->value.str;
+            if (scan_next(p) != '=')
+                return parser_error(p, "Missing '='\n");
+            if (scan_next(p) != TOK_TEXT)
+                return parser_error(p, "Missing text after '='\n");
+            if (csfg_var_table_set_parse_expr(vt, var_name, p->value.str) != 0)
+                return -1;
+            modified = 1;
+            goto next_token;
+
+        default: return parser_error(p, "Unexpected token\n");
+    }
+
+    return modified;
+}
+
 /* -------------------------------------------------------------------------- */
 static void on_text_buffer_changed(GtkTextBuffer* buffer, gpointer user_data)
 {
     gchar*             text;
     GtkTextIter        start, end;
-    struct strview     var_name, expr;
-    int                off, state, modified;
+    int                modified;
+    struct parser      p;
     struct plugin_ctx* ctx = user_data;
-
-    csfg_var_table_clear(ctx->substitutions_table);
 
     gtk_text_buffer_get_start_iter(buffer, &start);
     gtk_text_buffer_get_end_iter(buffer, &end);
     text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
 
-    var_name.data = text;
-    var_name.off = 0;
-    var_name.len = 0;
-    expr.data = text;
-    state = 0;
-    modified = 0;
-
-    for (off = 0;; ++off)
-    {
-        switch (state)
-        {
-            case 0:
-                if (text[off] == '=' && text[off] != '\0')
-                {
-                    expr.off = off + 1;
-                    expr.len = 0;
-                    state = 1;
-                }
-                else
-                    var_name.len++;
-                break;
-
-            case 1:
-                if (text[off] == '\n' || text[off] == '\0')
-                {
-                    if (var_name.len > 0 && expr.len > 0 &&
-                        csfg_var_table_set_parse_expr(
-                            ctx->substitutions_table, var_name, expr) == 0)
-                    {
-                        modified = 1;
-                    }
-
-                    var_name.off = expr.off + expr.len + 1;
-                    var_name.len = 0;
-                    state = 0;
-                }
-                else
-                    expr.len++;
-                break;
-        }
-
-        if (text[off] == '\0')
-            break;
-    }
+    parser_init(&p, text);
+    csfg_var_table_clear(ctx->substitutions_table);
+    modified = parse_text(&p, ctx->substitutions_table);
 
     g_free(text);
 

@@ -40,7 +40,14 @@ struct PolyHelper
         if (pool->nodes[n].type != CSFG_EXPR_LIT)
             return false;
 
-        return pool->nodes[n].value.lit == value;
+        return NodeEq(pool, n, CSFG_EXPR_LIT) &&
+               pool->nodes[n].value.lit == value;
+    }
+
+    bool
+    NodeEq(const struct csfg_expr_pool* pool, int n, enum csfg_expr_type type)
+    {
+        return pool->nodes[n].type == type;
     }
 
     bool CoeffEq(
@@ -87,6 +94,22 @@ struct PolyHelper
         if (vec_get(p, idx)->expr < 0)
             return false;
         if (!NodeEq(pool, vec_get(p, idx)->expr, expr_str))
+            return false;
+        return vec_get(p, idx)->factor == factor;
+    }
+
+    bool CoeffEq(
+        const struct csfg_expr_pool* pool,
+        const struct csfg_poly*      p,
+        int                          idx,
+        double                       factor,
+        enum csfg_expr_type          type)
+    {
+        if (idx >= vec_count(p))
+            return false;
+        if (vec_get(p, idx)->expr < 0)
+            return false;
+        if (!NodeEq(pool, vec_get(p, idx)->expr, type))
             return false;
         return vec_get(p, idx)->factor == factor;
     }

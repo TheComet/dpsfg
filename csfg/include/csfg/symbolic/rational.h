@@ -4,6 +4,7 @@
 #include "csfg/util/strview.h"
 
 struct csfg_expr_pool;
+struct csfg_var_table;
 
 struct csfg_rational
 {
@@ -37,17 +38,35 @@ int csfg_expr_to_rational(
     struct csfg_rational*        rational);
 
 /*!
- * @brief Calculates lim variable->oo of an expression and returns it as a
- * rational function. If successful, the result will be one of:
+ * @brief Calculates lim_{variable->oo} of an expression and returns it as a
+ * rational function. In the case of divergence, zero and infinity remain
+ * symbolic. I.e. no floating point infinity or NaN values are set in the
+ * result.
+ *
+ * The second version, _limits(), accepts a variable table instead of a single
+ * variable. In this case, each "oo" entry in the table will be applied in
+ * succession.
+ *
+ * If successful, the result will be one of:
  *   1) oo/1
  *   2) -oo/1
- *   3) 0/1
- *   4) a/b, where a and b are variables or constants
+ *   3) 1/oo
+ *   4) -1/oo
+ *   5) 0/0
+ *   6) a/b, where a and b are expressions
+ *
+ * Returns -1 on failure, 0 on success.
  */
 int csfg_expr_to_rational_limit(
     const struct csfg_expr_pool* in_pool,
     int                          in_expr,
     struct strview               variable,
+    struct csfg_expr_pool**      rational_pool,
+    struct csfg_rational*        rational);
+int csfg_expr_to_rational_limits(
+    const struct csfg_expr_pool* in_pool,
+    int                          in_expr,
+    const struct csfg_var_table* vt,
     struct csfg_expr_pool**      rational_pool,
     struct csfg_rational*        rational);
 
