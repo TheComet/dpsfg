@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.21)
 
-project ("substitutions"
+project ("tweakables"
     VERSION 0.0.1
     LANGUAGES C)
 
@@ -8,7 +8,7 @@ find_package (GTK4 REQUIRED COMPONENTS
     gtk glib cairo pango pangocairo harfbuzz gdk-pixbuf graphene)
 
 include (DPSFGPlugin)
-dpsfg_add_plugin ("substitutions"
+dpsfg_add_plugin ("tweakables"
     SOURCES
         "src/plugin.c"
     INCLUDES

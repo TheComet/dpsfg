@@ -7,7 +7,7 @@ static int find_power_with_negative_constant_exponent(
 {
     int left = pool->nodes[n].child[0];
     int right = pool->nodes[n].child[1];
-    if (pool->nodes[n].type == CSFG_EXPR_OP_MUL)
+    if (pool->nodes[n].type == CSFG_EXPR_MUL)
     {
         n = find_power_with_negative_constant_exponent(pool, left);
         if (n != -1)
@@ -16,7 +16,7 @@ static int find_power_with_negative_constant_exponent(
         if (n != -1)
             return n;
     }
-    else if (pool->nodes[n].type == CSFG_EXPR_OP_POW)
+    else if (pool->nodes[n].type == CSFG_EXPR_POW)
     {
         int exp = pool->nodes[n].child[1];
         if (pool->nodes[exp].type != CSFG_EXPR_LIT)
@@ -40,7 +40,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
         int    left = (*pool)->nodes[n].child[0];
         int    right = (*pool)->nodes[n].child[1];
 
-        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_ADD)
+        if ((*pool)->nodes[n].type != CSFG_EXPR_ADD)
             continue;
 
         pow = find_power_with_negative_constant_exponent(*pool, left);
@@ -57,7 +57,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
         neg_exp = -(*pool)->nodes[exp].value.lit;
 
         product = csfg_expr_find_parent(*pool, pow);
-        if ((*pool)->nodes[product].type == CSFG_EXPR_OP_MUL)
+        if ((*pool)->nodes[product].type == CSFG_EXPR_MUL)
         {
             int mul = (*pool)->nodes[product].child[0] == pow
                           ? (*pool)->nodes[product].child[1]

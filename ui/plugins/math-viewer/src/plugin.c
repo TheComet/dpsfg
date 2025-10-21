@@ -111,4 +111,5 @@ PLUGIN_API struct plugin_interface dpsfg_plugin = {
     &ui_pane,
     NULL,
     NULL,
-    &expr};
+    &expr,
+    NULL};

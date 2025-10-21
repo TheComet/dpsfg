@@ -27,9 +27,9 @@ eval(struct csfg_expr_pool* expr, int n, const struct csfg_var_table* vt)
         case CSFG_EXPR_NEG:
             child_result[0] = eval(expr, expr->nodes[n].child[0], vt);
             break;
-        case CSFG_EXPR_OP_ADD:
-        case CSFG_EXPR_OP_MUL:
-        case CSFG_EXPR_OP_POW:
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+        case CSFG_EXPR_POW:
             child_result[0] = eval(expr, expr->nodes[n].child[0], vt);
             child_result[1] = eval(expr, expr->nodes[n].child[1], vt);
             break;
@@ -42,9 +42,9 @@ eval(struct csfg_expr_pool* expr, int n, const struct csfg_var_table* vt)
         case CSFG_EXPR_VAR:
         case CSFG_EXPR_INF: assert(0); break;
         case CSFG_EXPR_NEG: return -child_result[0];
-        case CSFG_EXPR_OP_ADD: return child_result[0] + child_result[1];
-        case CSFG_EXPR_OP_MUL: return child_result[0] * child_result[1];
-        case CSFG_EXPR_OP_POW: return pow(child_result[0], child_result[1]);
+        case CSFG_EXPR_ADD: return child_result[0] + child_result[1];
+        case CSFG_EXPR_MUL: return child_result[0] * child_result[1];
+        case CSFG_EXPR_POW: return pow(child_result[0], child_result[1]);
     }
 
     return NAN;
@@ -84,9 +84,9 @@ static int has_any_op_as_parent(const struct csfg_expr_pool* pool, int n)
         case CSFG_EXPR_INF: break;
 
         case CSFG_EXPR_NEG:
-        case CSFG_EXPR_OP_ADD:
-        case CSFG_EXPR_OP_MUL:
-        case CSFG_EXPR_OP_POW: return 1;
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+        case CSFG_EXPR_POW: return 1;
     }
 
     return 0;
@@ -99,8 +99,8 @@ has_parent_op_stronger_than_add(const struct csfg_expr_pool* pool, int n)
     int parent = csfg_expr_find_parent(pool, n);
     if (parent < 0)
         return 0;
-    return pool->nodes[parent].type == CSFG_EXPR_OP_MUL ||
-           pool->nodes[parent].type == CSFG_EXPR_OP_POW ||
+    return pool->nodes[parent].type == CSFG_EXPR_MUL ||
+           pool->nodes[parent].type == CSFG_EXPR_POW ||
            pool->nodes[parent].type == CSFG_EXPR_NEG;
 }
 
@@ -151,7 +151,7 @@ int csfg_expr_to_str(
                     return -1;
             break;
         }
-        case CSFG_EXPR_OP_ADD: {
+        case CSFG_EXPR_ADD: {
             int need_parens = has_parent_op_stronger_than_add(pool, expr);
             if (need_parens)
                 if (str_append_char(str, '(') != 0)
@@ -167,7 +167,7 @@ int csfg_expr_to_str(
                     return -1;
             break;
         }
-        case CSFG_EXPR_OP_MUL: {
+        case CSFG_EXPR_MUL: {
             if (csfg_expr_to_str(str, pool, left) != 0)
                 return -1;
             if (str_append_cstr(str, "*") != 0)
@@ -176,7 +176,7 @@ int csfg_expr_to_str(
                 return -1;
             break;
         }
-        case CSFG_EXPR_OP_POW:
+        case CSFG_EXPR_POW:
             if (str_append_cstr(str, "(") != 0)
                 return -1;
             if (csfg_expr_to_str(str, pool, left) != 0)

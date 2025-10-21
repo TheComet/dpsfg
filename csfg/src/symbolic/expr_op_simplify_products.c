@@ -8,7 +8,7 @@
  * the matching node. */
 static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
 {
-    if (pool->nodes[n].type == CSFG_EXPR_OP_MUL)
+    if (pool->nodes[n].type == CSFG_EXPR_MUL)
     {
         int left = pool->nodes[n].child[0];
         int right = pool->nodes[n].child[1];
@@ -21,7 +21,7 @@ static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
         return -1;
     }
 
-    if (pool->nodes[n].type == CSFG_EXPR_OP_POW &&
+    if (pool->nodes[n].type == CSFG_EXPR_POW &&
         pool->nodes[pool->nodes[n].child[1]].type == CSFG_EXPR_LIT)
     {
         int base = pool->nodes[n].child[0];
@@ -39,7 +39,7 @@ static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
 /* ------------------------------------------------------------------------- */
 static int process_chain(struct csfg_expr_pool** pool, int n, int top)
 {
-    for (; top > -1 && (*pool)->nodes[top].type == CSFG_EXPR_OP_MUL;
+    for (; top > -1 && (*pool)->nodes[top].type == CSFG_EXPR_MUL;
          top = csfg_expr_find_parent((*pool), top))
     {
         int match = find_same_expr(
@@ -47,18 +47,18 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
             top,
             /* If the product is raised to a power, want to search only for the
                product and not the whole power */
-            (*pool)->nodes[n].type == CSFG_EXPR_OP_POW
+            (*pool)->nodes[n].type == CSFG_EXPR_POW
                 ? (*pool)->nodes[n].child[0]
                 : n);
         if (match == -1)
             continue;
 
-        if ((*pool)->nodes[n].type == CSFG_EXPR_OP_POW)
+        if ((*pool)->nodes[n].type == CSFG_EXPR_POW)
         {
             int exp = (*pool)->nodes[n].child[1];
             int sum1 = csfg_expr_dup_single(pool, exp);
             int sum2 =
-                (*pool)->nodes[match].type == CSFG_EXPR_OP_POW
+                (*pool)->nodes[match].type == CSFG_EXPR_POW
                     ? csfg_expr_dup_single(pool, (*pool)->nodes[match].child[1])
                     : csfg_expr_lit(pool, 1.0);
             if (csfg_expr_set_add(pool, exp, sum1, sum2) == -1)
@@ -67,7 +67,7 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
         else
         {
             int exp =
-                (*pool)->nodes[match].type == CSFG_EXPR_OP_POW
+                (*pool)->nodes[match].type == CSFG_EXPR_POW
                     ? csfg_expr_add(
                           pool,
                           csfg_expr_dup_single(pool, (*pool)->nodes[match].child[1]),
@@ -91,7 +91,7 @@ static int simplify_products(struct csfg_expr_pool** pool)
     {
         int left = (*pool)->nodes[n].child[0];
         int right = (*pool)->nodes[n].child[1];
-        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_MUL)
+        if ((*pool)->nodes[n].type != CSFG_EXPR_MUL)
             continue;
 
         switch (process_chain(pool, left, n))

@@ -23,7 +23,7 @@ static int expand_constant_exponents(struct csfg_expr_pool** pool)
         int                 exp = (*pool)->nodes[n].child[1];
         enum csfg_expr_type type = (*pool)->nodes[n].type;
 
-        if (type != CSFG_EXPR_OP_POW)
+        if (type != CSFG_EXPR_POW)
             continue;
         if ((*pool)->nodes[exp].type != CSFG_EXPR_LIT)
             continue;

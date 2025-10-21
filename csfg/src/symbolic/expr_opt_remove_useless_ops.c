@@ -39,7 +39,7 @@ static int remove_negated_products(struct csfg_expr_pool** pool)
     {
         int left = (*pool)->nodes[n].child[0];
         int right = (*pool)->nodes[n].child[1];
-        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_MUL)
+        if ((*pool)->nodes[n].type != CSFG_EXPR_MUL)
             continue;
 
         if ((*pool)->nodes[left].type == CSFG_EXPR_NEG &&
@@ -65,8 +65,8 @@ static int remove_double_reciprocs(struct csfg_expr_pool** pool)
         int base2, exp2;
         int exp1 = (*pool)->nodes[n].child[1];
         int base1 = (*pool)->nodes[n].child[0];
-        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_POW ||
-            (*pool)->nodes[base1].type != CSFG_EXPR_OP_POW)
+        if ((*pool)->nodes[n].type != CSFG_EXPR_POW ||
+            (*pool)->nodes[base1].type != CSFG_EXPR_POW)
         {
             continue;
         }
@@ -104,7 +104,7 @@ static int remove_zero_summands(struct csfg_expr_pool** pool)
     {
         int left = (*pool)->nodes[n].child[0];
         int right = (*pool)->nodes[n].child[1];
-        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_ADD)
+        if ((*pool)->nodes[n].type != CSFG_EXPR_ADD)
             continue;
 
         if ((*pool)->nodes[left].type == CSFG_EXPR_LIT &&
@@ -132,7 +132,7 @@ static int remove_one_products(struct csfg_expr_pool** pool)
     for (n = 0; n != (*pool)->count; ++n)
     {
         int c;
-        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_MUL)
+        if ((*pool)->nodes[n].type != CSFG_EXPR_MUL)
             continue;
 
         for (c = 0; c != 2; ++c)
@@ -172,7 +172,7 @@ static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
         double value;
         int    left = (*pool)->nodes[n].child[0];
         int    right = (*pool)->nodes[n].child[1];
-        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_POW)
+        if ((*pool)->nodes[n].type != CSFG_EXPR_POW)
             continue;
 
         if ((*pool)->nodes[right].type != CSFG_EXPR_LIT)
@@ -219,7 +219,7 @@ find_common_products(struct csfg_expr_pool** pool, int expr1, int expr2)
         return 1;
     }
 
-    if ((*pool)->nodes[expr1].type == CSFG_EXPR_OP_MUL ||
+    if ((*pool)->nodes[expr1].type == CSFG_EXPR_MUL ||
         (*pool)->nodes[expr1].type == CSFG_EXPR_NEG)
     {
         left = (*pool)->nodes[expr1].child[0];
@@ -231,7 +231,7 @@ find_common_products(struct csfg_expr_pool** pool, int expr1, int expr2)
                 return rc;
     }
 
-    if ((*pool)->nodes[expr2].type == CSFG_EXPR_OP_MUL ||
+    if ((*pool)->nodes[expr2].type == CSFG_EXPR_MUL ||
         (*pool)->nodes[expr2].type == CSFG_EXPR_NEG)
     {
         left = (*pool)->nodes[expr2].child[0];
@@ -252,7 +252,7 @@ static int cancel_products(struct csfg_expr_pool** pool)
     {
         double value;
         int    left, right, parent;
-        if ((*pool)->nodes[n].type != CSFG_EXPR_OP_POW)
+        if ((*pool)->nodes[n].type != CSFG_EXPR_POW)
             continue;
 
         left = (*pool)->nodes[n].child[0];

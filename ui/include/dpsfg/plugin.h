@@ -21,6 +21,8 @@ struct plugin_callbacks_interface
         int                      node_out);
     void (*substitutions_changed)(
         struct plugin_callbacks* ctx, const struct plugin_ctx* source_plugin);
+    void (*parameters_changed)(
+        struct plugin_callbacks* ctx, const struct plugin_ctx* source_plugin);
 };
 
 struct dpsfg_ui_center_interface
@@ -65,6 +67,14 @@ struct dpsfg_substitutions_interface
     void (*on_clear)(struct plugin_ctx* ctx);
 };
 
+struct dpsfg_parameters_interface
+{
+    void (*on_set)(struct plugin_ctx* ctx, struct csfg_var_table* parameters);
+    void (*on_changed)(
+        struct plugin_ctx* ctx, struct csfg_var_table* parameters);
+    void (*on_clear)(struct plugin_ctx* ctx);
+};
+
 struct plugin_info
 {
     const char* name;
@@ -89,4 +99,5 @@ struct plugin_interface
     const struct dpsfg_graph_interface*         graph;
     const struct dpsfg_substitutions_interface* substitutions;
     const struct dpsfg_expr_interface*          expr;
+    const struct dpsfg_parameters_interface*    parameters;
 };

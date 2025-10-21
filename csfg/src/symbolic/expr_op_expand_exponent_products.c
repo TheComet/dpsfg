@@ -12,9 +12,9 @@ static int expand_exponent_products(struct csfg_expr_pool** pool)
         int                 exp = (*pool)->nodes[n].child[1];
         enum csfg_expr_type type = (*pool)->nodes[n].type;
 
-        if (type != CSFG_EXPR_OP_POW)
+        if (type != CSFG_EXPR_POW)
             continue;
-        if ((*pool)->nodes[prod].type != CSFG_EXPR_OP_MUL)
+        if ((*pool)->nodes[prod].type != CSFG_EXPR_MUL)
             continue;
 
         base1 = (*pool)->nodes[prod].child[0];

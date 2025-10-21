@@ -11,7 +11,7 @@ static int move_reciprocs(
     double value;
     int    base, exp;
 
-    if ((*from)->nodes[from_root].type == CSFG_EXPR_OP_MUL)
+    if ((*from)->nodes[from_root].type == CSFG_EXPR_MUL)
     {
         int child_modified = 0;
         int left = (*from)->nodes[from_root].child[0];
@@ -31,7 +31,7 @@ static int move_reciprocs(
         return child_modified;
     }
 
-    if ((*from)->nodes[from_root].type != CSFG_EXPR_OP_POW)
+    if ((*from)->nodes[from_root].type != CSFG_EXPR_POW)
         return 0;
 
     base = (*from)->nodes[from_root].child[0];

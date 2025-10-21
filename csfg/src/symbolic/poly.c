@@ -280,7 +280,7 @@ int csfg_poly_to_str(
 
         if (c->expr > -1)
         {
-            int need_parens = (pool->nodes[c->expr].type == CSFG_EXPR_OP_ADD) &&
+            int need_parens = (pool->nodes[c->expr].type == CSFG_EXPR_ADD) &&
                               (c->factor != 1.0);
             if (need_parens)
                 if (str_append_char(str, '(') != 0)

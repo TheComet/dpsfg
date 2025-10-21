@@ -295,11 +295,11 @@ int csfg_expr_binop(
 }
 /* clang-format off */
 int csfg_expr_add(struct csfg_expr_pool** pool, int left, int right)
-{return csfg_expr_binop(pool, CSFG_EXPR_OP_ADD, left, right);}
+{return csfg_expr_binop(pool, CSFG_EXPR_ADD, left, right);}
 int csfg_expr_mul(struct csfg_expr_pool** pool, int left, int right)
-{return csfg_expr_binop(pool, CSFG_EXPR_OP_MUL, left, right);}
+{return csfg_expr_binop(pool, CSFG_EXPR_MUL, left, right);}
 int csfg_expr_pow(struct csfg_expr_pool** pool, int base, int exp)
-{return csfg_expr_binop(pool, CSFG_EXPR_OP_POW, base, exp);}
+{return csfg_expr_binop(pool, CSFG_EXPR_POW, base, exp);}
 /* clang-format on */
 int csfg_expr_sub(struct csfg_expr_pool** pool, int left, int right)
 {
@@ -332,11 +332,11 @@ int csfg_expr_set_binop(
 }
 /* clang-format off */
 int csfg_expr_set_add(struct csfg_expr_pool** pool, int n, int left, int right)
-{return csfg_expr_set_binop(pool, n, CSFG_EXPR_OP_ADD, left, right);}
+{return csfg_expr_set_binop(pool, n, CSFG_EXPR_ADD, left, right);}
 int csfg_expr_set_mul(struct csfg_expr_pool** pool, int n, int left, int right)
-{return csfg_expr_set_binop(pool, n, CSFG_EXPR_OP_MUL, left, right);}
+{return csfg_expr_set_binop(pool, n, CSFG_EXPR_MUL, left, right);}
 int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp)
-{return csfg_expr_set_binop(pool, n, CSFG_EXPR_OP_POW, base, exp);}
+{return csfg_expr_set_binop(pool, n, CSFG_EXPR_POW, base, exp);}
 /* clang-format on */
 
 /* ------------------------------------------------------------------------- */
@@ -416,9 +416,9 @@ int csfg_expr_dup_single_from(
         }
         case CSFG_EXPR_INF: break;
         case CSFG_EXPR_NEG: break;
-        case CSFG_EXPR_OP_ADD: break;
-        case CSFG_EXPR_OP_MUL: break;
-        case CSFG_EXPR_OP_POW: break;
+        case CSFG_EXPR_ADD: break;
+        case CSFG_EXPR_MUL: break;
+        case CSFG_EXPR_POW: break;
     }
 
     return dup;
@@ -600,9 +600,9 @@ int csfg_expr_equal(
         }
         case CSFG_EXPR_INF:
         case CSFG_EXPR_NEG:
-        case CSFG_EXPR_OP_ADD:
-        case CSFG_EXPR_OP_MUL:
-        case CSFG_EXPR_OP_POW: break;
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+        case CSFG_EXPR_POW: break;
     }
 
     child1 = p1->nodes[root1].child[0];

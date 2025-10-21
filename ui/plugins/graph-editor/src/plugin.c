@@ -5,7 +5,7 @@
 struct plugin_ctx
 {
     GraphEditor*                             graph_editor;
-    GtkWidget*                               subtitutions_view;
+    GtkWidget*                               tweakables_view;
     const struct plugin_callbacks_interface* icb;
     struct plugin_callbacks*                 cb;
 };
@@ -78,5 +78,6 @@ PLUGIN_API struct plugin_interface dpsfg_plugin = {
     &ui_center,
     NULL,
     &graph,
+    NULL,
     NULL,
     NULL};

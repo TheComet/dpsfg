@@ -10,7 +10,7 @@ static int lower_negates(struct csfg_expr_pool** pool)
         int child = (*pool)->nodes[n].child[0];
         if ((*pool)->nodes[n].type != CSFG_EXPR_NEG)
             continue;
-        if ((*pool)->nodes[child].type == CSFG_EXPR_OP_MUL)
+        if ((*pool)->nodes[child].type == CSFG_EXPR_MUL)
         {
             csfg_expr_set_mul(
                 pool,
@@ -19,7 +19,7 @@ static int lower_negates(struct csfg_expr_pool** pool)
                 (*pool)->nodes[child].child[1]);
             modified = 1;
         }
-        else if ((*pool)->nodes[child].type == CSFG_EXPR_OP_POW)
+        else if ((*pool)->nodes[child].type == CSFG_EXPR_POW)
         {
             int neg_one = csfg_expr_lit(pool, -1.0);
             if (csfg_expr_set_mul(pool, n, neg_one, child) == -1)

@@ -12,9 +12,9 @@ enum csfg_expr_type
     CSFG_EXPR_VAR,
     CSFG_EXPR_INF,
     CSFG_EXPR_NEG,
-    CSFG_EXPR_OP_ADD,
-    CSFG_EXPR_OP_MUL,
-    CSFG_EXPR_OP_POW
+    CSFG_EXPR_ADD,
+    CSFG_EXPR_MUL,
+    CSFG_EXPR_POW
 };
 
 struct csfg_expr_node

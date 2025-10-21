@@ -29,15 +29,15 @@ G_DEFINE_TYPE(DPSFGPluginModule, dpsfg_plugin_module, G_TYPE_TYPE_MODULE)
 
 static gboolean dpsfg_plugin_module_load(GTypeModule* type_module)
 {
-    log_dbg("dpsfg_plugin_module_load()\n");
-    track_mem(type_module, 0, "GTypeModule*");
+    /*log_dbg("dpsfg_plugin_module_load()\n");*/
+    /*track_mem(type_module, 0, "GTypeModule*");*/
     return TRUE;
 }
 
 static void dpsfg_plugin_module_unload(GTypeModule* type_module)
 {
-    log_dbg("dpsfg_plugin_module_unload()\n");
-    untrack_mem(type_module);
+    /*log_dbg("dpsfg_plugin_module_unload()\n");*/
+    /*untrack_mem(type_module);*/
 }
 
 static void dpsfg_plugin_module_init(DPSFGPluginModule* self)
@@ -77,7 +77,8 @@ VEC_DEFINE(plugin_vec, struct plugin, 8)
 enum math_pipeline_state
 {
     MATH_PIPELINE_GRAPH_CHANGED,
-    MATH_PIPELINE_SUBSTITUTIONS_CHANGED
+    MATH_PIPELINE_SUBSTITUTIONS_CHANGED,
+    MATH_PIPELINE_PARAMETERS_CHANGED
 };
 
 struct math_pipeline
@@ -98,6 +99,8 @@ struct math_pipeline
 
     struct csfg_expr_pool* tf_pool;
     struct csfg_rational   tf;
+
+    struct csfg_var_table parameters;
 };
 
 struct app_ctx
@@ -115,10 +118,13 @@ struct plugin_callbacks
 static void update_math_pipeline(
     struct math_pipeline* pipeline, enum math_pipeline_state state)
 {
+    const struct csfg_coeff* coeff;
+
     switch (state)
     {
         case MATH_PIPELINE_GRAPH_CHANGED: goto calc_graph_expression;
         case MATH_PIPELINE_SUBSTITUTIONS_CHANGED: goto calc_substitutions;
+        case MATH_PIPELINE_PARAMETERS_CHANGED: goto todo_parameters_changed;
     }
 
 calc_graph_expression:
@@ -226,6 +232,18 @@ calc_tf:
             csfg_expr_opt_remove_useless_ops,
             NULL);
     }
+
+repopulate_parameter_table:
+    csfg_var_table_reset_visited(&pipeline->parameters);
+    vec_for_each (pipeline->tf.num, coeff)
+        csfg_var_table_populate(
+            &pipeline->parameters, pipeline->tf_pool, coeff->expr);
+    vec_for_each (pipeline->tf.den, coeff)
+        csfg_var_table_populate(
+            &pipeline->parameters, pipeline->tf_pool, coeff->expr);
+    csfg_var_table_erase_unvisited(&pipeline->parameters);
+
+todo_parameters_changed:;
 }
 
 static void notify_plugins(
@@ -240,6 +258,7 @@ static void notify_plugins(
     {
         case MATH_PIPELINE_GRAPH_CHANGED: goto graph_changed;
         case MATH_PIPELINE_SUBSTITUTIONS_CHANGED: goto substitutions_changed;
+        case MATH_PIPELINE_PARAMETERS_CHANGED: goto todo_parameters_changed;
     }
 
 graph_changed:
@@ -262,19 +281,14 @@ substitutions_changed:
         plugin->lib.i->expr->on_graph_tf(
             plugin->ctx, pipeline->tf_pool, &pipeline->tf);
     }
-}
-
-static void substitutions_changed_cb(
-    struct plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
-{
-    struct app_ctx*       app = cb->app;
-    struct math_pipeline* pipeline = &app->pipeline;
-    update_math_pipeline(pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
-    notify_plugins(
-        *app->plugins,
-        source_plugin,
-        pipeline,
-        MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
+    vec_for_each (plugins, plugin)
+    {
+        if (plugin->lib.i->parameters == NULL)
+            continue;
+        plugin->lib.i->parameters->on_changed(
+            plugin->ctx, &pipeline->parameters);
+    }
+todo_parameters_changed:;
 }
 
 static void graph_changed_cb(
@@ -292,8 +306,34 @@ static void graph_changed_cb(
         *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
 
+static void substitutions_changed_cb(
+    struct plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
+{
+    struct app_ctx*       app = cb->app;
+    struct math_pipeline* pipeline = &app->pipeline;
+    update_math_pipeline(pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
+    notify_plugins(
+        *app->plugins,
+        source_plugin,
+        pipeline,
+        MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
+}
+
+static void parameters_changed_cb(
+    struct plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
+{
+    struct app_ctx*       app = cb->app;
+    struct math_pipeline* pipeline = &app->pipeline;
+    update_math_pipeline(pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
+    notify_plugins(
+        *app->plugins,
+        source_plugin,
+        pipeline,
+        MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
+}
+
 static struct plugin_callbacks_interface plugin_callbacks = {
-    &graph_changed_cb, &substitutions_changed_cb};
+    graph_changed_cb, substitutions_changed_cb, parameters_changed_cb};
 
 static gboolean
 shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
@@ -521,6 +561,9 @@ static void activate(GtkApplication* app, gpointer user_data)
         if (plugin->lib.i->substitutions)
             plugin->lib.i->substitutions->on_set(
                 plugin->ctx, &ctx->pipeline.substitutions);
+        if (plugin->lib.i->parameters)
+            plugin->lib.i->parameters->on_set(
+                plugin->ctx, &ctx->pipeline.parameters);
     }
 }
 
@@ -576,12 +619,15 @@ int main(int argc, char** argv)
     csfg_expr_pool_init(&app_ctx.pipeline.tf_pool);
     csfg_rational_init(&app_ctx.pipeline.tf);
 
+    csfg_var_table_init(&app_ctx.pipeline.parameters);
+
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), &app_ctx);
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 
+    csfg_var_table_deinit(&app_ctx.pipeline.parameters);
     csfg_rational_deinit(&app_ctx.pipeline.tf);
     csfg_expr_pool_deinit(app_ctx.pipeline.tf_pool);
     csfg_expr_pool_deinit(app_ctx.pipeline.lim_pool);

@@ -84,7 +84,7 @@ int csfg_expr_to_rational(
             break;
         }
 
-        case CSFG_EXPR_OP_ADD: {
+        case CSFG_EXPR_ADD: {
             int rc;
             /*
              * N1   N2   N1*D2 + N2*D1
@@ -129,7 +129,7 @@ int csfg_expr_to_rational(
             break;
         }
 
-        case CSFG_EXPR_OP_MUL: {
+        case CSFG_EXPR_MUL: {
             int rc;
             /*
              * N1   N2   N1*N2
@@ -161,7 +161,7 @@ int csfg_expr_to_rational(
             break;
         }
 
-        case CSFG_EXPR_OP_POW: {
+        case CSFG_EXPR_POW: {
             int rc;
             /*
              *     k

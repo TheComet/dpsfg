@@ -12,9 +12,9 @@ static int expand_exponent_sums(struct csfg_expr_pool** pool)
         int                 sum = (*pool)->nodes[n].child[1];
         enum csfg_expr_type type = (*pool)->nodes[n].type;
 
-        if (type != CSFG_EXPR_OP_POW)
+        if (type != CSFG_EXPR_POW)
             continue;
-        if ((*pool)->nodes[sum].type != CSFG_EXPR_OP_ADD)
+        if ((*pool)->nodes[sum].type != CSFG_EXPR_ADD)
             continue;
 
         exp1 = (*pool)->nodes[sum].child[0];

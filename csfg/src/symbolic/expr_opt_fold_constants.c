@@ -80,7 +80,7 @@ static int combine_constants(struct csfg_expr_pool** pool)
         int                 constant, top, match;
         double              combined_value;
 
-        if (op_type != CSFG_EXPR_OP_ADD && op_type != CSFG_EXPR_OP_MUL)
+        if (op_type != CSFG_EXPR_ADD && op_type != CSFG_EXPR_MUL)
             continue;
 
         if ((*pool)->nodes[left].type == CSFG_EXPR_LIT)
@@ -103,7 +103,7 @@ static int combine_constants(struct csfg_expr_pool** pool)
         if (match == -1)
             continue;
 
-        if (op_type == CSFG_EXPR_OP_ADD)
+        if (op_type == CSFG_EXPR_ADD)
             combined_value = (*pool)->nodes[constant].value.lit +
                              (*pool)->nodes[match].value.lit;
         else

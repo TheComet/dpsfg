@@ -12,12 +12,12 @@ static int distribute_products(struct csfg_expr_pool** pool)
         int                 right = (*pool)->nodes[n].child[1];
         enum csfg_expr_type type = (*pool)->nodes[n].type;
 
-        if (type != CSFG_EXPR_OP_MUL)
+        if (type != CSFG_EXPR_MUL)
             continue;
 
-        if ((*pool)->nodes[left].type == CSFG_EXPR_OP_ADD)
+        if ((*pool)->nodes[left].type == CSFG_EXPR_ADD)
             sum = left, fact = right;
-        else if ((*pool)->nodes[right].type == CSFG_EXPR_OP_ADD)
+        else if ((*pool)->nodes[right].type == CSFG_EXPR_ADD)
             sum = right, fact = left;
         else
             continue;

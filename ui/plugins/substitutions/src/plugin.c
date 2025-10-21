@@ -6,7 +6,7 @@
 
 struct plugin_ctx
 {
-    GtkWidget*                               subtitutions_view;
+    GtkWidget*                               tweakables_view;
     const struct plugin_callbacks_interface* icb;
     struct plugin_callbacks*                 cb;
     struct csfg_var_table*                   substitutions_table;
@@ -182,14 +182,14 @@ static void on_text_buffer_changed(GtkTextBuffer* buffer, gpointer user_data)
 }
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
-    ctx->subtitutions_view = gtk_text_view_new();
+    ctx->tweakables_view = gtk_text_view_new();
     GtkTextBuffer* buffer =
-        gtk_text_view_get_buffer(GTK_TEXT_VIEW(ctx->subtitutions_view));
+        gtk_text_view_get_buffer(GTK_TEXT_VIEW(ctx->tweakables_view));
 
     g_signal_connect(
         buffer, "changed", G_CALLBACK(on_text_buffer_changed), ctx);
 
-    return GTK_WIDGET(g_object_ref_sink(ctx->subtitutions_view));
+    return GTK_WIDGET(g_object_ref_sink(ctx->tweakables_view));
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
@@ -254,4 +254,5 @@ PLUGIN_API struct plugin_interface dpsfg_plugin = {
     &ui_pane,
     NULL,
     &substitutions,
+    NULL,
     NULL};

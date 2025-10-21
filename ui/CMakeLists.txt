@@ -72,3 +72,4 @@ install (
 add_subdirectory ("plugins/graph-editor")
 add_subdirectory ("plugins/math-viewer")
 add_subdirectory ("plugins/substitutions")
+add_subdirectory ("plugins/tweakables")
