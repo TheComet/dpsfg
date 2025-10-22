@@ -80,4 +80,5 @@ PLUGIN_API struct plugin_interface dpsfg_plugin = {
     &graph,
     NULL,
     NULL,
+    NULL,
     NULL};

@@ -261,7 +261,7 @@ int csfg_poly_to_str(
             if (str_append_char(str, '-') != 0)
                 return -1;
         }
-        else if (c->factor != 1.0)
+        else if (c->factor != 1.0 || c->expr < 0)
         {
             if (str_append_float(str, c->factor) != 0)
                 return -1;

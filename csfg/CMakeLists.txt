@@ -25,17 +25,20 @@ endif ()
 configure_file ("templates/config.h.in" "include/csfg/config.h")
 
 set (csfg_SOURCES
+    # util
     "src/util/hash.c"
     "src/util/log.c"
     "src/util/str.c"
     "src/util/strlist.c"
     "src/util/strview.c"
 
+    # graph
     "src/graph/graph.c"
     "src/graph/graph_find_paths_and_loops.c"
     "src/graph/graph_find_nontouching.c"
     "src/graph/graph_mason.c"
 
+    # symbolic
     "src/symbolic/expr.c"
     "src/symbolic/expr_eval.c"
     "src/symbolic/expr_integrity_check.c"
@@ -55,7 +58,11 @@ set (csfg_SOURCES
     "src/symbolic/expr_opt_fold_constants.c"
     "src/symbolic/poly.c"
     "src/symbolic/rational.c"
-    "src/symbolic/var_table.c")
+    "src/symbolic/var_table.c"
+
+    # numeric
+    "src/numeric/cpoly.c"
+    "src/numeric/cpoly_find_roots.c")
 
 if (CSFG_DEBUG_MEMORY)
     list (APPEND csfg_SOURCES
@@ -118,7 +125,6 @@ if (CSFG_TESTS)
         "tests/test_expr_to_rational.cpp"
         "tests/test_expr_to_rational_limit.cpp"
         "tests/test_expr_to_rational_limits.cpp"
-        "tests/test_poly.cpp"
         "tests/test_poly_add_permutations.cpp"
         "tests/test_rational_simplify.cpp"
 
@@ -127,6 +133,9 @@ if (CSFG_TESTS)
         "tests/test_graph_find_loops.cpp"
         "tests/test_graph_find_nontouching.cpp"
         "tests/test_graph_mason.cpp"
+
+        # numeric
+        "tests/test_cpoly_find_roots.cpp"
 
         # util
         "tests/test_hmap.cpp"

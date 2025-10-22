@@ -1,4 +1,5 @@
 #include "csfg/graph/graph.h"
+#include "csfg/numeric/cpoly.h"
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
@@ -31,6 +32,7 @@ static gboolean dpsfg_plugin_module_load(GTypeModule* type_module)
 {
     /*log_dbg("dpsfg_plugin_module_load()\n");*/
     /*track_mem(type_module, 0, "GTypeModule*");*/
+    (void)type_module;
     return TRUE;
 }
 
@@ -38,6 +40,7 @@ static void dpsfg_plugin_module_unload(GTypeModule* type_module)
 {
     /*log_dbg("dpsfg_plugin_module_unload()\n");*/
     /*untrack_mem(type_module);*/
+    (void)type_module;
 }
 
 static void dpsfg_plugin_module_init(DPSFGPluginModule* self)
@@ -101,6 +104,11 @@ struct math_pipeline
     struct csfg_rational   tf;
 
     struct csfg_var_table parameters;
+
+    struct csfg_cpoly* num_coeffs;
+    struct csfg_cpoly* den_coeffs;
+    struct csfg_rpoly* zeros;
+    struct csfg_rpoly* poles;
 };
 
 struct app_ctx
@@ -115,6 +123,7 @@ struct plugin_callbacks
     struct app_ctx* app;
 };
 
+/* -------------------------------------------------------------------------- */
 static void update_math_pipeline(
     struct math_pipeline* pipeline, enum math_pipeline_state state)
 {
@@ -124,7 +133,7 @@ static void update_math_pipeline(
     {
         case MATH_PIPELINE_GRAPH_CHANGED: goto calc_graph_expression;
         case MATH_PIPELINE_SUBSTITUTIONS_CHANGED: goto calc_substitutions;
-        case MATH_PIPELINE_PARAMETERS_CHANGED: goto todo_parameters_changed;
+        case MATH_PIPELINE_PARAMETERS_CHANGED: goto calc_numeric_tf;
     }
 
 calc_graph_expression:
@@ -210,7 +219,7 @@ calc_limits:
             csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
     }
 
-calc_tf:
+calc_symbolic_tf:
     csfg_rational_clear(&pipeline->tf);
     csfg_expr_pool_clear(pipeline->tf_pool);
     if (pipeline->lim_expr > -1)
@@ -243,9 +252,24 @@ repopulate_parameter_table:
             &pipeline->parameters, pipeline->tf_pool, coeff->expr);
     csfg_var_table_erase_unvisited(&pipeline->parameters);
 
-todo_parameters_changed:;
+calc_numeric_tf:;
+    csfg_cpoly_from_symbolic(
+        &pipeline->num_coeffs,
+        pipeline->tf_pool,
+        &pipeline->parameters,
+        pipeline->tf.num);
+    csfg_cpoly_from_symbolic(
+        &pipeline->den_coeffs,
+        pipeline->tf_pool,
+        &pipeline->parameters,
+        pipeline->tf.den);
+    csfg_rpoly_clear(pipeline->zeros);
+    csfg_rpoly_clear(pipeline->poles);
+    csfg_cpoly_find_roots(pipeline->num_coeffs, &pipeline->zeros, 0, 0.0);
+    csfg_cpoly_find_roots(pipeline->den_coeffs, &pipeline->poles, 0, 0.0);
 }
 
+/* -------------------------------------------------------------------------- */
 static void notify_plugins(
     struct plugin_vec*       plugins,
     const struct plugin_ctx* source_plugin,
@@ -258,7 +282,7 @@ static void notify_plugins(
     {
         case MATH_PIPELINE_GRAPH_CHANGED: goto graph_changed;
         case MATH_PIPELINE_SUBSTITUTIONS_CHANGED: goto substitutions_changed;
-        case MATH_PIPELINE_PARAMETERS_CHANGED: goto todo_parameters_changed;
+        case MATH_PIPELINE_PARAMETERS_CHANGED: goto parameters_changed;
     }
 
 graph_changed:
@@ -288,9 +312,20 @@ substitutions_changed:
         plugin->lib.i->parameters->on_changed(
             plugin->ctx, &pipeline->parameters);
     }
-todo_parameters_changed:;
+parameters_changed:
+    vec_for_each (plugins, plugin)
+    {
+        if (plugin->lib.i->numeric)
+            plugin->lib.i->numeric->on_polynomial_changed(
+                plugin->ctx,
+                pipeline->num_coeffs,
+                pipeline->den_coeffs,
+                pipeline->zeros,
+                pipeline->poles);
+    }
 }
 
+/* -------------------------------------------------------------------------- */
 static void graph_changed_cb(
     struct plugin_callbacks* cb,
     const struct plugin_ctx* source_plugin,
@@ -306,6 +341,7 @@ static void graph_changed_cb(
         *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
 
+/* -------------------------------------------------------------------------- */
 static void substitutions_changed_cb(
     struct plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
 {
@@ -319,6 +355,7 @@ static void substitutions_changed_cb(
         MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
 }
 
+/* -------------------------------------------------------------------------- */
 static void parameters_changed_cb(
     struct plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
 {
@@ -332,9 +369,7 @@ static void parameters_changed_cb(
         MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
 }
 
-static struct plugin_callbacks_interface plugin_callbacks = {
-    graph_changed_cb, substitutions_changed_cb, parameters_changed_cb};
-
+/* -------------------------------------------------------------------------- */
 static gboolean
 shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
@@ -343,6 +378,10 @@ shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     return TRUE;
 }
+
+/* -------------------------------------------------------------------------- */
+static struct plugin_callbacks_interface plugin_callbacks = {
+    graph_changed_cb, substitutions_changed_cb, parameters_changed_cb};
 
 static int start_plugin(
     struct plugin*           plugin,
@@ -425,6 +464,7 @@ alloc_plugin_module_failed:
     return -1;
 }
 
+/* -------------------------------------------------------------------------- */
 static void stop_plugin(struct plugin* plugin)
 {
     if (plugin->ui_pane)
@@ -438,6 +478,7 @@ static void stop_plugin(struct plugin* plugin)
     plugin_unload(&plugin->lib);
 }
 
+/* -------------------------------------------------------------------------- */
 static void page_removed(
     GtkNotebook* self, GtkWidget* child, guint page_num, gpointer user_data)
 {
@@ -445,6 +486,7 @@ static void page_removed(
     log_dbg("page_removed()\n");
 }
 
+/* -------------------------------------------------------------------------- */
 static GtkWidget* plugin_view_new(void)
 {
     GtkWidget* notebook = gtk_notebook_new();
@@ -452,6 +494,7 @@ static GtkWidget* plugin_view_new(void)
     return notebook;
 }
 
+/* -------------------------------------------------------------------------- */
 static void setup_global_shortcuts(GtkWidget* window)
 {
     GtkEventController* controller;
@@ -471,6 +514,7 @@ static void setup_global_shortcuts(GtkWidget* window)
         GTK_SHORTCUT_CONTROLLER(controller), shortcut);
 }
 
+/* -------------------------------------------------------------------------- */
 struct on_plugin_ctx
 {
     struct plugin_vec**      plugins;
@@ -478,7 +522,6 @@ struct on_plugin_ctx
     GtkNotebook*             center_area;
     GtkBox*                  property_pane;
 };
-
 static int on_plugin(struct plugin_lib lib, void* user)
 {
     struct on_plugin_ctx* ctx = user;
@@ -499,6 +542,7 @@ static int on_plugin(struct plugin_lib lib, void* user)
     return 0;
 }
 
+/* -------------------------------------------------------------------------- */
 static void activate(GtkApplication* app, gpointer user_data)
 {
     GtkWidget* window;
@@ -567,6 +611,7 @@ static void activate(GtkApplication* app, gpointer user_data)
     }
 }
 
+/* -------------------------------------------------------------------------- */
 int main(int argc, char** argv)
 {
     struct args             args;
@@ -621,11 +666,20 @@ int main(int argc, char** argv)
 
     csfg_var_table_init(&app_ctx.pipeline.parameters);
 
+    csfg_cpoly_init(&app_ctx.pipeline.num_coeffs);
+    csfg_cpoly_init(&app_ctx.pipeline.den_coeffs);
+    csfg_rpoly_init(&app_ctx.pipeline.zeros);
+    csfg_rpoly_init(&app_ctx.pipeline.poles);
+
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), &app_ctx);
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
+
+    vec_for_each (plugins, plugin)
+        stop_plugin(plugin);
+    plugin_vec_deinit(plugins);
 
     csfg_var_table_deinit(&app_ctx.pipeline.parameters);
     csfg_rational_deinit(&app_ctx.pipeline.tf);
@@ -637,10 +691,10 @@ int main(int argc, char** argv)
     csfg_path_vec_deinit(app_ctx.pipeline.loops);
     csfg_path_vec_deinit(app_ctx.pipeline.paths);
     csfg_graph_deinit(&app_ctx.pipeline.graph);
-
-    vec_for_each (plugins, plugin)
-        stop_plugin(plugin);
-    plugin_vec_deinit(plugins);
+    csfg_rpoly_deinit(app_ctx.pipeline.poles);
+    csfg_rpoly_deinit(app_ctx.pipeline.zeros);
+    csfg_cpoly_deinit(app_ctx.pipeline.num_coeffs);
+    csfg_cpoly_deinit(app_ctx.pipeline.den_coeffs);
 
 parse_args_break:
     trackers_deinit_tls();

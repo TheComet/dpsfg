@@ -255,4 +255,5 @@ PLUGIN_API struct plugin_interface dpsfg_plugin = {
     NULL,
     &substitutions,
     NULL,
+    NULL,
     NULL};

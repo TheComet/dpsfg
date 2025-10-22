@@ -1,8 +1,6 @@
-#include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/var_table.h"
+#include "csfg/numeric/cpoly.h"
 #include "csfg/util/mem.h"
 #include "dpsfg/plugin.h"
-#include <ctype.h>
 #include <gtk/gtk.h>
 
 struct plugin_ctx
@@ -43,41 +41,49 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 }
 
 /* -------------------------------------------------------------------------- */
-void on_set(struct plugin_ctx* ctx, struct csfg_var_table* parameters)
+void on_polynomial_changed(
+    struct plugin_ctx*       ctx,
+    const struct csfg_cpoly* numerator,
+    const struct csfg_cpoly* denominator,
+    const struct csfg_rpoly* zeros,
+    const struct csfg_rpoly* poles)
 {
-}
-void on_changed(struct plugin_ctx* ctx, struct csfg_var_table* parameters)
-{
-    int                                slot;
-    const struct str*                  name;
-    const struct csfg_var_table_entry* entry;
+    int                        i;
+    const struct csfg_complex* c;
 
-    log_dbg("parameters updated:\n");
-    hmap_for_each (parameters->map, slot, name, entry)
+    log_dbg("Zeros: ");
+    vec_enumerate (zeros, i, c)
     {
-        log_dbg(
-            "  %s: %f\n",
-            str_cstr(name),
-            csfg_expr_eval(entry->pool, entry->expr, NULL));
+        if (i)
+            log_raw(", ");
+        log_raw("%.2f + %.2fi", c->real, c->imag);
     }
-}
-void on_clear(struct plugin_ctx* ctx)
-{
+    log_raw("\n");
+
+    log_dbg("Poles: ");
+    vec_enumerate (poles, i, c)
+    {
+        if (i)
+            log_raw(", ");
+        log_raw("%.2f + %.2fi", c->real, c->imag);
+    }
+    log_raw("\n");
+
+    (void)ctx, (void)numerator, (void)denominator;
 }
 
 /* -------------------------------------------------------------------------- */
 static struct dpsfg_ui_pane_interface ui_pane = {
     ui_pane_create, ui_pane_destroy};
 
-static struct dpsfg_parameters_interface parameters = {
-    on_set, on_changed, on_clear};
+static struct dpsfg_numeric_interface numeric = {on_polynomial_changed};
 
 static struct plugin_info info = {
-    "Tweakables",
-    "editor",
+    "Pole-Zero Plot",
+    "visualizer",
     "TheComet",
     "@TheComet93",
-    "Tweak the Values of Variables"};
+    "Plots the Poles and Zeros of a Transfer Function"};
 
 PLUGIN_API struct plugin_interface dpsfg_plugin = {
     PLUGIN_VERSION,
@@ -90,5 +96,5 @@ PLUGIN_API struct plugin_interface dpsfg_plugin = {
     NULL,
     NULL,
     NULL,
-    &parameters,
-    NULL};
+    NULL,
+    &numeric};
