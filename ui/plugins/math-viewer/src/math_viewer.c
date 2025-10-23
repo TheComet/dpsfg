@@ -1,5 +1,5 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/rational.h"
+#include "csfg/symbolic/tf_expr.h"
 #include "csfg/util/str.h"
 #include "math-viewer/math_viewer.h"
 
@@ -8,7 +8,7 @@ struct _MathViewer
     GtkBox     parent_instance;
     GtkWidget* drawing_area;
 
-    const struct csfg_rational*  rational;
+    const struct csfg_tf_expr*   tf;
     const struct csfg_expr_pool* pool;
     int                          expr;
 };
@@ -42,10 +42,10 @@ static void draw_expr(cairo_t* cr, const struct csfg_expr_pool* pool, int expr)
 }
 
 /* -------------------------------------------------------------------------- */
-static void draw_rational(
+static void draw_tf(
     cairo_t*                     cr,
     const struct csfg_expr_pool* pool,
-    const struct csfg_rational*  rational)
+    const struct csfg_tf_expr*   tf)
 {
     struct str*           str;
     PangoLayout*          layout;
@@ -62,7 +62,7 @@ static void draw_rational(
     desc = pango_font_description_from_string("Sans 16");
     pango_layout_set_font_description(layout, desc);
 
-    csfg_poly_to_str(&str, pool, rational->num);
+    csfg_poly_expr_to_str(&str, pool, tf->num);
     pango_layout_set_text(layout, str_cstr(str), -1);
     cairo_move_to(cr, tx, ty);
     pango_cairo_show_layout(cr, layout);
@@ -70,7 +70,7 @@ static void draw_rational(
     widest = tw;
 
     str_clear(str);
-    csfg_poly_to_str(&str, pool, rational->den);
+    csfg_poly_expr_to_str(&str, pool, tf->den);
     pango_layout_set_text(layout, str_cstr(str), -1);
     cairo_move_to(cr, tx, ty + th);
     pango_cairo_show_layout(cr, layout);
@@ -114,8 +114,8 @@ static void draw_cb(
 
     if (viewer->pool != NULL && viewer->expr > -1)
         draw_expr(cr, viewer->pool, viewer->expr);
-    if (viewer->pool != NULL && viewer->rational != NULL)
-        draw_rational(cr, viewer->pool, viewer->rational);
+    if (viewer->pool != NULL && viewer->tf != NULL)
+        draw_tf(cr, viewer->pool, viewer->tf);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -172,7 +172,7 @@ MathViewer* math_viewer_new(void)
 void math_viewer_set_expr(
     MathViewer* viewer, const struct csfg_expr_pool* pool, int expr)
 {
-    viewer->rational = NULL;
+    viewer->tf = NULL;
     viewer->pool = pool;
     viewer->expr = expr;
     gtk_widget_queue_draw(viewer->drawing_area);
@@ -182,9 +182,9 @@ void math_viewer_set_expr(
 void math_viewer_set_tf(
     MathViewer*                  viewer,
     const struct csfg_expr_pool* pool,
-    const struct csfg_rational*  rational)
+    const struct csfg_tf_expr*   tf)
 {
-    viewer->rational = rational;
+    viewer->tf = tf;
     viewer->pool = pool;
     viewer->expr = -1;
     gtk_widget_queue_draw(viewer->drawing_area);

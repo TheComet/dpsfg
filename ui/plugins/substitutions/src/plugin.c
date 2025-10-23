@@ -6,7 +6,7 @@
 
 struct plugin_ctx
 {
-    GtkWidget*                               tweakables_view;
+    GtkWidget*                               pole_zero_plot;
     const struct plugin_callbacks_interface* icb;
     struct plugin_callbacks*                 cb;
     struct csfg_var_table*                   substitutions_table;
@@ -108,7 +108,7 @@ static enum token scan_next(struct parser* p)
             return '=';
         }
 
-        if (isalnum(p->data[p->head]) || p->data[p->head] == '_')
+        if (!isspace(p->data[p->head]))
         {
             p->value.str.data = p->data;
             p->value.str.off = p->head++;
@@ -182,14 +182,14 @@ static void on_text_buffer_changed(GtkTextBuffer* buffer, gpointer user_data)
 }
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
-    ctx->tweakables_view = gtk_text_view_new();
+    ctx->pole_zero_plot = gtk_text_view_new();
     GtkTextBuffer* buffer =
-        gtk_text_view_get_buffer(GTK_TEXT_VIEW(ctx->tweakables_view));
+        gtk_text_view_get_buffer(GTK_TEXT_VIEW(ctx->pole_zero_plot));
 
     g_signal_connect(
         buffer, "changed", G_CALLBACK(on_text_buffer_changed), ctx);
 
-    return GTK_WIDGET(g_object_ref_sink(ctx->tweakables_view));
+    return GTK_WIDGET(g_object_ref_sink(ctx->pole_zero_plot));
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {

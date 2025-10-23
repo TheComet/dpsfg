@@ -1,5 +1,5 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/rational.h"
+#include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 #include "csfg/util/mem.h"
 #include <assert.h>
@@ -139,10 +139,10 @@ int csfg_expr_apply_limits(
     int                          slot, out_expr, result;
     struct str*                  key;
     struct csfg_var_table_entry* entry;
-    struct csfg_rational         rational;
+    struct csfg_tf_expr          tf;
     struct csfg_expr_pool*       tmp_pool;
 
-    csfg_rational_init(&rational);
+    csfg_tf_expr_init(&tf);
     csfg_expr_pool_init(&tmp_pool);
 
     out_expr = -1;
@@ -153,13 +153,13 @@ int csfg_expr_apply_limits(
             continue;
 
         csfg_expr_pool_clear(tmp_pool);
-        csfg_rational_clear(&rational);
+        csfg_tf_expr_clear(&tf);
         result = csfg_expr_to_rational_limit(
-            in_pool, in_expr, var_name, &tmp_pool, &rational);
+            in_pool, in_expr, var_name, &tmp_pool, &tf);
         if (result != 0)
             goto fail;
 
-        out_expr = csfg_rational_to_expr(&rational, tmp_pool, out_pool);
+        out_expr = csfg_rational_to_expr(&tf, tmp_pool, out_pool);
         if (out_expr < 0)
             goto fail;
 
@@ -172,12 +172,12 @@ int csfg_expr_apply_limits(
         out_expr = csfg_expr_dup_recurse_from(out_pool, in_pool, in_expr);
 
     csfg_expr_pool_deinit(tmp_pool);
-    csfg_rational_deinit(&rational);
+    csfg_tf_expr_deinit(&tf);
     return out_expr;
 
 fail:
     csfg_expr_pool_deinit(tmp_pool);
-    csfg_rational_deinit(&rational);
+    csfg_tf_expr_deinit(&tf);
     return -1;
 }
 

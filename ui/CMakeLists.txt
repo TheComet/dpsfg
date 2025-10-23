@@ -69,6 +69,7 @@ install (
     FILES "cmake/modules/DPSFGPlugin.cmake"
     DESTINATION "share/dpsfg/cmake/modules")
 
+add_subdirectory ("plugins/bode-plot")
 add_subdirectory ("plugins/graph-editor")
 add_subdirectory ("plugins/math-viewer")
 add_subdirectory ("plugins/pole-zero")

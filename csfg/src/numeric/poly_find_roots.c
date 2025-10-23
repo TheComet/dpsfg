@@ -1,4 +1,4 @@
-#include "csfg/numeric/cpoly.h"
+#include "csfg/numeric/poly.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -7,11 +7,13 @@ VEC_DEFINE(csfg_rpoly, struct csfg_complex, 8)
 
 static const double EPSILON = 1e-8;
 
+/* -------------------------------------------------------------------------- */
 static double rand_float(void)
 {
     return (double)rand() / RAND_MAX;
 }
 
+/* -------------------------------------------------------------------------- */
 static int near(double a, double b, double c, double d, double tol)
 {
     double qa = a - c;
@@ -20,6 +22,7 @@ static int near(double a, double b, double c, double d, double tol)
     return r * r < tol;
 }
 
+/* -------------------------------------------------------------------------- */
 static double bound(const struct csfg_cpoly* p)
 {
     double                     b = 0.0;
@@ -33,6 +36,7 @@ static double bound(const struct csfg_cpoly* p)
     return 1.0 + sqrt(b);
 }
 
+/* -------------------------------------------------------------------------- */
 static struct csfg_complex
 calc_denominator(const struct csfg_rpoly* roots, int j, double tolerance)
 {
@@ -68,6 +72,7 @@ calc_denominator(const struct csfg_rpoly* roots, int j, double tolerance)
     return den;
 }
 
+/* -------------------------------------------------------------------------- */
 static struct csfg_complex
 calc_numerator(const struct csfg_cpoly* coeffs, struct csfg_complex root)
 {
@@ -88,6 +93,7 @@ calc_numerator(const struct csfg_cpoly* coeffs, struct csfg_complex root)
     return num;
 }
 
+/* -------------------------------------------------------------------------- */
 static struct csfg_complex
 calc_reciprocal(struct csfg_complex num, struct csfg_complex den)
 {
@@ -112,6 +118,7 @@ calc_reciprocal(struct csfg_complex num, struct csfg_complex den)
     return csfg_complex(k1 - k3, k1 + k2);
 }
 
+/* -------------------------------------------------------------------------- */
 static void durand_kerner(
     const struct csfg_cpoly* coeffs,
     int                      n_iters,
@@ -145,6 +152,7 @@ static void durand_kerner(
     }
 }
 
+/* -------------------------------------------------------------------------- */
 static void postprocess(struct csfg_rpoly* roots, double tolerance)
 {
     int                  i, j, count;
@@ -192,6 +200,7 @@ static void postprocess(struct csfg_rpoly* roots, double tolerance)
     }
 }
 
+/* -------------------------------------------------------------------------- */
 int csfg_cpoly_find_roots(
     struct csfg_cpoly*  coeffs,
     struct csfg_rpoly** roots,

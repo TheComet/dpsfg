@@ -9,6 +9,7 @@ project ("dpsfg-csfg"
 option (CSFG_BACKTRACE "Enable generating backtraces to all resources. Adds a significant performance penalty" ON)
 option (CSFG_DEBUG_MEMORY "Enable tracking malloc() and free() calls to detect memory leaks" ON)
 option (CSFG_LOG_DEBUG "Make log_dbg() do something" ON)
+option (CSFG_WERROR "Enable -Werror" ON)
 
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "MSVC")
     set (CSFG_THREADLOCAL "__declspec(thread)")
@@ -53,16 +54,16 @@ set (csfg_SOURCES
     "src/symbolic/expr_op_rebalance_fraction.c"
     "src/symbolic/expr_op_simplify_products.c"
     "src/symbolic/expr_op_simplify_sums.c"
-    "src/symbolic/expr_op_tf.c"
     "src/symbolic/expr_opt_remove_useless_ops.c"
     "src/symbolic/expr_opt_fold_constants.c"
-    "src/symbolic/poly.c"
-    "src/symbolic/rational.c"
+    "src/symbolic/poly_expr.c"
+    "src/symbolic/tf_expr.c"
     "src/symbolic/var_table.c"
 
     # numeric
-    "src/numeric/cpoly.c"
-    "src/numeric/cpoly_find_roots.c")
+    "src/numeric/poly.c"
+    "src/numeric/poly_find_roots.c"
+    "src/numeric/tf.c")
 
 if (CSFG_DEBUG_MEMORY)
     list (APPEND csfg_SOURCES
@@ -102,6 +103,13 @@ set_target_properties (dpsfg-csfg
         C_STANDARD 90)
 add_library (DPSFG::csfg ALIAS dpsfg-csfg)
 
+if (CSFG_WERROR)
+    target_compile_options (dpsfg-csfg
+        PRIVATE
+            $<$<C_COMPILER_ID:GNU>:-Werror>
+            $<$<C_COMPILER_ID:Clang>:-Werror>)
+endif ()
+
 if (CSFG_TESTS)
     target_sources (dpsfg-tests INTERFACE
         "tests/LogHelper.cpp"
@@ -119,14 +127,14 @@ if (CSFG_TESTS)
         "tests/test_expr_op_rebalance_fraction.cpp"
         "tests/test_expr_op_simplify_products.cpp"
         "tests/test_expr_op_simplify_sums.cpp"
-        "tests/test_expr_op_tf.cpp"
         "tests/test_expr_opt_remove_useless_ops.cpp"
         "tests/test_expr_opt_fold_constants.cpp"
         "tests/test_expr_to_rational.cpp"
         "tests/test_expr_to_rational_limit.cpp"
         "tests/test_expr_to_rational_limits.cpp"
         "tests/test_poly_add_permutations.cpp"
-        "tests/test_rational_simplify.cpp"
+        "tests/test_tf_expr.cpp"
+        "tests/test_tf_expr_simplify.cpp"
 
         # graph
         "tests/test_graph_find_forward_paths.cpp"

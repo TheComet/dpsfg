@@ -5,12 +5,11 @@ extern "C" {
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
-#include "csfg/symbolic/expr_tf.h"
-#include "csfg/symbolic/rational.h"
+#include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 }
 
-#define NAME test_expr_op_tf
+#define NAME test_tf_expr
 
 using namespace testing;
 
@@ -26,11 +25,11 @@ struct NAME : public Test
         csfg_expr_pool_init(&pool2);
         csfg_expr_pool_init(&pool3);
         csfg_var_table_init(&vt);
-        csfg_rational_init(&rational);
+        csfg_tf_expr_init(&tf);
     }
     void TearDown() override
     {
-        csfg_rational_deinit(&rational);
+        csfg_tf_expr_deinit(&tf);
         csfg_var_table_deinit(&vt);
         csfg_expr_pool_deinit(pool3);
         csfg_expr_pool_deinit(pool2);
@@ -49,7 +48,7 @@ struct NAME : public Test
     struct csfg_expr_pool* pool2;
     struct csfg_expr_pool* pool3;
     struct csfg_var_table  vt;
-    struct csfg_rational   rational;
+    struct csfg_tf_expr    tf;
 };
 
 TEST_F(NAME, simple)
@@ -64,8 +63,7 @@ TEST_F(NAME, simple)
     int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/s - 1/a)"));
     ASSERT_THAT(expr, Ge(0));
     ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
-        Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
 }
 
 TEST_F(NAME, light)
@@ -83,8 +81,7 @@ TEST_F(NAME, light)
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
     ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
-        Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
 }
 
 TEST_F(NAME, medium)
@@ -106,8 +103,7 @@ TEST_F(NAME, medium)
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
     ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
-        Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
 }
 
 TEST_F(NAME, harder)
@@ -142,8 +138,7 @@ TEST_F(NAME, harder)
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
     ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
-        Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
 
 #if 0
     for (std::size_t i = 0; i != tfc.numerator.size(); ++i)
@@ -307,8 +302,7 @@ TEST_F(NAME, inverting_amplifier)
     expr = csfg_expr_apply_limits(pool1, expr, &vt, &pool2);
     ASSERT_THAT(expr, Ge(0));
     ASSERT_THAT(
-        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &rational),
-        Eq(0));
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), Eq(0));
 }
 
 TEST_F(NAME, integrator)
@@ -379,8 +373,7 @@ TEST_F(NAME, integrator)
      * G2^2 + 2*G2^2*C*(C+C*A)*s + C*(C+C*A)*s^2
      */
     ASSERT_THAT(
-        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &rational),
-        Eq(0));
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), Eq(0));
 }
 
 TEST_F(NAME, active_lowpass_filter)
@@ -464,6 +457,5 @@ TEST_F(NAME, active_lowpass_filter)
      */
 
     ASSERT_THAT(
-        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &rational),
-        Eq(0));
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), Eq(0));
 }

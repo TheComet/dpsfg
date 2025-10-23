@@ -1,11 +1,11 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/poly.h"
+#include "csfg/symbolic/poly_expr.h"
 #include "csfg/util/str.h"
 
-VEC_DEFINE(csfg_poly, struct csfg_coeff, 8)
+VEC_DEFINE(csfg_poly_expr, struct csfg_coeff_expr, 8)
 
 /* ------------------------------------------------------------------------- */
-static int set_coeff(struct csfg_coeff* c, double factor, int expr)
+static int set_coeff(struct csfg_coeff_expr* c, double factor, int expr)
 {
     c->factor = factor;
     c->expr = expr;
@@ -13,7 +13,8 @@ static int set_coeff(struct csfg_coeff* c, double factor, int expr)
 }
 
 /* ------------------------------------------------------------------------- */
-static int set_and_check_coeff(struct csfg_coeff* c, double factor, int expr)
+static int
+set_and_check_coeff(struct csfg_coeff_expr* c, double factor, int expr)
 {
     if (expr < 0)
         return -1;
@@ -22,10 +23,10 @@ static int set_and_check_coeff(struct csfg_coeff* c, double factor, int expr)
 
 /* ------------------------------------------------------------------------- */
 static int add_coeffs(
-    struct csfg_expr_pool**  pool,
-    const struct csfg_coeff* c1,
-    const struct csfg_coeff* c2,
-    struct csfg_coeff*       out)
+    struct csfg_expr_pool**       pool,
+    const struct csfg_coeff_expr* c1,
+    const struct csfg_coeff_expr* c2,
+    struct csfg_coeff_expr*       out)
 {
     if (c1->factor == 0.0) /* 0a + 3b = 3b */
     {
@@ -147,67 +148,68 @@ static int add_coeffs(
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_poly_copy(struct csfg_poly** dst, const struct csfg_poly* src)
+int csfg_poly_expr_copy(
+    struct csfg_poly_expr** dst, const struct csfg_poly_expr* src)
 {
-    const struct csfg_coeff* c;
+    const struct csfg_coeff_expr* c;
     CSFG_DEBUG_ASSERT(vec_count(*dst) == 0);
     vec_for_each (src, c)
-        if (csfg_poly_push(dst, *c) != 0)
+        if (csfg_poly_expr_push(dst, *c) != 0)
             return -1;
     return 0;
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_poly_add(
-    struct csfg_expr_pool** pool,
-    struct csfg_poly**      out,
-    const struct csfg_poly* p1,
-    const struct csfg_poly* p2)
+int csfg_poly_expr_add(
+    struct csfg_expr_pool**      pool,
+    struct csfg_poly_expr**      out,
+    const struct csfg_poly_expr* p1,
+    const struct csfg_poly_expr* p2)
 {
     int i, degree, min_degree;
 
     degree = vec_count(p1) > vec_count(p2) ? vec_count(p1) : vec_count(p2);
     min_degree = vec_count(p1) < vec_count(p2) ? vec_count(p1) : vec_count(p2);
 
-    if (csfg_poly_realloc(out, degree) != 0)
+    if (csfg_poly_expr_realloc(out, degree) != 0)
         return -1;
     CSFG_DEBUG_ASSERT(vec_count(*out) == 0);
 
     for (i = 0; i != min_degree; ++i)
     {
-        struct csfg_coeff        result;
-        const struct csfg_coeff* c1 = vec_get(p1, i);
-        const struct csfg_coeff* c2 = vec_get(p2, i);
+        struct csfg_coeff_expr        result;
+        const struct csfg_coeff_expr* c1 = vec_get(p1, i);
+        const struct csfg_coeff_expr* c2 = vec_get(p2, i);
 
         if (add_coeffs(pool, c1, c2, &result) != 0)
             return -1;
         /* This can't fail because we realloc'd earlier */
-        csfg_poly_push(out, result);
+        csfg_poly_expr_push(out, result);
     }
 
     for (; i != degree; ++i)
     {
-        const struct csfg_coeff* c1 =
+        const struct csfg_coeff_expr* c1 =
             i < vec_count(p1) ? vec_get(p1, i) : vec_get(p2, i);
         /* This can't fail because we realloc'd earlier */
-        csfg_poly_push(out, csfg_coeff(c1->factor, c1->expr));
+        csfg_poly_expr_push(out, csfg_coeff_expr(c1->factor, c1->expr));
     }
 
     return 0;
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_poly_mul(
-    struct csfg_expr_pool** pool,
-    struct csfg_poly**      out,
-    const struct csfg_poly* p1,
-    const struct csfg_poly* p2)
+int csfg_poly_expr_mul(
+    struct csfg_expr_pool**      pool,
+    struct csfg_poly_expr**      out,
+    const struct csfg_poly_expr* p1,
+    const struct csfg_poly_expr* p2)
 {
-    const struct csfg_coeff *c1, *c2;
-    int                      i, i1, i2, degree;
+    const struct csfg_coeff_expr *c1, *c2;
+    int                           i, i1, i2, degree;
 
     degree = vec_count(p1) + vec_count(p2) - 1;
-    if (csfg_poly_realloc(out, degree) != 0)
+    if (csfg_poly_expr_realloc(out, degree) != 0)
         return -1;
     CSFG_DEBUG_ASSERT(vec_count(*out) == 0);
 
@@ -232,20 +234,21 @@ int csfg_poly_mul(
                     factor += c1->factor * c2->factor;
                 }
         /* This can't fail because we realloc'd earlier */
-        csfg_poly_push(out, csfg_coeff(factor, factor != 0.0 ? expr : -1));
+        csfg_poly_expr_push(
+            out, csfg_coeff_expr(factor, factor != 0.0 ? expr : -1));
     }
 
     return 0;
 }
 
 /* ------------------------------------------------------------------------- */
-int csfg_poly_to_str(
+int csfg_poly_expr_to_str(
     struct str**                 str,
     const struct csfg_expr_pool* pool,
-    const struct csfg_poly*      poly)
+    const struct csfg_poly_expr* poly)
 {
-    const struct csfg_coeff* c;
-    int                      degree;
+    const struct csfg_coeff_expr* c;
+    int                           degree;
 
     vec_enumerate (poly, degree, c)
     {
@@ -260,6 +263,9 @@ int csfg_poly_to_str(
         {
             if (str_append_char(str, '-') != 0)
                 return -1;
+            if (c->expr < 0)
+                if (str_append_char(str, '1') != 0)
+                    return -1;
         }
         else if (c->factor != 1.0 || c->expr < 0)
         {

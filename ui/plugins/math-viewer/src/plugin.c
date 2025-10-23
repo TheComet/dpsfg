@@ -4,12 +4,11 @@
 
 struct plugin_ctx
 {
-    GtkWidget*                         top_level;
-    MathViewer*                        graph_expr_viewer;
-    MathViewer*                        substituted_expr_viewer;
-    MathViewer*                        limit_expr_viewer;
-    MathViewer*                        tf_viewer;
-    struct plugin_callbacks_interface* callbacks;
+    GtkWidget*  top_level;
+    MathViewer* graph_expr_viewer;
+    MathViewer* substituted_expr_viewer;
+    MathViewer* limit_expr_viewer;
+    MathViewer* tf_viewer;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -82,9 +81,9 @@ static void on_limit_expr(
 static void on_graph_tf(
     struct plugin_ctx*           ctx,
     const struct csfg_expr_pool* pool,
-    const struct csfg_rational*  rational)
+    const struct csfg_tf_expr*   tf)
 {
-    math_viewer_set_tf(ctx->tf_viewer, pool, rational);
+    math_viewer_set_tf(ctx->tf_viewer, pool, tf);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -112,4 +111,5 @@ PLUGIN_API struct plugin_interface dpsfg_plugin = {
     NULL,
     NULL,
     &expr,
+    NULL,
     NULL};

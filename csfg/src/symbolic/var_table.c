@@ -73,8 +73,9 @@ static int var_table_populate(
             csfg_expr_pool_init(&entry->pool);
             entry->visited = 1;
             entry->expr = csfg_expr_lit(&entry->pool, default_value);
-            if (entry->expr == -1)
+            if (entry->expr < 0)
             {
+                csfg_expr_pool_deinit(entry->pool);
                 csfg_var_hmap_erase(vt->map, name);
                 return -1;
             }
@@ -117,7 +118,10 @@ void csfg_var_table_erase_unvisited(struct csfg_var_table* vt)
 
     hmap_for_each (vt->map, slot, name, entry)
         if (!entry->visited)
+        {
+            csfg_expr_pool_deinit(entry->pool);
             (void)name, csfg_var_hmap_erase_slot(vt->map, slot);
+        }
 }
 
 /* ------------------------------------------------------------------------- */
@@ -137,6 +141,7 @@ int csfg_var_table_set_lit(
     n = csfg_expr_lit(&entry->pool, value);
     if (n == -1)
     {
+        csfg_expr_pool_deinit(entry->pool);
         csfg_var_hmap_erase(vt->map, name);
         return -1;
     }

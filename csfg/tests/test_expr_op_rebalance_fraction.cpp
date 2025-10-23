@@ -2,8 +2,8 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_tf.h"
 #include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/tf_expr.h"
 }
 
 #define NAME test_expr_op_rebalance_fraction

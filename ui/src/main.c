@@ -1,10 +1,10 @@
 #include "csfg/graph/graph.h"
-#include "csfg/numeric/cpoly.h"
+#include "csfg/numeric/poly.h"
+#include "csfg/numeric/tf.h"
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
-#include "csfg/symbolic/expr_tf.h"
-#include "csfg/symbolic/rational.h"
+#include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 #include "csfg/util/log.h"
 #include "csfg/util/tracker.h"
@@ -101,14 +101,11 @@ struct math_pipeline
     int                    lim_expr;
 
     struct csfg_expr_pool* tf_pool;
-    struct csfg_rational   tf;
+    struct csfg_tf_expr    tf_expr;
 
     struct csfg_var_table parameters;
 
-    struct csfg_cpoly* num_coeffs;
-    struct csfg_cpoly* den_coeffs;
-    struct csfg_rpoly* zeros;
-    struct csfg_rpoly* poles;
+    struct csfg_tf tf;
 };
 
 struct app_ctx
@@ -127,7 +124,7 @@ struct plugin_callbacks
 static void update_math_pipeline(
     struct math_pipeline* pipeline, enum math_pipeline_state state)
 {
-    const struct csfg_coeff* coeff;
+    const struct csfg_coeff_expr* coeff;
 
     switch (state)
     {
@@ -220,7 +217,7 @@ calc_limits:
     }
 
 calc_symbolic_tf:
-    csfg_rational_clear(&pipeline->tf);
+    csfg_tf_expr_clear(&pipeline->tf_expr);
     csfg_expr_pool_clear(pipeline->tf_pool);
     if (pipeline->lim_expr > -1)
         if (csfg_expr_to_rational(
@@ -228,10 +225,10 @@ calc_symbolic_tf:
                 pipeline->lim_expr,
                 cstr_view("s"),
                 &pipeline->tf_pool,
-                &pipeline->tf) != 0)
+                &pipeline->tf_expr) != 0)
         {
             csfg_expr_pool_clear(pipeline->tf_pool);
-            csfg_rational_clear(&pipeline->tf);
+            csfg_tf_expr_clear(&pipeline->tf_expr);
         }
     if (csfg_expr_pool_count(pipeline->tf_pool) > 0)
     {
@@ -244,29 +241,29 @@ calc_symbolic_tf:
 
 repopulate_parameter_table:
     csfg_var_table_reset_visited(&pipeline->parameters);
-    vec_for_each (pipeline->tf.num, coeff)
+    vec_for_each (pipeline->tf_expr.num, coeff)
         csfg_var_table_populate(
             &pipeline->parameters, pipeline->tf_pool, coeff->expr);
-    vec_for_each (pipeline->tf.den, coeff)
+    vec_for_each (pipeline->tf_expr.den, coeff)
         csfg_var_table_populate(
             &pipeline->parameters, pipeline->tf_pool, coeff->expr);
     csfg_var_table_erase_unvisited(&pipeline->parameters);
 
 calc_numeric_tf:;
     csfg_cpoly_from_symbolic(
-        &pipeline->num_coeffs,
+        &pipeline->tf.num,
         pipeline->tf_pool,
         &pipeline->parameters,
-        pipeline->tf.num);
+        pipeline->tf_expr.num);
     csfg_cpoly_from_symbolic(
-        &pipeline->den_coeffs,
+        &pipeline->tf.den,
         pipeline->tf_pool,
         &pipeline->parameters,
-        pipeline->tf.den);
-    csfg_rpoly_clear(pipeline->zeros);
-    csfg_rpoly_clear(pipeline->poles);
-    csfg_cpoly_find_roots(pipeline->num_coeffs, &pipeline->zeros, 0, 0.0);
-    csfg_cpoly_find_roots(pipeline->den_coeffs, &pipeline->poles, 0, 0.0);
+        pipeline->tf_expr.den);
+    csfg_rpoly_clear(pipeline->tf.zeros);
+    csfg_rpoly_clear(pipeline->tf.poles);
+    csfg_cpoly_find_roots(pipeline->tf.num, &pipeline->tf.zeros, 0, 0.0);
+    csfg_cpoly_find_roots(pipeline->tf.den, &pipeline->tf.poles, 0, 0.0);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -288,6 +285,9 @@ static void notify_plugins(
 graph_changed:
     vec_for_each (plugins, plugin)
     {
+        if (state == MATH_PIPELINE_GRAPH_CHANGED &&
+            plugin->ctx == source_plugin)
+            continue;
         if (plugin->lib.i->graph)
             plugin->lib.i->graph->on_changed(plugin->ctx, &pipeline->graph);
     }
@@ -296,6 +296,10 @@ substitutions_changed:
     {
         if (plugin->lib.i->expr == NULL)
             continue;
+        if (state == MATH_PIPELINE_SUBSTITUTIONS_CHANGED &&
+            plugin->ctx == source_plugin)
+            continue;
+
         plugin->lib.i->expr->on_graph_expr(
             plugin->ctx, pipeline->graph_pool, pipeline->graph_expr);
         plugin->lib.i->expr->on_substituted_expr(
@@ -303,25 +307,28 @@ substitutions_changed:
         plugin->lib.i->expr->on_limit_expr(
             plugin->ctx, pipeline->lim_pool, pipeline->lim_expr);
         plugin->lib.i->expr->on_graph_tf(
-            plugin->ctx, pipeline->tf_pool, &pipeline->tf);
+            plugin->ctx, pipeline->tf_pool, &pipeline->tf_expr);
     }
     vec_for_each (plugins, plugin)
     {
         if (plugin->lib.i->parameters == NULL)
             continue;
+        if (state == MATH_PIPELINE_SUBSTITUTIONS_CHANGED &&
+            plugin->ctx == source_plugin)
+            continue;
+
         plugin->lib.i->parameters->on_changed(
             plugin->ctx, &pipeline->parameters);
     }
 parameters_changed:
     vec_for_each (plugins, plugin)
     {
+        if (state == MATH_PIPELINE_PARAMETERS_CHANGED &&
+            plugin->ctx == source_plugin)
+            continue;
+
         if (plugin->lib.i->numeric)
-            plugin->lib.i->numeric->on_polynomial_changed(
-                plugin->ctx,
-                pipeline->num_coeffs,
-                pipeline->den_coeffs,
-                pipeline->zeros,
-                pipeline->poles);
+            plugin->lib.i->numeric->on_tf_changed(plugin->ctx, &pipeline->tf);
     }
 }
 
@@ -361,12 +368,12 @@ static void parameters_changed_cb(
 {
     struct app_ctx*       app = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
-    update_math_pipeline(pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
+    update_math_pipeline(pipeline, MATH_PIPELINE_PARAMETERS_CHANGED);
     notify_plugins(
         *app->plugins,
         source_plugin,
         pipeline,
-        MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
+        MATH_PIPELINE_PARAMETERS_CHANGED);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -662,14 +669,11 @@ int main(int argc, char** argv)
     app_ctx.pipeline.lim_expr = -1;
 
     csfg_expr_pool_init(&app_ctx.pipeline.tf_pool);
-    csfg_rational_init(&app_ctx.pipeline.tf);
+    csfg_tf_expr_init(&app_ctx.pipeline.tf_expr);
 
     csfg_var_table_init(&app_ctx.pipeline.parameters);
 
-    csfg_cpoly_init(&app_ctx.pipeline.num_coeffs);
-    csfg_cpoly_init(&app_ctx.pipeline.den_coeffs);
-    csfg_rpoly_init(&app_ctx.pipeline.zeros);
-    csfg_rpoly_init(&app_ctx.pipeline.poles);
+    csfg_tf_init(&app_ctx.pipeline.tf);
 
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
@@ -682,7 +686,7 @@ int main(int argc, char** argv)
     plugin_vec_deinit(plugins);
 
     csfg_var_table_deinit(&app_ctx.pipeline.parameters);
-    csfg_rational_deinit(&app_ctx.pipeline.tf);
+    csfg_tf_expr_deinit(&app_ctx.pipeline.tf_expr);
     csfg_expr_pool_deinit(app_ctx.pipeline.tf_pool);
     csfg_expr_pool_deinit(app_ctx.pipeline.lim_pool);
     csfg_expr_pool_deinit(app_ctx.pipeline.subs_pool);
@@ -691,10 +695,7 @@ int main(int argc, char** argv)
     csfg_path_vec_deinit(app_ctx.pipeline.loops);
     csfg_path_vec_deinit(app_ctx.pipeline.paths);
     csfg_graph_deinit(&app_ctx.pipeline.graph);
-    csfg_rpoly_deinit(app_ctx.pipeline.poles);
-    csfg_rpoly_deinit(app_ctx.pipeline.zeros);
-    csfg_cpoly_deinit(app_ctx.pipeline.num_coeffs);
-    csfg_cpoly_deinit(app_ctx.pipeline.den_coeffs);
+    csfg_tf_deinit(&app_ctx.pipeline.tf);
 
 parse_args_break:
     trackers_deinit_tls();

@@ -1,24 +1,11 @@
 #pragma once
 
+#include "csfg/numeric/complex.h"
 #include "csfg/util/vec.h"
 
 struct csfg_expr_pool;
 struct csfg_var_table;
-struct csfg_poly;
-
-struct csfg_complex
-{
-    double real;
-    double imag;
-};
-
-static struct csfg_complex csfg_complex(double real, double imag)
-{
-    struct csfg_complex result;
-    result.real = real;
-    result.imag = imag;
-    return result;
-}
+struct csfg_poly_expr;
 
 VEC_DECLARE(csfg_cpoly, struct csfg_complex, 8)
 VEC_DECLARE(csfg_rpoly, struct csfg_complex, 8)
@@ -33,4 +20,10 @@ int csfg_cpoly_from_symbolic(
     struct csfg_cpoly**          poly,
     struct csfg_expr_pool*       pool,
     const struct csfg_var_table* vt,
-    const struct csfg_poly*      symbolic);
+    const struct csfg_poly_expr*     symbolic);
+
+void csfg_rpoly_interesting_frequency_interval(
+    const struct csfg_rpoly* poly, double* f_start_hz, double* f_end_hz);
+
+void csfg_rpoly_interesting_time_interval(
+    const struct csfg_rpoly* poly, double* t_start_s, double* t_end_s);

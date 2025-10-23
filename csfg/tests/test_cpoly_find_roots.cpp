@@ -3,7 +3,7 @@
 #include "gmock/gmock.h"
 
 extern "C" {
-#include "csfg/numeric/cpoly.h"
+#include "csfg/numeric/poly.h"
 }
 
 #define NAME test_cpoly_find_roots

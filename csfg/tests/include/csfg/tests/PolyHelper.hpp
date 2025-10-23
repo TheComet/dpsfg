@@ -4,7 +4,7 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/poly.h"
+#include "csfg/symbolic/poly_expr.h"
 #include "csfg/util/str.h"
 }
 
@@ -52,7 +52,7 @@ struct PolyHelper
 
     bool CoeffEq(
         const struct csfg_expr_pool* pool,
-        const struct csfg_poly*      p,
+        const struct csfg_poly_expr* p,
         int                          idx,
         double                       factor)
     {
@@ -84,7 +84,7 @@ struct PolyHelper
 
     bool CoeffEq(
         const struct csfg_expr_pool* pool,
-        const struct csfg_poly*      p,
+        const struct csfg_poly_expr* p,
         int                          idx,
         double                       factor,
         const char*                  expr_str)
@@ -100,7 +100,7 @@ struct PolyHelper
 
     bool CoeffEq(
         const struct csfg_expr_pool* pool,
-        const struct csfg_poly*      p,
+        const struct csfg_poly_expr* p,
         int                          idx,
         double                       factor,
         enum csfg_expr_type          type)

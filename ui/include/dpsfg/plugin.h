@@ -6,9 +6,8 @@ struct plugin_ctx;
 struct csfg_graph;
 struct csfg_expr_pool;
 struct csfg_var_table;
-struct csfg_rational;
-struct csfg_cpoly;
-struct csfg_rpoly;
+struct csfg_tf_expr;
+struct csfg_tf;
 
 typedef struct _GtkWidget   GtkWidget;
 typedef struct _GTypeModule GTypeModule;
@@ -57,7 +56,7 @@ struct dpsfg_expr_interface
     void (*on_graph_tf)(
         struct plugin_ctx*           ctx,
         const struct csfg_expr_pool* pool,
-        const struct csfg_rational*  rational);
+        const struct csfg_tf_expr*   tf);
 };
 
 struct dpsfg_substitutions_interface
@@ -79,12 +78,7 @@ struct dpsfg_parameters_interface
 
 struct dpsfg_numeric_interface
 {
-    void (*on_polynomial_changed)(
-        struct plugin_ctx*       ctx,
-        const struct csfg_cpoly* numerator,
-        const struct csfg_cpoly* denominator,
-        const struct csfg_rpoly* zeros,
-        const struct csfg_rpoly* poles);
+    void (*on_tf_changed)(struct plugin_ctx* ctx, const struct csfg_tf* tf);
 };
 
 struct plugin_info

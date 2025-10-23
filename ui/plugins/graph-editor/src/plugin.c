@@ -5,7 +5,7 @@
 struct plugin_ctx
 {
     GraphEditor*                             graph_editor;
-    GtkWidget*                               tweakables_view;
+    GtkWidget*                               pole_zero_plot;
     const struct plugin_callbacks_interface* icb;
     struct plugin_callbacks*                 cb;
 };

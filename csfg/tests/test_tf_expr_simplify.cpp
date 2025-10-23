@@ -6,10 +6,10 @@ extern "C" {
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
-#include "csfg/symbolic/rational.h"
+#include "csfg/symbolic/tf_expr.h"
 }
 
-#define NAME test_rational_simplify
+#define NAME test_tf_expr_simplify
 
 using namespace testing;
 
@@ -19,18 +19,18 @@ struct NAME : public Test, public PolyHelper
     {
         csfg_expr_pool_init(&pool1);
         csfg_expr_pool_init(&pool2);
-        csfg_rational_init(&rational);
+        csfg_tf_expr_init(&tf);
     }
     void TearDown() override
     {
-        csfg_rational_deinit(&rational);
+        csfg_tf_expr_deinit(&tf);
         csfg_expr_pool_deinit(pool2);
         csfg_expr_pool_deinit(pool1);
     }
 
     struct csfg_expr_pool* pool1;
     struct csfg_expr_pool* pool2;
-    struct csfg_rational   rational;
+    struct csfg_tf_expr    tf;
 };
 
 TEST_F(NAME, case1)
@@ -54,12 +54,11 @@ TEST_F(NAME, case1)
      * G2*G2 + 2*(G2*C*G2*C)*s + C*C*s^2
      */
     ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &rational),
-        Eq(0));
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
 
-    ASSERT_THAT(vec_count(rational.num), Eq(1));
-    ASSERT_THAT(vec_count(rational.den), Eq(2));
-    ASSERT_TRUE(CoeffEq(pool2, rational.num, 0, -1.0, "G1"));
-    ASSERT_TRUE(CoeffEq(pool2, rational.den, 0, 1.0, "G2"));
-    ASSERT_TRUE(CoeffEq(pool2, rational.den, 1, 1.0, "C"));
+    ASSERT_THAT(vec_count(tf.num), Eq(1));
+    ASSERT_THAT(vec_count(tf.den), Eq(2));
+    ASSERT_TRUE(CoeffEq(pool2, tf.num, 0, -1.0, "G1"));
+    ASSERT_TRUE(CoeffEq(pool2, tf.den, 0, 1.0, "G2"));
+    ASSERT_TRUE(CoeffEq(pool2, tf.den, 1, 1.0, "C"));
 }

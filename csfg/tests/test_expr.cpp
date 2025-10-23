@@ -26,6 +26,13 @@ struct NAME : public Test
     struct csfg_var_table  vt;
 };
 
+TEST_F(NAME, negative_literal)
+{
+    int e;
+    ASSERT_THAT(e = csfg_expr_parse(&p, cstr_view("-4")), Ge(0));
+    ASSERT_THAT(csfg_expr_eval(p, e, NULL), DoubleEq(-4));
+}
+
 TEST_F(NAME, add_and_sub)
 {
     int e;

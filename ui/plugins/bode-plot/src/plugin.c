@@ -1,12 +1,11 @@
-#include "csfg/util/log.h"
+#include "bode-plot/bode_plot.h"
 #include "csfg/util/mem.h"
 #include "dpsfg/plugin.h"
-#include "pole-zero/pole_zero_plot.h"
 #include <gtk/gtk.h>
 
 struct plugin_ctx
 {
-    PoleZeroPlot*                            pole_zero_plot;
+    BodePlot*                                bode_plot;
     const struct plugin_callbacks_interface* icb;
     struct plugin_callbacks*                 cb;
 };
@@ -14,24 +13,14 @@ struct plugin_ctx
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
-    ctx->pole_zero_plot = pole_zero_plot_new();
-    return GTK_WIDGET(g_object_ref_sink(ctx->pole_zero_plot));
+    ctx->bode_plot = bode_plot_new();
+    return GTK_WIDGET(g_object_ref_sink(ctx->bode_plot));
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
     (void)ctx;
     g_object_unref(ui);
 }
-static struct dpsfg_ui_pane_interface ui_pane = {
-    ui_pane_create, ui_pane_destroy};
-
-/* -------------------------------------------------------------------------- */
-static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
-{
-    log_dbg("tf changed\n");
-    pole_zero_plot_set_tf(ctx->pole_zero_plot, tf);
-}
-static struct dpsfg_numeric_interface numeric = {on_tf_changed};
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
@@ -43,7 +32,7 @@ static struct plugin_ctx* create(
     ctx->icb = icb;
     ctx->cb = cb;
 
-    pole_zero_plot_register_type_internal(type_module);
+    bode_plot_register_type_internal(type_module);
 
     return ctx;
 }
@@ -53,8 +42,20 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
     mem_free(ctx);
 }
 
+/* -------------------------------------------------------------------------- */
+void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
+{
+    bode_plot_set_tf(ctx->bode_plot, tf);
+}
+
+/* -------------------------------------------------------------------------- */
+static struct dpsfg_ui_pane_interface ui_pane = {
+    ui_pane_create, ui_pane_destroy};
+
+static struct dpsfg_numeric_interface numeric = {on_tf_changed};
+
 static struct plugin_info info = {
-    "Pole-Zero Plot",
+    "Bode Plot",
     "visualizer",
     "TheComet",
     "@TheComet93",
