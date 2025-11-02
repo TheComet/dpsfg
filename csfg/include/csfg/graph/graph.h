@@ -1,7 +1,7 @@
 #pragma once
 
-#include "csfg/util/vec.h"
 #include "csfg/util/strview.h"
+#include "csfg/util/vec.h"
 
 struct str;
 
@@ -57,17 +57,13 @@ void csfg_graph_mark_edge_deleted(struct csfg_graph* g, int e);
 void csfg_graph_gc(struct csfg_graph* g);
 
 #define csfg_graph_for_each_node(g, var)                                       \
-    if (g)                                                                     \
-        vec_for_each ((g)->nodes, (var))
+    vec_for_each ((g) ? (g)->nodes : NULL, (var))
 #define csfg_graph_for_each_edge(g, var)                                       \
-    if (g)                                                                     \
-        vec_for_each ((g)->edges, (var))
+    vec_for_each ((g) ? (g)->edges : NULL, (var))
 #define csfg_graph_enumerate_nodes(g, i, var)                                  \
-    if (g)                                                                     \
-        vec_enumerate ((g)->nodes, (i), (var))
+    vec_enumerate ((g) ? (g)->nodes : NULL, (i), (var))
 #define csfg_graph_enumerate_edges(g, i, var)                                  \
-    if (g)                                                                     \
-        vec_enumerate ((g)->edges, (i), (var))
+    vec_enumerate ((g) ? (g)->edges : NULL, (i), (var))
 #define csfg_graph_get_node(g, i) ((g) ? vec_get((g)->nodes, (i)) : NULL)
 #define csfg_graph_get_edge(g, i) ((g) ? vec_get((g)->edges, (i)) : NULL)
 #define csfg_graph_node_count(g)  ((g) ? vec_count((g)->nodes) : 0)

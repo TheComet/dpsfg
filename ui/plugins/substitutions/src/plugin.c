@@ -6,10 +6,10 @@
 
 struct plugin_ctx
 {
-    GtkWidget*                               pole_zero_plot;
-    const struct plugin_callbacks_interface* icb;
-    struct plugin_callbacks*                 cb;
-    struct csfg_var_table*                   substitutions_table;
+    GtkWidget*                            pole_zero_plot;
+    const struct plugin_notify_interface* icb;
+    struct dpsfg_plugin_callbacks*        cb;
+    struct csfg_var_table*                substitutions_table;
 };
 
 enum token
@@ -203,21 +203,20 @@ void substitutions_on_set(
 {
     ctx->substitutions_table = substitutions;
 }
-void substitutions_on_changed(
-    struct plugin_ctx* ctx, struct csfg_var_table* substitutions)
-{
-    (void)ctx, (void)substitutions;
-}
 void substitutions_on_clear(struct plugin_ctx* ctx)
+{
+    ctx->substitutions_table = NULL;
+}
+void substitutions_on_changed(struct plugin_ctx* ctx)
 {
     (void)ctx;
 }
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_callbacks_interface* icb,
-    struct plugin_callbacks*                 cb,
-    GTypeModule*                             type_module)
+    const struct plugin_notify_interface* icb,
+    struct dpsfg_plugin_callbacks*        cb,
+    GTypeModule*                          type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     (void)type_module;
@@ -235,16 +234,16 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 static struct dpsfg_ui_pane_interface ui_pane = {
     ui_pane_create, ui_pane_destroy};
 static struct dpsfg_substitutions_interface substitutions = {
-    &substitutions_on_set, &substitutions_on_changed, &substitutions_on_clear};
+    &substitutions_on_set, &substitutions_on_clear, &substitutions_on_changed};
 
-static struct plugin_info info = {
+static struct dpsfg_plugin_info info = {
     "Substitutions",
     "editor",
     "TheComet",
     "@TheComet93",
     "Signal Flow Graph Editor"};
 
-PLUGIN_API struct plugin_interface dpsfg_plugin = {
+PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     PLUGIN_VERSION,
     0,
     &info,

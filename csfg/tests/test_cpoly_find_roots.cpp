@@ -43,7 +43,7 @@ TEST_F(NAME, single_value_has_no_roots)
 {
     csfg_cpoly_push(&coeffs, csfg_complex(1.0, 0.0));
 
-    csfg_cpoly_find_roots(coeffs, &roots, 0, 0.0);
+    csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
     ASSERT_THAT(vec_count(roots), Eq(0));
 }
@@ -54,7 +54,7 @@ TEST_F(NAME, simple_root)
     csfg_cpoly_push(&coeffs, csfg_complex(-1.0, 0.0));
     csfg_cpoly_push(&coeffs, csfg_complex(1.0, 0.0));
 
-    csfg_cpoly_find_roots(coeffs, &roots, 0, 0.0);
+    csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
     ASSERT_THAT(vec_count(roots), Eq(1));
     ASSERT_THAT(*vec_get(roots, 0), ComplexEq(1.0, 0.0, epsilon));
@@ -67,7 +67,7 @@ TEST_F(NAME, two_roots)
     csfg_cpoly_push(&coeffs, csfg_complex(1.0, 0.0));
     csfg_cpoly_push(&coeffs, csfg_complex(-1.0, 0.0));
 
-    csfg_cpoly_find_roots(coeffs, &roots, 0, 0.0);
+    csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
     ASSERT_THAT(vec_count(roots), Eq(2));
     EXPECT_THAT(*vec_get(roots, 0), ComplexEq(-0.618034, 0.0, epsilon));
@@ -81,7 +81,8 @@ TEST_F(NAME, two_repeated_roots)
     csfg_cpoly_push(&coeffs, csfg_complex(-24.0, 0.0));
     csfg_cpoly_push(&coeffs, csfg_complex(9.0, 0.0));
 
-    csfg_cpoly_find_roots(coeffs, &roots, 0, 0.0);
+    csfg_cpoly_monic(coeffs);
+    csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
     ASSERT_THAT(vec_count(roots), Eq(2));
     EXPECT_THAT(*vec_get(roots, 0), ComplexEq(4.0 / 3.0, 0.0, epsilon));
@@ -96,7 +97,8 @@ TEST_F(NAME, three_repeated_roots)
     csfg_cpoly_push(&coeffs, csfg_complex(-9.0, 0.0));
     csfg_cpoly_push(&coeffs, csfg_complex(1.0, 0.0));
 
-    csfg_cpoly_find_roots(coeffs, &roots, 0, 0.0);
+    csfg_cpoly_monic(coeffs);
+    csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
     ASSERT_THAT(vec_count(roots), Eq(3));
     EXPECT_THAT(*vec_get(roots, 0), ComplexEq(3.0, 0.0, epsilon));

@@ -5,9 +5,9 @@
 
 struct plugin_ctx
 {
-    BodePlot*                                bode_plot;
-    const struct plugin_callbacks_interface* icb;
-    struct plugin_callbacks*                 cb;
+    BodePlot*                             bode_plot;
+    const struct plugin_notify_interface* icb;
+    struct dpsfg_plugin_callbacks*        cb;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -24,9 +24,9 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_callbacks_interface* icb,
-    struct plugin_callbacks*                 cb,
-    GTypeModule*                             type_module)
+    const struct plugin_notify_interface* icb,
+    struct dpsfg_plugin_callbacks*        cb,
+    GTypeModule*                          type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     ctx->icb = icb;
@@ -43,7 +43,7 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 }
 
 /* -------------------------------------------------------------------------- */
-void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
+static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
 {
     bode_plot_set_tf(ctx->bode_plot, tf);
 }
@@ -54,14 +54,14 @@ static struct dpsfg_ui_pane_interface ui_pane = {
 
 static struct dpsfg_numeric_interface numeric = {on_tf_changed};
 
-static struct plugin_info info = {
+static struct dpsfg_plugin_info info = {
     "Bode Plot",
     "visualizer",
     "TheComet",
     "@TheComet93",
     "Plots the Poles and Zeros of a Transfer Function"};
 
-PLUGIN_API struct plugin_interface dpsfg_plugin = {
+PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     PLUGIN_VERSION,
     0,
     &info,

@@ -6,9 +6,9 @@
 
 struct plugin_ctx
 {
-    PoleZeroPlot*                            pole_zero_plot;
-    const struct plugin_callbacks_interface* icb;
-    struct plugin_callbacks*                 cb;
+    PoleZeroPlot*                         pole_zero_plot;
+    const struct plugin_notify_interface* icb;
+    struct dpsfg_plugin_callbacks*        cb;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -28,16 +28,15 @@ static struct dpsfg_ui_pane_interface ui_pane = {
 /* -------------------------------------------------------------------------- */
 static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
 {
-    log_dbg("tf changed\n");
     pole_zero_plot_set_tf(ctx->pole_zero_plot, tf);
 }
 static struct dpsfg_numeric_interface numeric = {on_tf_changed};
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_callbacks_interface* icb,
-    struct plugin_callbacks*                 cb,
-    GTypeModule*                             type_module)
+    const struct plugin_notify_interface* icb,
+    struct dpsfg_plugin_callbacks*        cb,
+    GTypeModule*                          type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     ctx->icb = icb;
@@ -53,14 +52,14 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
     mem_free(ctx);
 }
 
-static struct plugin_info info = {
+static struct dpsfg_plugin_info info = {
     "Pole-Zero Plot",
     "visualizer",
     "TheComet",
     "@TheComet93",
     "Plots the Poles and Zeros of a Transfer Function"};
 
-PLUGIN_API struct plugin_interface dpsfg_plugin = {
+PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     PLUGIN_VERSION,
     0,
     &info,

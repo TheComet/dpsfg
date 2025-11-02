@@ -45,9 +45,9 @@ struct _GraphEditor
     GtkWidget* drawing_area;
     GtkWidget* entry; /* Text entry, when active */
 
-    const struct plugin_callbacks_interface* icb;
-    struct plugin_callbacks*                 cb;
-    struct plugin_ctx*                       plugin_ctx;
+    const struct plugin_notify_interface* icb;
+    struct dpsfg_plugin_callbacks*        cb;
+    struct plugin_ctx*                    plugin_ctx;
 
     struct csfg_graph*     graph;
     struct node_attr_hmap* node_attrs;
@@ -777,7 +777,7 @@ static void notify_graph_changed(GraphEditor* editor)
     if (node_out_idx == csfg_graph_node_count(editor->graph))
         node_out_idx = -1;
 
-    editor->icb->graph_changed(
+    editor->icb->graph_structure_changed(
         editor->cb, editor->plugin_ctx, node_in_idx, node_out_idx);
 }
 
@@ -1472,6 +1472,8 @@ static void click_begin(
     GraphEditor* editor = user_pointer;
     (void)gesture;
 
+    gtk_widget_grab_focus(GTK_WIDGET(editor));
+
     try_select_edge_or_node(
         editor,
         x = (x - editor->pan_x) / editor->zoom,
@@ -1698,12 +1700,13 @@ static void graph_editor_init(GraphEditor* self)
     g_signal_connect(mouse_motion, "motion", G_CALLBACK(mouse_motion_cb), self);
     gtk_widget_add_controller(self->drawing_area, mouse_motion);
 
-    setup_global_shortcuts(self);
-
     self->overlay = gtk_overlay_new();
     gtk_overlay_set_child(GTK_OVERLAY(self->overlay), self->drawing_area);
 
     gtk_box_append(GTK_BOX(self), self->overlay);
+
+    setup_global_shortcuts(self);
+    gtk_widget_set_focusable(GTK_WIDGET(self), TRUE);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1749,9 +1752,9 @@ void graph_editor_register_type_internal(GTypeModule* type_module)
 
 /* -------------------------------------------------------------------------- */
 GraphEditor* graph_editor_new(
-    struct plugin_ctx*                       plugin_ctx,
-    const struct plugin_callbacks_interface* icb,
-    struct plugin_callbacks*                 cb)
+    struct plugin_ctx*                    plugin_ctx,
+    const struct plugin_notify_interface* icb,
+    struct dpsfg_plugin_callbacks*        cb)
 {
     GraphEditor* editor = g_object_new(PLUGIN_TYPE_GRAPH_EDITOR, NULL);
     editor->plugin_ctx = plugin_ctx;
@@ -1763,29 +1766,47 @@ GraphEditor* graph_editor_new(
 /* -------------------------------------------------------------------------- */
 void graph_editor_set_graph(GraphEditor* editor, struct csfg_graph* g)
 {
+    editor->graph = g;
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_editor_clear_graph(GraphEditor* editor)
+{
+    editor->graph = NULL;
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_editor_rebuild_graph(GraphEditor* editor)
+{
     const struct csfg_node* n;
     const struct csfg_edge* e;
     struct node_attr*       na;
     struct edge_attr*       ea;
 
-    csfg_graph_for_each_node (g, n)
+    CSFG_DEBUG_ASSERT(editor->graph != NULL);
+
+    csfg_graph_for_each_node (editor->graph, n)
         switch (node_attr_hmap_emplace_or_get(&editor->node_attrs, n->id, &na))
         {
             case HMAP_OOM: return;
             case HMAP_NEW:
                 na->radius = DEFAULT_NODE_RADIUS;
                 auto_position_node_grid(
-                    na, editor->node_attrs, csfg_graph_node_count(g));
+                    na,
+                    editor->node_attrs,
+                    csfg_graph_node_count(editor->graph));
             case HMAP_EXISTS: break;
         }
 
-    csfg_graph_for_each_edge (g, e)
+    csfg_graph_for_each_edge (editor->graph, e)
         switch (edge_attr_hmap_emplace_or_get(&editor->edge_attrs, e->id, &ea))
         {
             case HMAP_OOM: return;
             case HMAP_NEW: {
-                const struct csfg_node* from = csfg_graph_get_node(g, e->from);
-                const struct csfg_node* to = csfg_graph_get_node(g, e->to);
+                const struct csfg_node* from =
+                    csfg_graph_get_node(editor->graph, e->from);
+                const struct csfg_node* to =
+                    csfg_graph_get_node(editor->graph, e->to);
                 const struct node_attr* afrom =
                     node_attr_hmap_find(editor->node_attrs, from->id);
                 const struct node_attr* ato =
@@ -1797,6 +1818,4 @@ void graph_editor_set_graph(GraphEditor* editor, struct csfg_graph* g)
             }
             case HMAP_EXISTS: break;
         }
-
-    editor->graph = g;
 }

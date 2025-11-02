@@ -4,65 +4,107 @@
 #include "dpsfg/plugin.h"
 #include <gtk/gtk.h>
 
-typedef struct
+struct tweak
 {
-    GtkAdjustment* adj;           /* holds L = ln(value) */
-    double         start_L;       /* L at drag-begin */
-    double         start_x;       /* pointer x at drag-begin */
-    double         px_to_log;     /* sensitivity: pixels -> change in L */
-    double         expand_margin; /* margin (in log units) at which to expand */
-    GtkWidget*     value_label;   /* label that shows exp(L) */
+    struct plugin_ctx*     plugin_ctx;
+    struct csfg_var_table* vt;
+    struct str*            name;
 
-    struct plugin_ctx* plugin_ctx;
-} InfScaleState;
+    GtkWidget*     label;
+    GtkAdjustment* scale_adj;
+    GtkWidget*     scale;
+    GtkAdjustment* spin_adj;
+    GtkWidget*     spin_button;
+};
 
-/* Format and update the displayed real value */
-static void update_value_label(InfScaleState* s)
+HMAP_DECLARE_STR(extern, tweak_hmap, struct tweak, 16)
+HMAP_DEFINE_STR(extern, tweak_hmap, struct tweak, 16)
+
+static void notify_parameters_changed(struct plugin_ctx* ctx);
+static void on_scale_adj_changed(GtkAdjustment* adj, gpointer user_data);
+static void on_spin_adj_changed(GtkAdjustment* adj, gpointer user_data);
+
+/* -------------------------------------------------------------------------- */
+static void remove_row_containing(GtkGrid* grid, GtkWidget* target)
 {
-    double L = gtk_adjustment_get_value(s->adj);
-    double v = exp(L);
-    char   buf[64];
-    /* Choose formatting you like */
-    if (v < 0.001 || v > 1000.0)
-        g_snprintf(buf, sizeof(buf), "%.3e", v);
-    else
-        g_snprintf(buf, sizeof(buf), "%.6g", v);
-    gtk_label_set_text(GTK_LABEL(s->value_label), buf);
+    int row;
+    int left, top, width, height;
+    gtk_grid_query_child(grid, target, &left, &top, &width, &height);
+
+    for (row = top + height - 1; row >= top; row--)
+        gtk_grid_remove_row(grid, row);
 }
 
-/* Called when adjustment changed (also when we programmatically change it) */
-static void on_adj_value_changed(GtkAdjustment* adj, gpointer user_data)
+/* -------------------------------------------------------------------------- */
+static void clear_grid(GtkWidget* grid)
 {
-    InfScaleState* s = user_data;
-    update_value_label(s);
+    GtkWidget* child = gtk_widget_get_first_child(grid);
+    while (child != NULL)
+    {
+        GtkWidget* next = gtk_widget_get_next_sibling(child);
+        gtk_grid_remove(GTK_GRID(grid), child);
+        child = next;
+    }
 }
 
-/* When the drag starts, record baseline */
-static void on_drag_begin(
-    GtkGestureDrag* gesture,
-    gdouble         start_x,
-    gdouble         start_y,
-    gpointer        user_data)
+/* -------------------------------------------------------------------------- */
+static void on_scale_adj_changed(GtkAdjustment* adj, gpointer user_data)
 {
-    InfScaleState* s = user_data;
-    log_dbg("drag begin\n");
-    s->start_L = gtk_adjustment_get_value(s->adj);
-    s->start_x = start_x;
+    struct tweak* tweak = user_data;
+
+    double log_val = gtk_adjustment_get_value(adj);
+    double value = pow(10.0, log_val);
+    double rounded = floor(log_val);
+    double step = pow(10.0, rounded) / 10.0;
+    int    digits = rounded >= 1.0 ? 0 : -(int)rounded + 1.0;
+
+    g_signal_handlers_block_by_func(
+        tweak->spin_adj, G_CALLBACK(on_spin_adj_changed), tweak);
+    gtk_adjustment_configure(
+        tweak->spin_adj, value, -DBL_MAX, DBL_MAX, step, 0.0, 0.0);
+    gtk_spin_button_set_digits(GTK_SPIN_BUTTON(tweak->spin_button), digits);
+    g_signal_handlers_unblock_by_func(
+        tweak->spin_adj, G_CALLBACK(on_spin_adj_changed), tweak);
+
+    csfg_var_table_set_lit(tweak->vt, str_view(tweak->name), value);
+    notify_parameters_changed(tweak->plugin_ctx);
 }
 
-/* Expand the adjustment bounds if L moves outside them.
-   The expansion strategy: take current span = upper - lower.
-   If L < lower, set lower = L - span, upper = lower + 2*span.
-   If L > upper, set upper = L + span, lower = upper - 2*span.
-   That doubles the visible span each time you pass an edge (exponential
-   growth).
-*/
-static void maybe_expand_bounds(InfScaleState* s, double L)
+/* -------------------------------------------------------------------------- */
+static void on_spin_adj_changed(GtkAdjustment* adj, gpointer user_data)
 {
-    double lower = gtk_adjustment_get_lower(s->adj);
-    double upper = gtk_adjustment_get_upper(s->adj);
+    struct tweak* tweak = user_data;
+
+    double value = gtk_adjustment_get_value(adj);
+    double log_min = log(value) / log(10) - 1.0;
+    double log_max = log(value) / log(10) + 1.0;
+    double log_val = log(value) / log(10);
+    double rounded = floor(log_val);
+    double step = pow(10.0, rounded) / 10.0;
+    int    digits = rounded < 0.0 ? 0 : (int)rounded;
+
+    g_signal_handlers_block_by_func(
+        tweak->scale_adj, G_CALLBACK(on_scale_adj_changed), tweak);
+    gtk_adjustment_configure(
+        tweak->scale_adj, log_val, log_min, log_max, 0.0, 0.0, 0.0);
+    g_signal_handlers_unblock_by_func(
+        tweak->scale_adj, G_CALLBACK(on_scale_adj_changed), tweak);
+
+    gtk_adjustment_set_step_increment(adj, step);
+    gtk_scale_set_digits(GTK_SCALE(tweak->scale), digits);
+
+    csfg_var_table_set_lit(tweak->vt, str_view(tweak->name), value);
+    notify_parameters_changed(tweak->plugin_ctx);
+}
+
+/* -------------------------------------------------------------------------- */
+static void maybe_expand_bounds(struct tweak* s, double L)
+{
+    double lower = gtk_adjustment_get_lower(s->scale_adj);
+    double upper = gtk_adjustment_get_upper(s->scale_adj);
     double span = upper - lower;
 
+#if 0
     if (L < lower + s->expand_margin)
     {
         /* expand to the left */
@@ -79,47 +121,108 @@ static void maybe_expand_bounds(InfScaleState* s, double L)
         gtk_adjustment_set_lower(s->adj, new_lower);
         gtk_adjustment_set_upper(s->adj, new_upper);
     }
-}
-
-/* On drag update, compute new L from pixel delta and set adjustment */
-static void on_drag_update(
-    GtkGestureDrag* gesture, gdouble x, gdouble y, gpointer user_data)
-{
-    InfScaleState* s = user_data;
-    double         dx = x - s->start_x;
-    double         newL = s->start_L + dx * s->px_to_log;
-
-    log_dbg("drag update\n");
-
-    /* Optionally: clamp to some absolute limits to avoid NaNs/infinite ranges
-     */
-    const double ABS_MAX_L = 100.0; /* corresponds to e^100 huge */
-    if (newL < -ABS_MAX_L)
-        newL = -ABS_MAX_L;
-    if (newL > ABS_MAX_L)
-        newL = ABS_MAX_L;
-
-    /* Expand bounds if needed so the user can keep dragging past edges */
-    maybe_expand_bounds(s, newL);
-
-    /* Apply the new log-value */
-    g_signal_handlers_block_by_func(
-        s->adj, G_CALLBACK(on_adj_value_changed), s);
-    gtk_adjustment_set_value(s->adj, newL);
-    g_signal_handlers_unblock_by_func(
-        s->adj, G_CALLBACK(on_adj_value_changed), s);
-
-    /* Update label ourselves */
-    update_value_label(s);
+#endif
 }
 
 struct plugin_ctx
 {
-    GtkWidget*                               grid;
-    const struct plugin_callbacks_interface* icb;
-    struct plugin_callbacks*                 cb;
-    struct csfg_var_table*                   parameters;
+    GtkWidget*                            grid;
+    const struct plugin_notify_interface* icb;
+    struct dpsfg_plugin_callbacks*        cb;
+    struct csfg_var_table*                parameters;
+    struct tweak_hmap*                    tweaks;
 };
+
+/* -------------------------------------------------------------------------- */
+static void
+update_tweak(struct tweak* tweak, const struct csfg_var_table_entry* entry)
+{
+
+    double value = csfg_expr_eval(entry->pool, entry->expr, NULL);
+    double step = value / 10.0;
+    double log_min = log(value / 10.0);
+    double log_max = log(value * 10.0);
+    double log_val = log(value);
+
+    gtk_adjustment_configure(
+        tweak->scale_adj, log_val, log_min, log_max, 0.0, 0.0, 0.0);
+    gtk_adjustment_configure(
+        tweak->spin_adj, value, -DBL_MAX, DBL_MAX, step, 0.0, 0.0);
+}
+
+/* -------------------------------------------------------------------------- */
+static void rebuild_ui(struct plugin_ctx* ctx)
+{
+    int                                slot, row;
+    const struct str*                  name;
+    const struct csfg_var_table_entry* entry;
+    struct tweak*                      tweak;
+
+    row = 0;
+    hmap_for_each (ctx->tweaks, slot, name, tweak)
+    {
+        if (ctx->parameters != NULL &&
+            csfg_var_hmap_find(ctx->parameters->map, str_view(name)) != NULL)
+        {
+            row++;
+            continue;
+        }
+
+        remove_row_containing(GTK_GRID(ctx->grid), tweak->label);
+        str_deinit(tweak->name);
+        tweak_hmap_erase_slot(ctx->tweaks, slot);
+    }
+
+    if (ctx->parameters == NULL)
+        return;
+
+    hmap_for_each (ctx->parameters->map, slot, name, entry)
+    {
+        switch (tweak_hmap_emplace_or_get(&ctx->tweaks, str_view(name), &tweak))
+        {
+            case HMAP_OOM: return;
+            case HMAP_NEW: break;
+            case HMAP_EXISTS: update_tweak(tweak, entry); continue;
+        }
+
+        tweak->plugin_ctx = ctx;
+        tweak->vt = ctx->parameters;
+        str_init(&tweak->name);
+        str_set_str(&tweak->name, name);
+
+        tweak->label = gtk_label_new(str_cstr(name));
+        gtk_widget_set_halign(tweak->label, GTK_ALIGN_END);
+        gtk_label_set_xalign(GTK_LABEL(tweak->label), 1.0);
+
+        tweak->scale_adj = gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        tweak->scale =
+            gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, tweak->scale_adj);
+        gtk_widget_set_hexpand(tweak->scale, TRUE);
+        // gtk_scale_set_draw_value(GTK_SCALE(tweak->scale), FALSE);
+
+        tweak->spin_adj = gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        tweak->spin_button = gtk_spin_button_new(tweak->spin_adj, 0.0, 1);
+
+        gtk_grid_attach(GTK_GRID(ctx->grid), tweak->label, 0, row, 1, 1);
+        gtk_grid_attach(GTK_GRID(ctx->grid), tweak->scale, 1, row, 1, 1);
+        gtk_grid_attach(GTK_GRID(ctx->grid), tweak->spin_button, 2, row, 1, 1);
+
+        update_tweak(tweak, entry);
+
+        g_signal_connect(
+            tweak->scale_adj,
+            "value-changed",
+            G_CALLBACK(on_scale_adj_changed),
+            tweak);
+        g_signal_connect(
+            tweak->spin_adj,
+            "value-changed",
+            G_CALLBACK(on_spin_adj_changed),
+            tweak);
+
+        row++;
+    }
+}
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
@@ -136,26 +239,42 @@ static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
-    (void)ctx;
+    int               slot;
+    const struct str* name;
+    struct tweak*     tweak;
+
+    hmap_for_each (ctx->tweaks, slot, name, tweak)
+        (void)slot, (void)name, str_deinit(tweak->name);
+    tweak_hmap_clear(ctx->tweaks);
+
     g_object_unref(ui);
 }
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_callbacks_interface* icb,
-    struct plugin_callbacks*                 cb,
-    GTypeModule*                             type_module)
+    const struct plugin_notify_interface* icb,
+    struct dpsfg_plugin_callbacks*        cb,
+    GTypeModule*                          type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     (void)type_module;
     ctx->icb = icb;
     ctx->cb = cb;
     ctx->parameters = NULL;
+    tweak_hmap_init(&ctx->tweaks);
     return ctx;
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 {
+    int               slot;
+    const struct str* name;
+    struct tweak*     tweak;
     (void)type_module;
+
+    hmap_for_each (ctx->tweaks, slot, name, tweak)
+        (void)slot, (void)name, str_deinit(tweak->name);
+    tweak_hmap_deinit(ctx->tweaks);
+
     mem_free(ctx);
 }
 
@@ -165,98 +284,22 @@ static void notify_parameters_changed(struct plugin_ctx* ctx)
     if (ctx->parameters != NULL)
         ctx->icb->parameters_changed(ctx->cb, ctx);
 }
-static void on_set(struct plugin_ctx* ctx, struct csfg_var_table* parameters)
+
+/* -------------------------------------------------------------------------- */
+static void
+on_parameters_set(struct plugin_ctx* ctx, struct csfg_var_table* parameters)
 {
     ctx->parameters = parameters;
+    rebuild_ui(ctx);
 }
-static void
-on_changed(struct plugin_ctx* ctx, struct csfg_var_table* parameters)
+static void on_parameters_clear(struct plugin_ctx* ctx)
 {
-    int                                slot, row;
-    const struct str*                  name;
-    const struct csfg_var_table_entry* entry;
-    GtkWidget*                         iter;
-
-    iter = gtk_widget_get_first_child(ctx->grid);
-    while (iter != NULL)
-    {
-        GtkWidget* next = gtk_widget_get_next_sibling(iter);
-        gtk_grid_remove(GTK_GRID(ctx->grid), iter);
-        iter = next;
-    }
-
-    row = 0;
-    hmap_for_each (parameters->map, slot, name, entry)
-    {
-        GtkWidget*     label;
-        GtkWidget*     scale;
-        GtkAdjustment* adj;
-        double         value = csfg_expr_eval(entry->pool, entry->expr, NULL);
-
-        label = gtk_label_new(str_cstr(name));
-        gtk_widget_set_halign(label, GTK_ALIGN_END);
-        gtk_label_set_xalign(GTK_LABEL(label), 1.0);
-        gtk_grid_attach(GTK_GRID(ctx->grid), label, 0, row, 1, 1);
-
-        /*
-        scale = gtk_scale_new_with_range(
-            GTK_ORIENTATION_HORIZONTAL, 0.0, 10.0, 0.1);
-        gtk_widget_set_hexpand(scale, TRUE);
-        gtk_widget_set_halign(scale, GTK_ALIGN_FILL);
-        gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
-        gtk_grid_attach(GTK_GRID(ctx->grid), scale, 1, row, 1, 1);*/
-
-        /* Setup initial log-range for [0.5, 2.0] */
-        double L_low = log(0.5);  /* ~= -0.693147 */
-        double L_high = log(2.0); /* ~=  0.693147 */
-        double L_center = 0.0;    /* ln(1.0) */
-
-        adj = gtk_adjustment_new(L_center, L_low, L_high, 0.0, 0.0, 0.0);
-        scale = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adj);
-        gtk_widget_set_hexpand(scale, TRUE);
-        /* we show real value in a label */
-        gtk_scale_set_draw_value(GTK_SCALE(scale), FALSE);
-
-        gtk_grid_attach(GTK_GRID(ctx->grid), scale, 1, row * 2 + 0, 1, 1);
-
-        /* Display of the actual multiplicative value */
-        GtkWidget* value_label = gtk_label_new(NULL);
-        gtk_widget_set_halign(value_label, GTK_ALIGN_START);
-        gtk_grid_attach(GTK_GRID(ctx->grid), value_label, 1, row * 2 + 1, 1, 1);
-
-        /* Set up the InfScaleState */
-        InfScaleState* state = g_new0(InfScaleState, 1);
-        state->adj = adj;
-        /* sensitivity: 1 pixel -> 0.01 in log units (tweak for feel) */
-        state->px_to_log = 0.01;
-        /* start expanding when within this many log-units from edge */
-        state->expand_margin = 0.5;
-        state->value_label = value_label;
-        state->plugin_ctx = ctx;
-
-        /* Connect adj changed to update label (covers programmatic changes) */
-        g_signal_connect(
-            adj, "value-changed", G_CALLBACK(on_adj_value_changed), state);
-        update_value_label(state);
-
-        /* Add drag gesture to the scale; interpret horizontal motion as
-         * multiplicative change */
-        GtkGesture* drag = gtk_gesture_drag_new();
-        /* allow mouse too */
-        gtk_event_controller_set_propagation_phase(
-            GTK_EVENT_CONTROLLER(drag), GTK_PHASE_CAPTURE);
-        gtk_gesture_single_set_touch_only(GTK_GESTURE_SINGLE(drag), FALSE);
-        gtk_widget_add_controller(scale, GTK_EVENT_CONTROLLER(drag));
-
-        g_signal_connect(drag, "drag-begin", G_CALLBACK(on_drag_begin), state);
-        g_signal_connect(
-            drag, "drag-update", G_CALLBACK(on_drag_update), state);
-
-        row++;
-    }
+    ctx->parameters = NULL;
+    rebuild_ui(ctx);
 }
-static void on_clear(struct plugin_ctx* ctx)
+static void on_parameters_changed(struct plugin_ctx* ctx)
 {
+    rebuild_ui(ctx);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -264,16 +307,16 @@ static struct dpsfg_ui_pane_interface ui_pane = {
     ui_pane_create, ui_pane_destroy};
 
 static struct dpsfg_parameters_interface parameters = {
-    on_set, on_changed, on_clear};
+    on_parameters_set, on_parameters_clear, on_parameters_changed};
 
-static struct plugin_info info = {
+static struct dpsfg_plugin_info info = {
     "Tweakables",
     "editor",
     "TheComet",
     "@TheComet93",
     "Tweak the Values of Variables"};
 
-PLUGIN_API struct plugin_interface dpsfg_plugin = {
+PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     PLUGIN_VERSION,
     0,
     &info,

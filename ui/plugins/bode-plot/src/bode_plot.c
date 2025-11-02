@@ -19,8 +19,7 @@ static void draw_cb(
     int             height,
     gpointer        user_pointer)
 {
-    BodePlot*                  plot = user_pointer;
-    const struct csfg_complex* c;
+    BodePlot* plot = user_pointer;
     (void)area, (void)width, (void)height;
 
     cairo_translate(cr, 200.0, 100.0);
@@ -50,6 +49,33 @@ static void draw_cb(
 
     if (plot->tf != NULL)
     {
+        struct csfg_complex value;
+        double              f_start, f_end, f_step, f;
+        double              mag;
+
+        csfg_tf_interesting_frequency_interval(plot->tf, &f_start, &f_end);
+
+        f_start = log(f_start) / log(10);
+        f_end = log(f_end) / log(10);
+        f_step = (f_end - f_start) / 100;
+
+        value = csfg_tf_eval(plot->tf, csfg_complex(0.0, pow(10, f_start)));
+        mag = csfg_complex_mag(value);
+        mag = -20 * log(mag) / log(10);
+
+        cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+        cairo_move_to(cr, f_start * 60, mag);
+
+        for (f = f_start + f_step; f <= f_end; f += f_step)
+        {
+            value = csfg_tf_eval(plot->tf, csfg_complex(0.0, pow(10, f)));
+            mag = csfg_complex_mag(value);
+            mag = -20 * log(mag) / log(10);
+            cairo_line_to(cr, f * 60, mag);
+        }
+
+        cairo_set_line_width(cr, 1.0);
+        cairo_stroke(cr);
     }
 }
 

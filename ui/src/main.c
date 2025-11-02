@@ -110,12 +110,17 @@ struct math_pipeline
 
 struct app_ctx
 {
-    struct plugin_vec**      plugins;
-    struct plugin_callbacks* plugin_callbacks_ctx;
-    struct math_pipeline     pipeline;
+    GtkWidget* paned1;
+    GtkWidget* paned2;
+
+    struct plugin_vec**            plugins;
+    struct dpsfg_plugin_callbacks* plugin_callbacks_ctx;
+    struct math_pipeline           pipeline;
 };
 
-struct plugin_callbacks
+/* Implement the opaque pointer from plugin.h. This is passed in when plugins
+ * call back to the main application. */
+struct dpsfg_plugin_callbacks
 {
     struct app_ctx* app;
 };
@@ -250,20 +255,11 @@ repopulate_parameter_table:
     csfg_var_table_erase_unvisited(&pipeline->parameters);
 
 calc_numeric_tf:;
-    csfg_cpoly_from_symbolic(
-        &pipeline->tf.num,
+    csfg_tf_from_symbolic(
+        &pipeline->tf,
         pipeline->tf_pool,
-        &pipeline->parameters,
-        pipeline->tf_expr.num);
-    csfg_cpoly_from_symbolic(
-        &pipeline->tf.den,
-        pipeline->tf_pool,
-        &pipeline->parameters,
-        pipeline->tf_expr.den);
-    csfg_rpoly_clear(pipeline->tf.zeros);
-    csfg_rpoly_clear(pipeline->tf.poles);
-    csfg_cpoly_find_roots(pipeline->tf.num, &pipeline->tf.zeros, 0, 0.0);
-    csfg_cpoly_find_roots(pipeline->tf.den, &pipeline->tf.poles, 0, 0.0);
+        &pipeline->tf_expr,
+        &pipeline->parameters);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -289,7 +285,7 @@ graph_changed:
             plugin->ctx == source_plugin)
             continue;
         if (plugin->lib.i->graph)
-            plugin->lib.i->graph->on_changed(plugin->ctx, &pipeline->graph);
+            plugin->lib.i->graph->on_structure_changed(plugin->ctx);
     }
 substitutions_changed:
     vec_for_each (plugins, plugin)
@@ -300,13 +296,13 @@ substitutions_changed:
             plugin->ctx == source_plugin)
             continue;
 
-        plugin->lib.i->expr->on_graph_expr(
+        plugin->lib.i->expr->on_mason_expr(
             plugin->ctx, pipeline->graph_pool, pipeline->graph_expr);
         plugin->lib.i->expr->on_substituted_expr(
             plugin->ctx, pipeline->subs_pool, pipeline->subs_expr);
         plugin->lib.i->expr->on_limit_expr(
             plugin->ctx, pipeline->lim_pool, pipeline->lim_expr);
-        plugin->lib.i->expr->on_graph_tf(
+        plugin->lib.i->expr->on_tf_expr(
             plugin->ctx, pipeline->tf_pool, &pipeline->tf_expr);
     }
     vec_for_each (plugins, plugin)
@@ -317,8 +313,7 @@ substitutions_changed:
             plugin->ctx == source_plugin)
             continue;
 
-        plugin->lib.i->parameters->on_changed(
-            plugin->ctx, &pipeline->parameters);
+        plugin->lib.i->parameters->on_changed(plugin->ctx);
     }
 parameters_changed:
     vec_for_each (plugins, plugin)
@@ -334,10 +329,10 @@ parameters_changed:
 
 /* -------------------------------------------------------------------------- */
 static void graph_changed_cb(
-    struct plugin_callbacks* cb,
-    const struct plugin_ctx* source_plugin,
-    int                      node_in,
-    int                      node_out)
+    struct dpsfg_plugin_callbacks* cb,
+    const struct plugin_ctx*       source_plugin,
+    int                            node_in,
+    int                            node_out)
 {
     struct app_ctx*       app = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
@@ -350,7 +345,7 @@ static void graph_changed_cb(
 
 /* -------------------------------------------------------------------------- */
 static void substitutions_changed_cb(
-    struct plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
+    struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
 {
     struct app_ctx*       app = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
@@ -364,7 +359,7 @@ static void substitutions_changed_cb(
 
 /* -------------------------------------------------------------------------- */
 static void parameters_changed_cb(
-    struct plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
+    struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
 {
     struct app_ctx*       app = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
@@ -387,15 +382,15 @@ shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 }
 
 /* -------------------------------------------------------------------------- */
-static struct plugin_callbacks_interface plugin_callbacks = {
+static struct plugin_notify_interface plugin_callbacks = {
     graph_changed_cb, substitutions_changed_cb, parameters_changed_cb};
 
 static int start_plugin(
-    struct plugin*           plugin,
-    struct plugin_lib        lib,
-    struct plugin_callbacks* callbacks_ctx,
-    GtkNotebook*             center,
-    GtkBox*                  pane)
+    struct plugin*                 plugin,
+    struct plugin_lib              lib,
+    struct dpsfg_plugin_callbacks* callbacks_ctx,
+    GtkNotebook*                   center,
+    GtkBox*                        pane)
 {
     plugin->plugin_module = g_object_new(DPSFG_TYPE_PLUGIN_MODULE, NULL);
     if (plugin->plugin_module == NULL)
@@ -524,10 +519,10 @@ static void setup_global_shortcuts(GtkWidget* window)
 /* -------------------------------------------------------------------------- */
 struct on_plugin_ctx
 {
-    struct plugin_vec**      plugins;
-    struct plugin_callbacks* plugin_callbacks_ctx;
-    GtkNotebook*             center_area;
-    GtkBox*                  property_pane;
+    struct plugin_vec**            plugins;
+    struct dpsfg_plugin_callbacks* plugin_callbacks_ctx;
+    GtkNotebook*                   center_area;
+    GtkBox*                        property_pane;
 };
 static int on_plugin(struct plugin_lib lib, void* user)
 {
@@ -550,12 +545,30 @@ static int on_plugin(struct plugin_lib lib, void* user)
 }
 
 /* -------------------------------------------------------------------------- */
+static gboolean set_initial_pane_widths(gpointer user_data)
+{
+    int             total_width, pane_width;
+    struct app_ctx* ctx = user_data;
+
+    total_width = gtk_widget_get_width(ctx->paned1);
+    if (total_width <= 0)
+        return G_SOURCE_CONTINUE;
+
+    pane_width = total_width * 0.15;
+    if (pane_width < 200)
+        pane_width = 200;
+
+    gtk_paned_set_position(GTK_PANED(ctx->paned1), pane_width);
+    gtk_paned_set_position(GTK_PANED(ctx->paned2), total_width - pane_width);
+
+    return G_SOURCE_REMOVE;
+}
+
+/* -------------------------------------------------------------------------- */
 static void activate(GtkApplication* app, gpointer user_data)
 {
     GtkWidget* window;
     GtkWidget* project_browser;
-    GtkWidget* paned1;
-    GtkWidget* paned2;
     GtkWidget* center_area;
     GtkWidget* property_pane_container;
     GtkWidget* property_pane_scrolled_window;
@@ -583,19 +596,22 @@ static void activate(GtkApplication* app, gpointer user_data)
     center_area = plugin_view_new();
     project_browser = gtk_notebook_new();
 
-    paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    gtk_paned_set_start_child(GTK_PANED(paned2), center_area);
-    gtk_paned_set_end_child(GTK_PANED(paned2), property_pane_scrolled_window);
-    gtk_paned_set_position(GTK_PANED(paned2), 800);
+    ctx->paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_paned_set_start_child(GTK_PANED(ctx->paned2), center_area);
+    gtk_paned_set_end_child(
+        GTK_PANED(ctx->paned2), property_pane_scrolled_window);
+    gtk_paned_set_resize_start_child(GTK_PANED(ctx->paned2), TRUE);
+    gtk_paned_set_resize_end_child(GTK_PANED(ctx->paned2), FALSE);
 
-    paned1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    gtk_paned_set_start_child(GTK_PANED(paned1), project_browser);
-    gtk_paned_set_end_child(GTK_PANED(paned1), paned2);
-    gtk_paned_set_resize_start_child(GTK_PANED(paned1), FALSE);
-    gtk_paned_set_resize_end_child(GTK_PANED(paned1), TRUE);
-    gtk_paned_set_position(GTK_PANED(paned1), 200);
+    ctx->paned1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_paned_set_start_child(GTK_PANED(ctx->paned1), project_browser);
+    gtk_paned_set_end_child(GTK_PANED(ctx->paned1), ctx->paned2);
+    gtk_paned_set_resize_start_child(GTK_PANED(ctx->paned1), FALSE);
+    gtk_paned_set_resize_end_child(GTK_PANED(ctx->paned1), TRUE);
 
-    gtk_window_set_child(GTK_WINDOW(window), paned1);
+    g_idle_add(set_initial_pane_widths, ctx);
+
+    gtk_window_set_child(GTK_WINDOW(window), ctx->paned1);
     gtk_window_maximize(GTK_WINDOW(window));
     gtk_widget_set_visible(window, 1);
 
@@ -621,13 +637,13 @@ static void activate(GtkApplication* app, gpointer user_data)
 /* -------------------------------------------------------------------------- */
 int main(int argc, char** argv)
 {
-    struct args             args;
-    struct app_ctx          app_ctx;
-    struct plugin_callbacks callbacks_ctx;
-    struct plugin*          plugin;
-    struct plugin_vec*      plugins;
-    GtkApplication*         app;
-    int                     status = EXIT_FAILURE;
+    struct args                   args;
+    struct app_ctx                app_ctx;
+    struct dpsfg_plugin_callbacks callbacks_ctx;
+    struct plugin*                plugin;
+    struct plugin_vec*            plugins;
+    GtkApplication*               app;
+    int                           status = EXIT_FAILURE;
 
     if (trackers_init_tls() != 0)
         goto mem_init_failed;
@@ -648,6 +664,9 @@ int main(int argc, char** argv)
     }
 
     callbacks_ctx.app = &app_ctx;
+
+    app_ctx.paned1 = NULL;
+    app_ctx.paned2 = NULL;
 
     plugin_vec_init(&plugins);
     app_ctx.plugins = &plugins;

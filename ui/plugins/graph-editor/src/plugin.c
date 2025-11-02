@@ -4,10 +4,10 @@
 
 struct plugin_ctx
 {
-    GraphEditor*                             graph_editor;
-    GtkWidget*                               pole_zero_plot;
-    const struct plugin_callbacks_interface* icb;
-    struct plugin_callbacks*                 cb;
+    GraphEditor*                          graph_editor;
+    GtkWidget*                            pole_zero_plot;
+    const struct plugin_notify_interface* icb;
+    struct dpsfg_plugin_callbacks*        cb;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -27,20 +27,20 @@ static void graph_on_set(struct plugin_ctx* ctx, struct csfg_graph* g)
 {
     graph_editor_set_graph(ctx->graph_editor, g);
 }
-static void graph_on_changed(struct plugin_ctx* ctx, struct csfg_graph* g)
-{
-    graph_editor_set_graph(ctx->graph_editor, g);
-}
 static void graph_on_clear(struct plugin_ctx* ctx)
 {
-    graph_editor_set_graph(ctx->graph_editor, NULL);
+    graph_editor_clear_graph(ctx->graph_editor);
+}
+static void graph_on_changed(struct plugin_ctx* ctx)
+{
+    graph_editor_rebuild_graph(ctx->graph_editor);
 }
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_callbacks_interface* icb,
-    struct plugin_callbacks*                 cb,
-    GTypeModule*                             type_module)
+    const struct plugin_notify_interface* icb,
+    struct dpsfg_plugin_callbacks*        cb,
+    GTypeModule*                          type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     ctx->icb = icb;
@@ -60,16 +60,16 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 static struct dpsfg_ui_center_interface ui_center = {
     ui_center_create, ui_center_destroy};
 static struct dpsfg_graph_interface graph = {
-    graph_on_set, graph_on_changed, graph_on_clear};
+    graph_on_set, graph_on_clear, graph_on_changed};
 
-static struct plugin_info info = {
+static struct dpsfg_plugin_info info = {
     "Graph Editor",
     "editor",
     "TheComet",
     "@TheComet93",
     "Signal Flow Graph Editor"};
 
-PLUGIN_API struct plugin_interface dpsfg_plugin = {
+PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     PLUGIN_VERSION,
     0,
     &info,

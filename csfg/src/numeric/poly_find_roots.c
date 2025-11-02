@@ -201,36 +201,52 @@ static void postprocess(struct csfg_rpoly* roots, double tolerance)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_cpoly_find_roots(
-    struct csfg_cpoly*  coeffs,
-    struct csfg_rpoly** roots,
-    int                 n_iters,
-    double              tolerance)
+struct csfg_complex csfg_cpoly_monic(struct csfg_cpoly* poly)
 {
-    int    i;
-    double a, b, d, s, t, k1, k2, k3;
+    struct csfg_complex scale;
+    double              d, s, t, k1, k2, k3;
+    int                 i;
+
+    if (vec_count(poly) <= 1)
+        return csfg_complex(1.0, 0.0);
+
+    scale = *vec_last(poly);
+    d = scale.real * scale.real + scale.imag * scale.imag;
+    scale.real /= d;
+    scale.imag /= -d;
+    s = scale.imag - scale.real;
+    t = scale.real + scale.imag;
+    for (i = 0; i < vec_count(poly) - 1; ++i)
+    {
+        k1 = scale.real * (vec_get(poly, i)->real + vec_get(poly, i)->imag);
+        k2 = vec_get(poly, i)->real * s;
+        k3 = vec_get(poly, i)->imag * t;
+        vec_get(poly, i)->real = k1 - k3;
+        vec_get(poly, i)->imag = k1 + k2;
+    }
+    vec_last(poly)->real = 1.0;
+    vec_last(poly)->imag = 0.0;
+
+    return scale;
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_cpoly_find_roots(
+    struct csfg_rpoly**      roots,
+    const struct csfg_cpoly* coeffs,
+    int                      n_iters,
+    double                   tolerance)
+{
+    int i;
+
+    csfg_rpoly_clear(*roots);
 
     if (vec_count(coeffs) <= 1)
         return 0;
 
-    /* Rescale coefficients */
-    a = vec_last(coeffs)->real;
-    b = vec_last(coeffs)->imag;
-    d = a * a + b * b;
-    a /= d;
-    b /= -d;
-    s = b - a;
-    t = a + b;
-    for (i = 0; i < vec_count(coeffs) - 1; ++i)
-    {
-        k1 = a * (vec_get(coeffs, i)->real + vec_get(coeffs, i)->imag);
-        k2 = vec_get(coeffs, i)->real * s;
-        k3 = vec_get(coeffs, i)->imag * t;
-        vec_get(coeffs, i)->real = k1 - k3;
-        vec_get(coeffs, i)->imag = k1 + k2;
-    }
-    vec_last(coeffs)->real = 1.0;
-    vec_last(coeffs)->imag = 0.0;
+    /* Use csfg_cpoly_monic() first if these asserts fail */
+    CSFG_DEBUG_ASSERT(vec_last(coeffs)->real == 1.0);
+    CSFG_DEBUG_ASSERT(vec_last(coeffs)->imag == 0.0);
 
     if (n_iters <= 0)
         n_iters = 100 * vec_count(coeffs);

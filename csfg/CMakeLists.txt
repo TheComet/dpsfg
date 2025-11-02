@@ -143,7 +143,10 @@ if (CSFG_TESTS)
         "tests/test_graph_mason.cpp"
 
         # numeric
+        "tests/test_complex.cpp"
+        "tests/test_cpoly_eval.cpp"
         "tests/test_cpoly_find_roots.cpp"
+        "tests/test_tf_eval.cpp"
 
         # util
         "tests/test_hmap.cpp"

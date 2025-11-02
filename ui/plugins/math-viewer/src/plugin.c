@@ -47,8 +47,8 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_callbacks_interface* icb,
-    struct plugin_callbacks*                 cb,
+    const struct plugin_notify_interface* icb,
+    struct dpsfg_plugin_callbacks*                 cb,
     GTypeModule*                             type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
@@ -93,14 +93,14 @@ static struct dpsfg_ui_pane_interface ui_pane = {
 static struct dpsfg_expr_interface expr = {
     on_graph_expr, on_substituted_expr, on_limit_expr, on_graph_tf};
 
-static struct plugin_info info = {
+static struct dpsfg_plugin_info info = {
     "Math Viewer",
     "viewer",
     "TheComet",
     "@TheComet93",
     "Renders various mathematical expressions"};
 
-PLUGIN_API struct plugin_interface dpsfg_plugin = {
+PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     PLUGIN_VERSION,
     0,
     &info,

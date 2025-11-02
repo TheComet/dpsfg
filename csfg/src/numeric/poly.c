@@ -1,7 +1,6 @@
 #include "csfg/numeric/poly.h"
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/poly_expr.h"
-#include <float.h>
 
 /* -------------------------------------------------------------------------- */
 int csfg_cpoly_from_symbolic(
@@ -28,53 +27,20 @@ int csfg_cpoly_from_symbolic(
 }
 
 /* -------------------------------------------------------------------------- */
-void csfg_rpoly_interesting_frequency_interval(
-    const struct csfg_rpoly* poly, double* f_start_hz, double* f_end_hz)
+struct csfg_complex
+csfg_cpoly_eval(const struct csfg_cpoly* poly, struct csfg_complex s)
 {
-    const struct csfg_complex* c;
+    int                        i;
+    const struct csfg_complex* coeff;
 
-    double min_x = DBL_MAX;
-    double max_x = 0.0;
-
-    vec_for_each (poly, c)
+    struct csfg_complex param = csfg_complex(1.0, 0.0);
+    struct csfg_complex result = csfg_complex(0.0, 0.0);
+    vec_enumerate (poly, i, coeff)
     {
-        double mag = csfg_complex_mag(c);
-        /* In case of zero poles, avoid setting 0.0 as a range so logarithmic
-         * plots don't lose their shit */
-        if (mag == 0.0)
-            continue;
-
-        if (max_x < mag)
-            max_x = mag;
-        if (min_x > mag)
-            min_x = mag;
+        log_dbg("c%d: %.2f, %.2f\n", i, coeff->real, coeff->imag);
+        result = csfg_complex_add(result, csfg_complex_mul(*coeff, param));
+        param = csfg_complex_mul(param, s);
     }
 
-    if (max_x == 0.0)
-    {
-        min_x = 1.0;
-        max_x = 1.0;
-    }
-
-    *f_start_hz = min_x * 0.01;
-    *f_end_hz = max_x * 100;
-}
-
-/* -------------------------------------------------------------------------- */
-void csfg_rpoly_interesting_time_interval(
-    const struct csfg_rpoly* poly, double* t_start_s, double* t_end_s)
-{
-    const struct csfg_complex* c;
-
-    double closest_pole = DBL_MAX;
-
-    vec_for_each (poly, c)
-    {
-        double real = fabs(c->real);
-        if (closest_pole > real)
-            closest_pole = real;
-    }
-
-    *t_start_s = 0.0;
-    *t_end_s = 10 / closest_pole;
+    return result;
 }

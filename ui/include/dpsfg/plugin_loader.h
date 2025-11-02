@@ -1,11 +1,11 @@
 #pragma once
 
-struct plugin_interface;
+struct dpsfg_plugin_interface;
 
 struct plugin_lib
 {
     void*                    handle;
-    struct plugin_interface* i;
+    struct dpsfg_plugin_interface* i;
 };
 
 /*!
