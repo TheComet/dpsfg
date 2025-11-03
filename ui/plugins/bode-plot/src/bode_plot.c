@@ -22,23 +22,9 @@ static void draw_cb(
     BodePlot* plot = user_pointer;
     (void)area, (void)width, (void)height;
 
-    cairo_translate(cr, 200.0, 100.0);
+    cairo_translate(cr, width / 2.0, height / 2.0);
 
     cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
-    for (int x = -1000; x < 1000; x += 20)
-    {
-        cairo_move_to(cr, x, -1000);
-        cairo_line_to(cr, x, 1000);
-    }
-    for (int y = -1000; y < 1000; y += 20)
-    {
-        cairo_move_to(cr, -1000, y);
-        cairo_line_to(cr, 1000, y);
-    }
-    cairo_set_line_width(cr, 1.0);
-    cairo_stroke(cr);
-
-    cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
     cairo_move_to(cr, -1000.0, 0.0);
     cairo_line_to(cr, 1000.0, 0.0);
     cairo_move_to(cr, 0.0, -1000.0);

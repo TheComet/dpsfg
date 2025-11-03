@@ -37,7 +37,6 @@ csfg_cpoly_eval(const struct csfg_cpoly* poly, struct csfg_complex s)
     struct csfg_complex result = csfg_complex(0.0, 0.0);
     vec_enumerate (poly, i, coeff)
     {
-        log_dbg("c%d: %.2f, %.2f\n", i, coeff->real, coeff->imag);
         result = csfg_complex_add(result, csfg_complex_mul(*coeff, param));
         param = csfg_complex_mul(param, s);
     }

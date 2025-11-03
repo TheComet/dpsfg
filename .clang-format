@@ -70,10 +70,13 @@ ForEachMacros: [
 ]
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex:           '^clither/'
+  - Regex:           '^dpsfg/'
+    Priority:        3
+    SortPriority:    3
+  - Regex:           '^csfg/'
     Priority:        2
     SortPriority:    2
-  - Regex:           '^((<|")(gtest|gmock|isl|json)/)'
+  - Regex:           '^((<|")(gtest|gmock)/)'
     Priority:        1
   - Regex:           '.*'
     Priority:        0
