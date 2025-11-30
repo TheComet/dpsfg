@@ -21,6 +21,11 @@ static double csfg_complex_mag(const struct csfg_complex c)
     return sqrt(c.real * c.real + c.imag * c.imag);
 }
 
+static double csfg_complex_phase(const struct csfg_complex c)
+{
+    return atan2(c.imag, c.real);
+}
+
 static struct csfg_complex
 csfg_complex_add(struct csfg_complex a, struct csfg_complex b)
 {

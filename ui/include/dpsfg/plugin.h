@@ -35,6 +35,12 @@ struct plugin_notify_interface
         int                            node_in,
         int                            node_out);
 
+    /*! Call this if the graph visually changes. This includes changing node
+     * positions, or changing edge positions. */
+    void (*graph_layout_changed)(
+        struct dpsfg_plugin_callbacks* ctx,
+        const struct plugin_ctx*       source_plugin);
+
     /*! Call this if the substitution table is altered. The substitution table
      * is passed in via @see dpsfg_substitutions_interface.  */
     void (*substitutions_changed)(
@@ -72,7 +78,11 @@ struct dpsfg_graph_interface
      * guaranteed to be called before on_structure_changed(). If a plugin makes
      * any modifications to the graph, it should call
      * graph_structure_changed(). @see plugin_notify_interface */
-    void (*on_set)(struct plugin_ctx* ctx, struct csfg_graph* graph);
+    void (*on_set)(
+        struct plugin_ctx* ctx,
+        struct csfg_graph* graph,
+        int                node_in,
+        int                node_out);
 
     /*! Called when the graph is deallocated by the main application. A plugin
      * should clear any references to the graph pointer passed by on_set(). */
@@ -81,8 +91,17 @@ struct dpsfg_graph_interface
     /*! Called whenever the graph's structure is changed. This function is
      * triggered by calls to graph_structure_changed(). Note that the main
      * application will not call on_structure_changed() for the plugin that
-     * triggered it. */
-    void (*on_structure_changed)(struct plugin_ctx* ctx);
+     * triggered it. @see plugin_notify_interface for a description of what
+     * "structure changed" means.*/
+    void (*on_structure_changed)(
+        struct plugin_ctx* ctx, int node_in, int node_out);
+
+    /*! Called whenever the graph's layout is changed. This function is
+     * triggered by calls to graph_layout_changed(). Note that the main
+     * application will not call on_layout_changed() for the plugin that
+     * triggered it. @see plugin_notify_interface for a description of what
+     * "layout changed" means.*/
+    void (*on_layout_changed)(struct plugin_ctx* ctx);
 };
 
 /*!

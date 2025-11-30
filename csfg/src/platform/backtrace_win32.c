@@ -11,7 +11,7 @@
 
 static HANDLE hProcess;
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int backtrace_init(void)
 {
     hProcess = GetCurrentProcess();
@@ -20,24 +20,24 @@ int backtrace_init(void)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void backtrace_deinit(void)
 {
     /* This crashes for some reason?
     SymCleanup(hProcess);*/
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 char** backtrace_get(int* size)
 {
     char** result;
     char** current_ptr;
     char*  current_str;
-    void*  stack[CLITHER_BACKTRACE_SIZE];
+    void*  stack[CSFG_BACKTRACE_SIZE];
     char
         sym_buf[sizeof(SYMBOL_INFO) + (BACKTRACE_FUNC_LEN - 1) * sizeof(TCHAR)];
     WORD frames_traced =
-        CaptureStackBackTrace(0, CLITHER_BACKTRACE_SIZE, stack, NULL);
+        CaptureStackBackTrace(0, CSFG_BACKTRACE_SIZE, stack, NULL);
 
     result = malloc(
         sizeof(char*) * frames_traced + /* String table */
@@ -83,7 +83,7 @@ char** backtrace_get(int* size)
     return result;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void backtrace_free(char** bt)
 {
     free(bt);

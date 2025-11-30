@@ -15,6 +15,8 @@ GraphEditor* graph_editor_new(
     struct plugin_ctx*                    plugin_ctx,
     const struct plugin_notify_interface* icb,
     struct dpsfg_plugin_callbacks*        cb);
-void graph_editor_set_graph(GraphEditor* editor, struct csfg_graph* g);
+void graph_editor_set_graph(
+    GraphEditor* editor, struct csfg_graph* g, int node_in, int node_out);
 void graph_editor_clear_graph(GraphEditor* editor);
-void graph_editor_rebuild_graph(GraphEditor* editor);
+void graph_editor_rebuild_graph(GraphEditor* editor, int node_in, int node_out);
+void graph_editor_redraw_graph(GraphEditor* editor);

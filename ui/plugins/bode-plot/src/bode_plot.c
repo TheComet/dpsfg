@@ -4,7 +4,8 @@
 struct _BodePlot
 {
     GtkBox     parent_instance;
-    GtkWidget* drawing_area;
+    GtkWidget* drawing_area_mag;
+    GtkWidget* drawing_area_phase;
 
     const struct csfg_tf* tf;
 };
@@ -12,7 +13,7 @@ struct _BodePlot
 G_DEFINE_DYNAMIC_TYPE(BodePlot, bode_plot, GTK_TYPE_BOX)
 
 /* -------------------------------------------------------------------------- */
-static void draw_cb(
+static void draw_mag_cb(
     GtkDrawingArea* area,
     cairo_t*        cr,
     int             width,
@@ -66,19 +67,77 @@ static void draw_cb(
 }
 
 /* -------------------------------------------------------------------------- */
+static void draw_phase_cb(
+    GtkDrawingArea* area,
+    cairo_t*        cr,
+    int             width,
+    int             height,
+    gpointer        user_pointer)
+{
+    BodePlot* plot = user_pointer;
+    (void)area;
+
+    cairo_translate(cr, width / 2.0, height / 2.0);
+
+    cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
+    cairo_move_to(cr, -1000.0, 0.0);
+    cairo_line_to(cr, 1000.0, 0.0);
+    cairo_move_to(cr, 0.0, -1000.0);
+    cairo_line_to(cr, 0.0, 1000.0);
+    cairo_move_to(cr, 0.0, -1.0);
+    cairo_set_line_width(cr, 1.0);
+    cairo_stroke(cr);
+
+    if (plot->tf != NULL)
+    {
+        struct csfg_complex value;
+        double              f_start, f_end, f_step, f;
+        double              phase;
+
+        csfg_tf_interesting_frequency_interval(plot->tf, &f_start, &f_end);
+
+        f_start = log(f_start) / log(10);
+        f_end = log(f_end) / log(10);
+        f_step = (f_end - f_start) / 100;
+
+        value = csfg_tf_eval(plot->tf, csfg_complex(0.0, pow(10, f_start)));
+        phase = -csfg_complex_phase(value) * 180 / M_PI;
+
+        cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+        cairo_move_to(cr, f_start * 60, phase);
+
+        for (f = f_start + f_step; f <= f_end; f += f_step)
+        {
+            value = csfg_tf_eval(plot->tf, csfg_complex(0.0, pow(10, f)));
+            phase = -csfg_complex_phase(value) * 180 / M_PI;
+            cairo_line_to(cr, f * 60, phase);
+        }
+
+        cairo_set_line_width(cr, 1.0);
+        cairo_stroke(cr);
+    }
+}
+/* -------------------------------------------------------------------------- */
 static void bode_plot_init(BodePlot* self)
 {
     g_object_set(self, "orientation", GTK_ORIENTATION_VERTICAL, NULL);
 
     self->tf = NULL;
 
-    self->drawing_area = gtk_drawing_area_new();
-    gtk_widget_set_hexpand(self->drawing_area, TRUE);
-    gtk_widget_set_size_request(self->drawing_area, 1, 200);
+    self->drawing_area_mag = gtk_drawing_area_new();
+    gtk_widget_set_hexpand(self->drawing_area_mag, TRUE);
+    gtk_widget_set_size_request(self->drawing_area_mag, 1, 200);
     gtk_drawing_area_set_draw_func(
-        GTK_DRAWING_AREA(self->drawing_area), draw_cb, self, NULL);
+        GTK_DRAWING_AREA(self->drawing_area_mag), draw_mag_cb, self, NULL);
 
-    gtk_box_append(GTK_BOX(self), self->drawing_area);
+    self->drawing_area_phase = gtk_drawing_area_new();
+    gtk_widget_set_hexpand(self->drawing_area_phase, TRUE);
+    gtk_widget_set_size_request(self->drawing_area_phase, 1, 200);
+    gtk_drawing_area_set_draw_func(
+        GTK_DRAWING_AREA(self->drawing_area_phase), draw_phase_cb, self, NULL);
+
+    gtk_box_append(GTK_BOX(self), self->drawing_area_mag);
+    gtk_box_append(GTK_BOX(self), self->drawing_area_phase);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -116,5 +175,6 @@ BodePlot* bode_plot_new(void)
 void bode_plot_set_tf(BodePlot* plot, const struct csfg_tf* tf)
 {
     plot->tf = tf;
-    gtk_widget_queue_draw(plot->drawing_area);
+    gtk_widget_queue_draw(plot->drawing_area_mag);
+    gtk_widget_queue_draw(plot->drawing_area_phase);
 }

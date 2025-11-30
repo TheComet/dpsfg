@@ -1,14 +1,17 @@
 #pragma once
 
+#include "csfg/graph/path.h"
 #include "csfg/util/strview.h"
 #include "csfg/util/vec.h"
 
+struct csfg_path_vec;
 struct str;
 
 struct csfg_node
 {
     struct str* name;
     int         id;
+    int         x, y;
     unsigned    visited : 1;
 };
 
@@ -18,19 +21,13 @@ struct csfg_edge
     int                    expr;
 
     int id;
-    int from;
-    int to;
-};
-
-struct csfg_path
-{
-    const int* edge_idxs;
+    int n_idx_from;
+    int n_idx_to; /* Use vec_get(g->nodes, from/to) to get node */
+    int x, y;     /* Position of the arrow */
 };
 
 VEC_DECLARE(csfg_node_vec, struct csfg_node, 16)
 VEC_DECLARE(csfg_edge_vec, struct csfg_edge, 16)
-
-VEC_DECLARE(csfg_path_vec, int, 16)
 
 struct csfg_graph
 {
@@ -41,16 +38,17 @@ struct csfg_graph
 
 void csfg_graph_init(struct csfg_graph* g);
 void csfg_graph_deinit(struct csfg_graph* g);
+void csfg_graph_clear(struct csfg_graph* g);
 
 int csfg_graph_add_node(struct csfg_graph* g, const char* name);
 int csfg_graph_add_edge(
     struct csfg_graph*     g,
-    int                    n_from,
-    int                    n_to,
+    int                    n_idx_from,
+    int                    n_idx_to,
     struct csfg_expr_pool* pool,
     int                    expr);
 int csfg_graph_add_edge_parse_expr(
-    struct csfg_graph* g, int n_from, int n_to, struct strview text);
+    struct csfg_graph* g, int n_idx_from, int n_idx_to, struct strview text);
 void csfg_graph_mark_node_deleted(struct csfg_graph* g, int n);
 void csfg_graph_mark_edge_deleted(struct csfg_graph* g, int e);
 
@@ -103,45 +101,3 @@ int csfg_graph_mason(
     struct csfg_expr_pool**     pool,
     const struct csfg_path_vec* paths,
     const struct csfg_path_vec* loops);
-
-static struct csfg_path csfg_paths_begin(const struct csfg_path_vec* paths)
-{
-    struct csfg_path path;
-    path.edge_idxs = vec_begin(paths);
-    return path;
-}
-
-static struct csfg_path csfg_paths_next(struct csfg_path path)
-{
-    while (*path.edge_idxs != -1)
-        path.edge_idxs++;
-    path.edge_idxs++;
-    return path;
-}
-
-static int csfg_path_count(const struct csfg_path_vec* paths)
-{
-    int        count = 0;
-    const int* edge_idx;
-    vec_for_each (paths, edge_idx)
-        if (*edge_idx == -1)
-            count++;
-    return count;
-}
-
-static struct csfg_path
-csfg_paths_get(const struct csfg_path_vec* paths, int idx)
-{
-    struct csfg_path path = csfg_paths_begin(paths);
-    while (idx--)
-        path = csfg_paths_next(path);
-    return path;
-}
-
-#define csfg_paths_for_each(paths, path)                                       \
-    for (path = csfg_paths_begin(paths); path.edge_idxs != vec_end(paths);     \
-         path = csfg_paths_next(path))
-#define csfg_paths_enumerate(paths, idx, path)                                 \
-    for (path = csfg_paths_begin(paths), idx = 0;                              \
-         path.edge_idxs != vec_end(paths);                                     \
-         path = csfg_paths_next(path), ++idx)

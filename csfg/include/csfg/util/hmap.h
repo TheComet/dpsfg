@@ -512,6 +512,8 @@ enum hmap_status
         int##bits##_t i;                                                       \
         for (i = 0; i != hmap_capacity(hmap); ++i)                             \
             hmap->hashes[i] = HMAP_SLOT_UNUSED;                                \
+        if (hmap != NULL)                                                      \
+            hmap->count = 0;                                                   \
     }                                                                          \
                                                                                \
     API void prefix##_clear_compact(struct prefix** hmap)                      \

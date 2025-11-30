@@ -1,7 +1,7 @@
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int lower_negates(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -31,7 +31,7 @@ static int lower_negates(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_op_lower_negates(struct csfg_expr_pool** pool)
 {
     return csfg_expr_op_run_pass(pool, lower_negates);

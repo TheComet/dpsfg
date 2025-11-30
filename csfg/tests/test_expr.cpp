@@ -102,8 +102,8 @@ TEST_F(NAME, generate_variable_table)
     int e;
     ASSERT_THAT(e = csfg_expr_parse(&p, cstr_view("a+b^c*d")), Ge(0));
     ASSERT_THAT(csfg_var_table_populate(&vt, p, e), Eq(0));
-    EXPECT_THAT(csfg_var_table_eval(&vt, cstr_view("a")), DoubleEq(0));
-    EXPECT_THAT(csfg_var_table_eval(&vt, cstr_view("b")), DoubleEq(0));
+    EXPECT_THAT(csfg_var_table_eval(&vt, cstr_view("a")), DoubleEq(1));
+    EXPECT_THAT(csfg_var_table_eval(&vt, cstr_view("b")), DoubleEq(1));
     EXPECT_THAT(csfg_var_table_eval(&vt, cstr_view("c")), DoubleEq(1));
     EXPECT_THAT(csfg_var_table_eval(&vt, cstr_view("d")), DoubleEq(1));
 }

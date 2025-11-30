@@ -2,7 +2,7 @@
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int eval_subtrees(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -39,7 +39,7 @@ static int eval_subtrees(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int find_other_constant_operand(
     const struct csfg_expr_pool* pool,
     enum csfg_expr_type          type,
@@ -68,7 +68,7 @@ static int find_other_constant_operand(
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int combine_constants(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -117,7 +117,7 @@ static int combine_constants(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool)
 {
     return csfg_expr_op_run(pool, eval_subtrees, combine_constants, NULL);

@@ -2,14 +2,14 @@
 #include "csfg/symbolic/expr_op.h"
 #include <math.h>
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int is_almost_integer(double value, double epsilon)
 {
     double nearest = round(value);
     return fabs(value - nearest) < epsilon;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int expand_constant_exponents(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -52,7 +52,7 @@ static int expand_constant_exponents(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_op_expand_constant_exponents(struct csfg_expr_pool** pool)
 {
     return csfg_expr_op_run_pass(pool, expand_constant_exponents);

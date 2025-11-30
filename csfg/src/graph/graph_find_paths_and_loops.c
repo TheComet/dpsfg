@@ -9,7 +9,7 @@ static int find_paths_recurse(
     int                    node_out)
 {
     struct csfg_edge* edge = csfg_graph_get_edge(graph, edge_idx);
-    struct csfg_node* node = csfg_graph_get_node(graph, edge->to);
+    struct csfg_node* node = csfg_graph_get_node(graph, edge->n_idx_to);
     if (node->visited)
         return 0;
 
@@ -17,7 +17,7 @@ static int find_paths_recurse(
     if (csfg_path_vec_push(stack, edge_idx) != 0)
         return -1;
 
-    if (edge->to == node_out)
+    if (edge->n_idx_to == node_out)
     {
         const int* idx;
         vec_for_each (*stack, idx)
@@ -28,10 +28,10 @@ static int find_paths_recurse(
     }
     else
     {
-        int current_node_idx = edge->to;
+        int current_node_idx = edge->n_idx_to;
         csfg_graph_enumerate_edges (graph, edge_idx, edge)
         {
-            if (edge->from == current_node_idx)
+            if (edge->n_idx_from == current_node_idx)
                 if (find_paths_recurse(
                         paths, stack, graph, edge_idx, node_out) != 0)
                     return -1;
@@ -48,8 +48,8 @@ static int find_paths_recurse(
 int csfg_graph_find_forward_paths(
     struct csfg_graph*     graph,
     struct csfg_path_vec** paths,
-    int                    node_in,
-    int                    node_out)
+    int                    n_idx_in,
+    int                    n_idx_out)
 {
     struct csfg_path_vec* stack;
     struct csfg_node*     node;
@@ -62,9 +62,9 @@ int csfg_graph_find_forward_paths(
 
     csfg_graph_enumerate_edges (graph, edge_idx, edge)
     {
-        if (edge->from != node_in)
+        if (edge->n_idx_from != n_idx_in)
             continue;
-        if (find_paths_recurse(paths, &stack, graph, edge_idx, node_out) != 0)
+        if (find_paths_recurse(paths, &stack, graph, edge_idx, n_idx_out) != 0)
             goto find_paths_failed;
     }
 
@@ -93,7 +93,7 @@ int csfg_graph_find_loops(
     {
         csfg_graph_enumerate_edges (graph, edge_idx, edge)
         {
-            if (edge->from == node_idx)
+            if (edge->n_idx_from == node_idx)
                 if (find_paths_recurse(
                         paths, &stack, graph, edge_idx, node_idx) != 0)
                     goto find_paths_failed;

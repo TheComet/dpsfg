@@ -41,7 +41,7 @@ static int print_help(const char* prog_name)
     return 1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int args_parse(struct args* a, int argc, char* argv[])
 {
     int  i;

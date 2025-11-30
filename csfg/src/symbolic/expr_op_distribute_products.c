@@ -1,7 +1,7 @@
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int distribute_products(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -41,7 +41,7 @@ static int distribute_products(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_op_distribute_products(struct csfg_expr_pool** pool)
 {
     return csfg_expr_op_run_pass(pool, distribute_products);

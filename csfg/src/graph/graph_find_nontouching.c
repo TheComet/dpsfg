@@ -12,8 +12,11 @@ int csfg_graph_paths_are_touching(
         {
             e1 = vec_get(graph->edges, *e1_idx);
             e2 = vec_get(graph->edges, *e2_idx);
-            if (e1->from == e2->from || e1->to == e2->to)
+            if (e1->n_idx_from == e2->n_idx_from ||
+                e1->n_idx_to == e2->n_idx_to)
+            {
                 return 1;
+            }
         }
 
     return 0;

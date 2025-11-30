@@ -4,7 +4,7 @@
 
 VEC_DEFINE(csfg_poly_expr, struct csfg_coeff_expr, 8)
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int set_coeff(struct csfg_coeff_expr* c, double factor, int expr)
 {
     c->factor = factor;
@@ -12,7 +12,7 @@ static int set_coeff(struct csfg_coeff_expr* c, double factor, int expr)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int
 set_and_check_coeff(struct csfg_coeff_expr* c, double factor, int expr)
 {
@@ -21,7 +21,7 @@ set_and_check_coeff(struct csfg_coeff_expr* c, double factor, int expr)
     return set_coeff(c, factor, expr);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int add_coeffs(
     struct csfg_expr_pool**       pool,
     const struct csfg_coeff_expr* c1,
@@ -147,7 +147,7 @@ static int add_coeffs(
     }
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_poly_expr_copy(
     struct csfg_poly_expr** dst, const struct csfg_poly_expr* src)
 {
@@ -159,7 +159,7 @@ int csfg_poly_expr_copy(
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_poly_expr_add(
     struct csfg_expr_pool**      pool,
     struct csfg_poly_expr**      out,
@@ -198,7 +198,7 @@ int csfg_poly_expr_add(
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_poly_expr_mul(
     struct csfg_expr_pool**      pool,
     struct csfg_poly_expr**      out,
@@ -241,7 +241,7 @@ int csfg_poly_expr_mul(
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_poly_expr_to_str(
     struct str**                 str,
     const struct csfg_expr_pool* pool,

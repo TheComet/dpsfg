@@ -35,7 +35,7 @@ struct parser
     enum token tok;
 };
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static void parser_init(struct parser* p, struct strview text)
 {
     p->text = text.data + text.off;
@@ -45,7 +45,7 @@ static void parser_init(struct parser* p, struct strview text)
     p->tok = TOK_ERROR;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static enum token scan_next(struct parser* p)
 {
     p->tail = p->head;
@@ -116,7 +116,7 @@ static enum token scan_next(struct parser* p)
     return p->tok = TOK_END;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int parse_expr(struct parser* p, struct csfg_expr_pool** e);
 static int parse_base(struct parser* p, struct csfg_expr_pool** e)
 {
@@ -155,7 +155,7 @@ static int parse_base(struct parser* p, struct csfg_expr_pool** e)
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int parse_unary(struct parser* p, struct csfg_expr_pool** e);
 static int parse_factor(struct parser* p, struct csfg_expr_pool** e)
 {
@@ -173,7 +173,7 @@ static int parse_factor(struct parser* p, struct csfg_expr_pool** e)
     return pow;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int parse_unary(struct parser* p, struct csfg_expr_pool** e)
 {
     int sign = 1;
@@ -191,7 +191,7 @@ static int parse_unary(struct parser* p, struct csfg_expr_pool** e)
         return csfg_expr_neg(e, parse_factor(p, e));
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int parse_term(struct parser* p, struct csfg_expr_pool** e)
 {
     int child, unary = parse_unary(p, e);
@@ -210,7 +210,7 @@ static int parse_term(struct parser* p, struct csfg_expr_pool** e)
     return unary;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int parse_expr(struct parser* p, struct csfg_expr_pool** e)
 {
     int child, term = parse_term(p, e);
@@ -229,7 +229,7 @@ static int parse_expr(struct parser* p, struct csfg_expr_pool** e)
     return term;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_parse(struct csfg_expr_pool** expr, struct strview text)
 {
     int           root;

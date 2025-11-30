@@ -172,4 +172,5 @@ int csfg_expr_equal(
     const struct csfg_expr_pool* p2,
     int                          root2);
 
-int csfg_expr_integrity_check(struct csfg_expr_pool* pool);
+int csfg_expr_integrity_check_allow_islands(struct csfg_expr_pool* pool);
+int csfg_expr_integrity_check(struct csfg_expr_pool* pool, int expr);

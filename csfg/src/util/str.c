@@ -13,26 +13,26 @@
 VEC_DECLARE(str_impl, char, 16)
 VEC_DEFINE(str_impl, char, 16)
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int is_sep(char c)
 {
     return c == '/' || c == '\\';
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_init(struct str** str)
 {
     str_impl_init((struct str_impl**)str);
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void str_deinit(struct str* str)
 {
     str_impl_deinit((struct str_impl*)str);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_ensure_capacity(struct str** str, int capacity)
 {
     struct str_impl* impl = (struct str_impl*)*str;
@@ -55,13 +55,13 @@ int str_ensure_capacity(struct str** str, int capacity)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_capacity(const struct str* str)
 {
     return vec_capacity((const struct str_impl*)str);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_len(const struct str* str)
 {
     if (str != NULL)
@@ -71,13 +71,13 @@ int str_len(const struct str* str)
     return str ? ((const struct str_impl*)str)->count - 1 : 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 char* str_data(struct str* str)
 {
     return str ? ((struct str_impl*)str)->data : NULL;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_append_char(struct str** str, char c)
 {
     struct str_impl* impl;
@@ -94,7 +94,7 @@ int str_append_char(struct str** str, char c)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_append_cstr(struct str** str, const char* cstr)
 {
     struct str_impl* impl;
@@ -112,7 +112,7 @@ int str_append_cstr(struct str** str, const char* cstr)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_append_int(struct str** str, int value)
 {
     char buf[12];
@@ -120,7 +120,7 @@ int str_append_int(struct str** str, int value)
     return str_append_cstr(str, buf);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_append_float(struct str** str, double value)
 {
     char* p;
@@ -138,7 +138,7 @@ int str_append_float(struct str** str, double value)
     return str_append_cstr(str, buf);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void str_pop_char(struct str* str)
 {
     struct str_impl* impl = (struct str_impl*)str;
@@ -147,7 +147,7 @@ void str_pop_char(struct str* str)
     impl->data[--impl->count] = '\0';
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void str_set_char(struct str* str, int index, char c)
 {
     struct str_impl* impl = (struct str_impl*)str;
@@ -155,7 +155,7 @@ void str_set_char(struct str* str, int index, char c)
     impl->data[index] = c;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void str_clear(struct str* str)
 {
     struct str_impl* impl = (struct str_impl*)str;
@@ -165,7 +165,7 @@ void str_clear(struct str* str)
     impl->count = 1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void str_set_len(struct str* str, int new_len)
 {
     struct str_impl* impl = (struct str_impl*)str;
@@ -175,7 +175,7 @@ void str_set_len(struct str* str, int new_len)
     impl->count = new_len + 1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_set(struct str** str, const char* data, int len)
 {
     struct str_impl* impl;
@@ -191,20 +191,20 @@ int str_set(struct str** str, const char* data, int len)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_set_str(struct str** str, const struct str* other)
 {
     const struct str_impl* impl = (const struct str_impl*)other;
     return str_set(str, impl->data, impl->count - 1);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_set_view(struct str** str, struct strview view)
 {
     return str_set(str, view.data + view.off, view.len);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_set_utf32(struct str** str, const uint32_t* utf32, int len)
 {
     str_clear(*str);
@@ -248,26 +248,26 @@ int str_set_utf32(struct str** str, const uint32_t* utf32, int len)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_set_cstr(struct str** str, const char* cstr)
 {
     return str_set(str, cstr, (int)strlen(cstr));
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 const char* str_cstr(const struct str* str)
 {
     return str ? ((const struct str_impl*)str)->data : "";
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_eq_cstr(const struct str* str, const char* cstr)
 {
     const struct str_impl* impl = (const struct str_impl*)str;
     return strcmp(impl->data, cstr) == 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_set_path_cstr(struct str** str, const char* path)
 {
     int              i;
@@ -289,7 +289,7 @@ int str_set_path_cstr(struct str** str, const char* path)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_join_path(struct str** str, struct strview path)
 {
     struct str_impl* impl;
@@ -315,13 +315,13 @@ int str_join_path(struct str** str, struct strview path)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_join_path_cstr(struct str** str, const char* path)
 {
     return str_join_path(str, strview(path, 0, (int)strlen(path)));
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_join_path_prepend(struct str** str, struct strview path)
 {
     struct str_impl* impl;
@@ -344,13 +344,13 @@ int str_join_path_prepend(struct str** str, struct strview path)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int str_join_path_prepend_cstr(struct str** str, const char* path)
 {
     return str_join_path_prepend(str, strview(path, 0, (int)strlen(path)));
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void str_dirname(struct str* str)
 {
     struct str_impl* impl = (struct str_impl*)str;
@@ -372,7 +372,7 @@ void str_dirname(struct str* str)
     impl->data[impl->count - 1] = '\0';
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 const char* cstr_ext(const char* path)
 {
     const char* ext = strrchr(path, '.');
@@ -381,7 +381,7 @@ const char* cstr_ext(const char* path)
     return ext + 1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int cstr_ends_with(const char* cstr, const char* suffix)
 {
     int cstr_len = (int)strlen(cstr);

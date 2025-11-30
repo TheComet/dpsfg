@@ -36,7 +36,7 @@ static int determinant(
     int              loop_count;
     struct csfg_path path, p1, p2;
 
-    loop_count = csfg_path_count(loops);
+    loop_count = csfg_paths_count(loops);
 
     det = csfg_expr_lit(pool, 1.0);
     if (loop_count == 0)

@@ -3,13 +3,13 @@
 #include "csfg/symbolic/expr_opt.h"
 #include <math.h>
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int floats_equal(double f1, double f2, double epsilon)
 {
     return fabs(f1 - f2) < epsilon;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int remove_chained_negates(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -31,7 +31,7 @@ static int remove_chained_negates(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int remove_negated_products(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -56,7 +56,7 @@ static int remove_negated_products(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int remove_double_reciprocs(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -96,7 +96,7 @@ static int remove_double_reciprocs(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int remove_zero_summands(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -125,7 +125,7 @@ static int remove_zero_summands(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int remove_one_products(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -163,7 +163,7 @@ static int remove_one_products(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -196,7 +196,7 @@ static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static void replace_node_with_one(struct csfg_expr_pool** pool, int n)
 {
     int left = (*pool)->nodes[n].child[0];
@@ -279,7 +279,7 @@ static int cancel_products(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool)
 {
     return csfg_expr_op_run(

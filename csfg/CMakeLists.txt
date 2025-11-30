@@ -33,11 +33,20 @@ set (csfg_SOURCES
     "src/util/strlist.c"
     "src/util/strview.c"
 
+    # io
+    "src/io/deserialize.c"
+    "src/io/serialize.c"
+    "src/io/io.c"
+    "src/io/binary.c"
+    "src/io/graphviz.c"
+    "src/io/tikz.c"
+
     # graph
     "src/graph/graph.c"
     "src/graph/graph_find_paths_and_loops.c"
     "src/graph/graph_find_nontouching.c"
     "src/graph/graph_mason.c"
+    "src/graph/path.c"
 
     # symbolic
     "src/symbolic/expr.c"

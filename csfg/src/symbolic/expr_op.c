@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <stddef.h>
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_op_run_pass(
     struct csfg_expr_pool** pool, csfg_expr_pass_func pass)
 {
@@ -16,13 +16,13 @@ again:
         case 0: break;
         case 1:
             modified = 1;
-            CSFG_DEBUG_ASSERT(csfg_expr_integrity_check(*pool) == 0);
+            CSFG_DEBUG_ASSERT(csfg_expr_integrity_check_allow_islands(*pool) == 0);
             goto again;
     }
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_op_runv(struct csfg_expr_pool** pool, va_list ap)
 {
     csfg_expr_pass_func pass;
@@ -45,7 +45,7 @@ again:
             case 1:
                 pass_modified = 1;
                 modified = 1;
-                CSFG_DEBUG_ASSERT(csfg_expr_integrity_check(*pool) == 0);
+                CSFG_DEBUG_ASSERT(csfg_expr_integrity_check_allow_islands(*pool) == 0);
                 break;
         }
     }
@@ -57,7 +57,7 @@ again:
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_op_run(struct csfg_expr_pool** pool, ...)
 {
     int     result;

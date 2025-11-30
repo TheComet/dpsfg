@@ -67,6 +67,7 @@ TEST_F(NAME, two_roots)
     csfg_cpoly_push(&coeffs, csfg_complex(1.0, 0.0));
     csfg_cpoly_push(&coeffs, csfg_complex(-1.0, 0.0));
 
+    csfg_cpoly_monic(coeffs);
     csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
     ASSERT_THAT(vec_count(roots), Eq(2));

@@ -4,13 +4,13 @@
 
 HMAP_DEFINE_STR(extern, csfg_var_hmap, struct csfg_var_table_entry, 16)
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_var_table_init(struct csfg_var_table* vt)
 {
     csfg_var_hmap_init(&vt->map);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_var_table_deinit(struct csfg_var_table* vt)
 {
     int16_t                      slot;
@@ -22,7 +22,7 @@ void csfg_var_table_deinit(struct csfg_var_table* vt)
     csfg_var_hmap_deinit(vt->map);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_var_table_clear(struct csfg_var_table* vt)
 {
     int16_t                      slot;
@@ -34,7 +34,7 @@ void csfg_var_table_clear(struct csfg_var_table* vt)
     csfg_var_hmap_clear(vt->map);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int var_table_populate(
     struct csfg_var_table* vt, const struct csfg_expr_pool* pool, int n)
 {
@@ -98,7 +98,7 @@ int csfg_var_table_populate(
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_var_table_reset_visited(struct csfg_var_table* vt)
 {
     int                          slot;
@@ -109,7 +109,7 @@ void csfg_var_table_reset_visited(struct csfg_var_table* vt)
         (void)slot, (void)name, entry->visited = 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_var_table_erase_unvisited(struct csfg_var_table* vt)
 {
     int                          slot;
@@ -124,7 +124,7 @@ void csfg_var_table_erase_unvisited(struct csfg_var_table* vt)
         }
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_var_table_set_lit(
     struct csfg_var_table* vt, struct strview name, double value)
 {
@@ -149,7 +149,7 @@ int csfg_var_table_set_lit(
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_var_table_set_expr(
     struct csfg_var_table* vt,
     struct strview         name,
@@ -170,7 +170,7 @@ int csfg_var_table_set_expr(
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_var_table_set_parse_expr(
     struct csfg_var_table* vt, struct strview name, struct strview str)
 {
@@ -191,7 +191,7 @@ fail:
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 struct csfg_expr_pool* csfg_var_table_get(
     const struct csfg_var_table* vt, struct strview name, int* expr)
 {
@@ -202,7 +202,7 @@ struct csfg_expr_pool* csfg_var_table_get(
     return entry->pool;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 double csfg_var_table_eval(const struct csfg_var_table* vt, struct strview name)
 {
     int                    expr;

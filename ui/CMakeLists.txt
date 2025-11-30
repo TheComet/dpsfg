@@ -26,6 +26,7 @@ add_executable (dpsfg-ui
     "src/dynlib.c"
     "src/fs.c"
     "src/plugin_loader.c"
+    "src/project_browser.c"
     "src/main.c")
 target_link_libraries (dpsfg-ui PRIVATE
     DPSFG::plugin

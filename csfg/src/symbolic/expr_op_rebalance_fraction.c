@@ -1,7 +1,7 @@
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int move_reciprocs(
     struct csfg_expr_pool** from,
     int                     from_root,
@@ -62,7 +62,7 @@ static int move_reciprocs(
     return 1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_rebalance_fraction(
     struct csfg_expr_pool** num_pool,
     int                     num_root,

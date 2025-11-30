@@ -68,8 +68,8 @@ static void draw_cb(
     double                     left, top, right, bottom;
     double                     center_x, center_y;
     double                     scale;
-    PoleZeroPlot*              plot = user_pointer;
     const struct csfg_complex* c;
+    PoleZeroPlot*              plot = user_pointer;
     (void)area;
 
     /* Normalize canvas to put [0,0] in center */

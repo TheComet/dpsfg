@@ -5,13 +5,13 @@
 #include <assert.h>
 #include <stddef.h>
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_expr_pool_init(struct csfg_expr_pool** pool)
 {
     *pool = NULL;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_expr_pool_deinit(struct csfg_expr_pool* pool)
 {
     if (pool != NULL)
@@ -21,7 +21,7 @@ void csfg_expr_pool_deinit(struct csfg_expr_pool* pool)
     }
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_expr_pool_clear(struct csfg_expr_pool* pool)
 {
     if (pool != NULL)
@@ -31,14 +31,14 @@ void csfg_expr_pool_clear(struct csfg_expr_pool* pool)
     }
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static void pool_init(struct csfg_expr_pool* pool)
 {
     pool->count = 0;
     strlist_init(&pool->var_names);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_new(
     struct csfg_expr_pool** pool, enum csfg_expr_type type, int left, int right)
 {
@@ -69,7 +69,7 @@ int csfg_expr_new(
     return n;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int insert_substitutions(
     struct csfg_expr_pool** pool, int n, const struct csfg_var_table* vt)
 {
@@ -129,7 +129,7 @@ int csfg_expr_insert_substitutions(
     return insert_substitutions(pool, expr, vt);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_apply_limits(
     const struct csfg_expr_pool* in_pool,
     int                          in_expr,
@@ -181,7 +181,7 @@ fail:
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_lit(struct csfg_expr_pool** pool, double value)
 {
     int n = csfg_expr_new(pool, CSFG_EXPR_LIT, -1, -1);
@@ -193,7 +193,7 @@ int csfg_expr_lit(struct csfg_expr_pool** pool, double value)
     return n;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name)
 {
     int n = csfg_expr_new(pool, CSFG_EXPR_VAR, -1, -1);
@@ -206,13 +206,13 @@ int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name)
     return n;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_inf(struct csfg_expr_pool** pool)
 {
     return csfg_expr_new(pool, CSFG_EXPR_INF, -1, -1);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_neg(struct csfg_expr_pool** pool, int child)
 {
     int n = csfg_expr_new(pool, CSFG_EXPR_NEG, child, -1);
@@ -222,7 +222,7 @@ int csfg_expr_neg(struct csfg_expr_pool** pool, int child)
     return n;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_set_lit(struct csfg_expr_pool** pool, int n, double value)
 {
     if (n == -1)
@@ -236,7 +236,7 @@ int csfg_expr_set_lit(struct csfg_expr_pool** pool, int n, double value)
     return n;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_set_var(struct csfg_expr_pool** pool, int n, struct strview name)
 {
     int            i;
@@ -259,7 +259,7 @@ int csfg_expr_set_var(struct csfg_expr_pool** pool, int n, struct strview name)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_set_inf(struct csfg_expr_pool** pool, int n)
 {
     if (n == -1)
@@ -272,7 +272,7 @@ int csfg_expr_set_inf(struct csfg_expr_pool** pool, int n)
     return n;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_set_neg(struct csfg_expr_pool** pool, int n, int child)
 {
     if (n == -1 || child == -1)
@@ -285,7 +285,7 @@ int csfg_expr_set_neg(struct csfg_expr_pool** pool, int n, int child)
     return n;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_binop(
     struct csfg_expr_pool** pool, enum csfg_expr_type type, int left, int right)
 {
@@ -313,7 +313,7 @@ int csfg_expr_div(struct csfg_expr_pool** pool, int left, int right)
         pool, left, csfg_expr_pow(pool, right, csfg_expr_lit(pool, -1)));
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_set_binop(
     struct csfg_expr_pool** pool,
     int                     n,
@@ -339,7 +339,7 @@ int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp)
 {return csfg_expr_set_binop(pool, n, CSFG_EXPR_POW, base, exp);}
 /* clang-format on */
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_dup_recurse_from(
     struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n)
 {
@@ -365,7 +365,7 @@ int csfg_expr_dup_recurse_from(
     return dup;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n)
 {
     int dup, left, right;
@@ -390,7 +390,7 @@ int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n)
     return dup;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_dup_single_from(
     struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n)
 {
@@ -424,7 +424,7 @@ int csfg_expr_dup_single_from(
     return dup;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n)
 {
     int dup;
@@ -437,13 +437,13 @@ int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n)
     return dup;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_expr_mark_deleted(struct csfg_expr_pool* pool, int n)
 {
     pool->nodes[n].type = CSFG_EXPR_GC;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_expr_mark_deleted_recursive(struct csfg_expr_pool* pool, int n)
 {
     int left, right;
@@ -460,7 +460,7 @@ void csfg_expr_mark_deleted_recursive(struct csfg_expr_pool* pool, int n)
     csfg_expr_mark_deleted(pool, n);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_gc(struct csfg_expr_pool* pool, int root)
 {
     int n;
@@ -489,7 +489,7 @@ int csfg_expr_gc(struct csfg_expr_pool* pool, int root)
     return root;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_expr_collapse_into_parent(
     struct csfg_expr_pool* pool, int child, int parent)
 {
@@ -507,7 +507,7 @@ void csfg_expr_collapse_into_parent(
         csfg_expr_mark_deleted_recursive(pool, dangling_child);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n)
 {
     int sibling;
@@ -521,7 +521,7 @@ void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n)
     csfg_expr_mark_deleted_recursive(pool, n);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_collapse_sibling_into_parent_steal_orphan(
     struct csfg_expr_pool* pool, int n)
 {
@@ -536,7 +536,7 @@ int csfg_expr_collapse_sibling_into_parent_steal_orphan(
     return n;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n)
 {
     int p;
@@ -547,7 +547,7 @@ int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n)
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_find_sibling(const struct csfg_expr_pool* pool, int n)
 {
     int parent = csfg_expr_find_parent(pool, n);
@@ -558,7 +558,7 @@ int csfg_expr_find_sibling(const struct csfg_expr_pool* pool, int n)
     return pool->nodes[parent].child[0];
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n)
 {
     while (1)
@@ -570,7 +570,7 @@ int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n)
     }
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_equal(
     const struct csfg_expr_pool* p1,
     int                          root1,

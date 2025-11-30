@@ -4,7 +4,7 @@ extern "C" {
 #include "csfg/util/cli_colors.h"
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int diffPos(const std::string& a, const std::string& b)
 {
     size_t pos = 0;
@@ -14,7 +14,7 @@ int diffPos(const std::string& a, const std::string& b)
     return (int)pos;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 bool LogEqMatcher::MatchAndExplain(
     const LogOutput& logOutput, testing::MatchResultListener* listener) const
 {
@@ -39,7 +39,7 @@ void LogEqMatcher::DescribeNegationTo(::std::ostream* os) const
     *os << "Log output does not equal:\n" << highlighted;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 bool LogStartsWithMatcher::MatchAndExplain(
     const LogOutput& logOutput, testing::MatchResultListener* listener) const
 {
@@ -59,7 +59,7 @@ void LogStartsWithMatcher::DescribeNegationTo(::std::ostream* os) const
     *os << "Log output does not start with:\n" << highlighted;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static LogOutput log_output;
 static void      write_str(const char* fmt, va_list ap)
 {

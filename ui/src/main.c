@@ -1,6 +1,10 @@
 #include "csfg/graph/graph.h"
+#include "csfg/io/deserialize.h"
+#include "csfg/io/io.h"
+#include "csfg/io/serialize.h"
 #include "csfg/numeric/poly.h"
 #include "csfg/numeric/tf.h"
+#include "csfg/platform/mfile.h"
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
@@ -12,6 +16,7 @@
 #include "dpsfg/args.h"
 #include "dpsfg/plugin.h"
 #include "dpsfg/plugin_loader.h"
+#include "dpsfg/project_browser.h"
 #include <gtk/gtk.h>
 
 #define DPSFG_TYPE_PLUGIN_MODULE (dpsfg_plugin_module_get_type())
@@ -285,7 +290,8 @@ graph_changed:
             plugin->ctx == source_plugin)
             continue;
         if (plugin->lib.i->graph)
-            plugin->lib.i->graph->on_structure_changed(plugin->ctx);
+            plugin->lib.i->graph->on_structure_changed(
+                plugin->ctx, pipeline->node_in, pipeline->node_out);
     }
 substitutions_changed:
     vec_for_each (plugins, plugin)
@@ -328,7 +334,7 @@ parameters_changed:
 }
 
 /* -------------------------------------------------------------------------- */
-static void graph_changed_cb(
+static void graph_structure_changed_cb(
     struct dpsfg_plugin_callbacks* cb,
     const struct plugin_ctx*       source_plugin,
     int                            node_in,
@@ -342,8 +348,10 @@ static void graph_changed_cb(
     notify_plugins(
         *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
-
-/* -------------------------------------------------------------------------- */
+static void graph_layout_changed_cb(
+    struct dpsfg_plugin_callbacks* ctx, const struct plugin_ctx* source_plugin)
+{
+}
 static void substitutions_changed_cb(
     struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
 {
@@ -356,8 +364,6 @@ static void substitutions_changed_cb(
         pipeline,
         MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
 }
-
-/* -------------------------------------------------------------------------- */
 static void parameters_changed_cb(
     struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
 {
@@ -370,6 +376,11 @@ static void parameters_changed_cb(
         pipeline,
         MATH_PIPELINE_PARAMETERS_CHANGED);
 }
+static struct plugin_notify_interface plugin_callbacks = {
+    graph_structure_changed_cb,
+    graph_layout_changed_cb,
+    substitutions_changed_cb,
+    parameters_changed_cb};
 
 /* -------------------------------------------------------------------------- */
 static gboolean
@@ -382,9 +393,6 @@ shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 }
 
 /* -------------------------------------------------------------------------- */
-static struct plugin_notify_interface plugin_callbacks = {
-    graph_changed_cb, substitutions_changed_cb, parameters_changed_cb};
-
 static int start_plugin(
     struct plugin*                 plugin,
     struct plugin_lib              lib,
@@ -594,7 +602,7 @@ static void activate(GtkApplication* app, gpointer user_data)
         property_pane_container);
 
     center_area = plugin_view_new();
-    project_browser = gtk_notebook_new();
+    project_browser = dpsfg_project_browser_new();
 
     ctx->paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_paned_set_start_child(GTK_PANED(ctx->paned2), center_area);
@@ -624,7 +632,11 @@ static void activate(GtkApplication* app, gpointer user_data)
     vec_for_each (*ctx->plugins, plugin)
     {
         if (plugin->lib.i->graph)
-            plugin->lib.i->graph->on_set(plugin->ctx, &ctx->pipeline.graph);
+            plugin->lib.i->graph->on_set(
+                plugin->ctx,
+                &ctx->pipeline.graph,
+                ctx->pipeline.node_in,
+                ctx->pipeline.node_out);
         if (plugin->lib.i->substitutions)
             plugin->lib.i->substitutions->on_set(
                 plugin->ctx, &ctx->pipeline.substitutions);
@@ -632,6 +644,97 @@ static void activate(GtkApplication* app, gpointer user_data)
             plugin->lib.i->parameters->on_set(
                 plugin->ctx, &ctx->pipeline.parameters);
     }
+
+    graph_structure_changed_cb(
+        ctx->plugin_callbacks_ctx,
+        NULL,
+        ctx->pipeline.node_in,
+        ctx->pipeline.node_out);
+}
+
+/* -------------------------------------------------------------------------- */
+static void save_pipeline(
+    const struct csfg_var_table* substitutions,
+    const struct csfg_var_table* parameters,
+    const struct csfg_graph*     graph,
+    int                          node_in,
+    int                          node_out)
+{
+    FILE*              fp;
+    struct serializer* ser;
+
+    serializer_init(&ser);
+    if (csfg_io_save(
+            &ser,
+            substitutions,
+            parameters,
+            graph,
+            node_in,
+            node_out,
+            "binary") != 0)
+        goto serialize_failed;
+    fp = fopen("graph.sfg", "w");
+    if (fp == NULL)
+        goto fopen_failed;
+    fwrite(ser->data, ser->count, 1, fp);
+    fclose(fp);
+
+    serializer_clear(ser);
+    if (csfg_io_save(
+            &ser,
+            substitutions,
+            parameters,
+            graph,
+            node_in,
+            node_out,
+            "graphviz") != 0)
+        goto serialize_failed;
+    fp = fopen("graph.dot", "w");
+    if (fp == NULL)
+        goto fopen_failed;
+    fwrite(ser->data, ser->count, 1, fp);
+    fclose(fp);
+
+    serializer_clear(ser);
+    if (csfg_io_save(
+            &ser,
+            substitutions,
+            parameters,
+            graph,
+            node_in,
+            node_out,
+            "tikz") != 0)
+        goto serialize_failed;
+    fp = fopen("graph.tex", "w");
+    if (fp == NULL)
+        goto fopen_failed;
+    fwrite(ser->data, ser->count, 1, fp);
+    fclose(fp);
+
+fopen_failed:
+serialize_failed:
+    serializer_deinit(ser);
+}
+
+/* -------------------------------------------------------------------------- */
+static void load_pipeline(
+    struct csfg_var_table* substitutions,
+    struct csfg_var_table* parameters,
+    struct csfg_graph*     graph,
+    int*                   node_in,
+    int*                   node_out)
+{
+    struct mfile        mf;
+    struct deserializer des;
+
+    if (mfile_map_read(&mf, "graph.sfg", 1) != 0)
+        return;
+
+    des = deserializer(mf.address, mf.size);
+    csfg_io_load(
+        &des, substitutions, parameters, graph, node_in, node_out, "binary");
+
+    mfile_unmap(&mf);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -694,11 +797,25 @@ int main(int argc, char** argv)
 
     csfg_tf_init(&app_ctx.pipeline.tf);
 
+    load_pipeline(
+        &app_ctx.pipeline.substitutions,
+        &app_ctx.pipeline.parameters,
+        &app_ctx.pipeline.graph,
+        &app_ctx.pipeline.node_in,
+        &app_ctx.pipeline.node_out);
+
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), &app_ctx);
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
+
+    save_pipeline(
+        &app_ctx.pipeline.substitutions,
+        &app_ctx.pipeline.parameters,
+        &app_ctx.pipeline.graph,
+        app_ctx.pipeline.node_in,
+        app_ctx.pipeline.node_out);
 
     vec_for_each (plugins, plugin)
         stop_plugin(plugin);

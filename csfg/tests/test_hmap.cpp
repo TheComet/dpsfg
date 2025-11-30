@@ -130,6 +130,31 @@ TEST_F(NAME, insert_ab_erase_b_find_a)
     EXPECT_THAT(my_hmap_find(hmap, KEY1), Pointee(5.6f));
 }
 
+TEST_F(NAME, clear_on_empty_hmap_does_nothing)
+{
+    my_hmap_clear(hmap);
+    EXPECT_THAT(hmap_count(hmap), Eq(0));
+    EXPECT_THAT(hmap_capacity(hmap), Eq(0));
+}
+
+TEST_F(NAME, clear_resets_count_but_keeps_capacity)
+{
+    EXPECT_THAT(my_hmap_insert_new(&hmap, KEY1, 5.6f), Eq(0));
+    EXPECT_THAT(my_hmap_insert_new(&hmap, KEY2, 3.4f), Eq(0));
+    my_hmap_clear(hmap);
+    EXPECT_THAT(hmap_count(hmap), Eq(0));
+    EXPECT_THAT(hmap_capacity(hmap), Eq(MIN_CAPACITY));
+}
+
+TEST_F(NAME, clear_compact_clears_memory)
+{
+    EXPECT_THAT(my_hmap_insert_new(&hmap, KEY1, 5.6f), Eq(0));
+    EXPECT_THAT(my_hmap_insert_new(&hmap, KEY2, 3.4f), Eq(0));
+    my_hmap_clear_compact(&hmap);
+    EXPECT_THAT(hmap_count(hmap), Eq(0));
+    EXPECT_THAT(hmap_capacity(hmap), Eq(0));
+}
+
 TEST_F(NAME, rehash_test)
 {
     uintptr_t key;

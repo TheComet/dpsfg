@@ -1,7 +1,7 @@
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 /* Searches the subtree "n" recursively until it matches the node "search". The
  * returned node can either be the node that matched, or if the matching subtree
  * already has a constant product, returns the product operator where one of the
@@ -39,7 +39,7 @@ static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int process_chain(struct csfg_expr_pool** pool, int n, int top)
 {
     for (; top > -1 && (*pool)->nodes[top].type == CSFG_EXPR_ADD;
@@ -86,7 +86,7 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int simplify_sums(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -114,7 +114,7 @@ static int simplify_sums(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_op_simplify_sums(struct csfg_expr_pool** pool)
 {
     return csfg_expr_op_run_pass(pool, simplify_sums);
@@ -126,7 +126,7 @@ int csfg_expr_op_simplify_sums(struct csfg_expr_pool** pool)
 #include "csfg/symbolic/expr_op.h"
 #include <assert.h>
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
 {
     if (pool->nodes[search].type == CSFG_EXPR_LIT)
@@ -152,7 +152,7 @@ static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int process_chain(struct csfg_expr_pool** pool, int n, int top)
 {
     int search_sibling, match, match_parent, sum;
@@ -210,7 +210,7 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
     return 1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int simplify_sums(struct csfg_expr_pool** pool)
 {
     int n, modified = 0;
@@ -246,7 +246,7 @@ static int simplify_sums(struct csfg_expr_pool** pool)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_op_simplify_sums(struct csfg_expr_pool** pool)
 {
     return csfg_expr_op_run_pass(pool, simplify_sums);

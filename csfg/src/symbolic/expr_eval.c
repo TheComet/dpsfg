@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <math.h>
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static double
 eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
 {
@@ -54,7 +54,7 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
     return NAN;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static void reset_visited(struct csfg_expr_pool* expr)
 {
     int n;
@@ -62,7 +62,7 @@ static void reset_visited(struct csfg_expr_pool* expr)
         expr->nodes[n].visited = 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 double csfg_expr_eval(
     struct csfg_expr_pool* pool, int root, const struct csfg_var_table* vt)
 {
@@ -73,7 +73,7 @@ double csfg_expr_eval(
     return eval(pool, root, vt);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int has_any_op_as_parent(const struct csfg_expr_pool* pool, int n)
 {
     int parent = csfg_expr_find_parent(pool, n);
@@ -96,7 +96,7 @@ static int has_any_op_as_parent(const struct csfg_expr_pool* pool, int n)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int
 has_parent_op_stronger_than_add(const struct csfg_expr_pool* pool, int n)
 {
@@ -108,12 +108,15 @@ has_parent_op_stronger_than_add(const struct csfg_expr_pool* pool, int n)
            pool->nodes[parent].type == CSFG_EXPR_NEG;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_to_str(
     struct str** str, const struct csfg_expr_pool* pool, int expr)
 {
-    int left = pool->nodes[expr].child[0];
-    int right = pool->nodes[expr].child[1];
+    int left, right;
+
+    CSFG_DEBUG_ASSERT(expr > -1);
+    left = pool->nodes[expr].child[0];
+    right = pool->nodes[expr].child[1];
 
     switch (pool->nodes[expr].type)
     {

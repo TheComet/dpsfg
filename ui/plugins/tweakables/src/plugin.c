@@ -60,9 +60,11 @@ static void on_scale_adj_changed(GtkAdjustment* adj, gpointer user_data)
 
     g_signal_handlers_block_by_func(
         tweak->spin_adj, G_CALLBACK(on_spin_adj_changed), tweak);
-    gtk_adjustment_configure(
-        tweak->spin_adj, value, -DBL_MAX, DBL_MAX, step, 0.0, 0.0);
-    gtk_spin_button_set_digits(GTK_SPIN_BUTTON(tweak->spin_button), digits);
+    {
+        gtk_adjustment_configure(
+            tweak->spin_adj, value, -DBL_MAX, DBL_MAX, step, 0.0, 0.0);
+        gtk_spin_button_set_digits(GTK_SPIN_BUTTON(tweak->spin_button), digits);
+    }
     g_signal_handlers_unblock_by_func(
         tweak->spin_adj, G_CALLBACK(on_spin_adj_changed), tweak);
 

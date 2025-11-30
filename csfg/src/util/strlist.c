@@ -7,7 +7,7 @@
 
 #define EXTRA_PADDING 1 /* NULL terminator */
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 /*
  *                capacity
  *  |<-------------------------------->|
@@ -51,14 +51,14 @@ static int grow(struct strlist** l, int str_len)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void strlist_deinit(struct strlist* l)
 {
     if (l)
         mem_free(l);
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 #if defined(ODBUTIL_MEM_DEBUGGING)
 void mem_acquire_strlist(struct strlist* l)
 {
@@ -72,7 +72,7 @@ void mem_release_strlist(struct strlist* l)
 }
 #endif
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int strlist_add(struct strlist** l, const char* data, int len)
 {
     struct strspan* ref;
@@ -91,13 +91,13 @@ int strlist_add(struct strlist** l, const char* data, int len)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int strlist_add_cstr(struct strlist** l, const char* cstr)
 {
     return strlist_add(l, cstr, (int)strlen(cstr));
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int strlist_insert(struct strlist** l, int insert, const char* cstr)
 {
     struct strspan* ref;
@@ -142,7 +142,7 @@ int strlist_insert(struct strlist** l, int insert, const char* cstr)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int strlist_set(struct strlist** l, int idx, const char* data, int len)
 {
     struct strspan* ref;
@@ -178,7 +178,7 @@ int strlist_set(struct strlist** l, int idx, const char* data, int len)
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void strlist_erase(struct strlist* l, int idx)
 {
     struct strspan* span = &STRLIST_TABLE_PTR(l)[-idx];
@@ -208,7 +208,7 @@ void strlist_erase(struct strlist* l, int idx)
     l->count--;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void strlist_clear(struct strlist* l)
 {
     if (l == NULL)
@@ -218,7 +218,7 @@ void strlist_clear(struct strlist* l)
     l->str_used = 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int lexicographically_less(struct strview s1, struct strview s2)
 {
     int cmp = memcmp(
@@ -228,7 +228,7 @@ static int lexicographically_less(struct strview s1, struct strview s2)
     return cmp < 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int strlist_lower_bound(const struct strlist* l, struct strview str)
 {
     int half, middle, found, len;
@@ -253,7 +253,7 @@ int strlist_lower_bound(const struct strlist* l, struct strview str)
     return found;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int strlist_upper_bound(const struct strlist* l, struct strview str)
 {
     int half, middle, found, len;

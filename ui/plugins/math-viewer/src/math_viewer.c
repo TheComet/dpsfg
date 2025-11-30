@@ -138,16 +138,8 @@ static void math_viewer_init(MathViewer* self)
 }
 
 /* -------------------------------------------------------------------------- */
-static void math_viewer_finalize(GObject* obj)
-{
-    (void)obj;
-}
-
-/* -------------------------------------------------------------------------- */
 static void math_viewer_class_init(MathViewerClass* class)
 {
-    GObjectClass* object_class = G_OBJECT_CLASS(class);
-    object_class->finalize = math_viewer_finalize;
 }
 
 /* -------------------------------------------------------------------------- */

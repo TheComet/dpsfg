@@ -5,7 +5,7 @@
 #include "csfg/symbolic/var_table.h"
 #include <math.h>
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_to_rational(
     const struct csfg_expr_pool* in_pool,
     int                          in_expr,
@@ -243,7 +243,7 @@ int csfg_expr_to_rational(
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_to_rational_limit(
     const struct csfg_expr_pool* in_pool,
     int                          in_expr,
@@ -318,7 +318,7 @@ int csfg_expr_to_rational_limit(
     return 0;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_to_rational_limits(
     const struct csfg_expr_pool* in_pool,
     int                          in_expr,
@@ -369,7 +369,7 @@ fail:
     return -1;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_poly_expr_to_expr(
     const struct csfg_poly_expr* poly,
     const struct csfg_expr_pool* coeff_pool,
@@ -403,7 +403,7 @@ int csfg_poly_expr_to_expr(
     return expr;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_rational_to_expr(
     const struct csfg_tf_expr*   tf,
     const struct csfg_expr_pool* tf_pool,
@@ -417,7 +417,7 @@ int csfg_rational_to_expr(
 
 VEC_DEFINE(csfg_expr_vec, int, 8)
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 static int run(struct csfg_expr_pool** num, struct csfg_expr_pool** den, ...)
 {
     va_list ap;
@@ -442,7 +442,7 @@ static int run(struct csfg_expr_pool** num, struct csfg_expr_pool** den, ...)
     return modified;
 }
 
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int csfg_expr_to_standard_tf(
     struct csfg_expr_pool** num_pool,
     int*                    num_root,

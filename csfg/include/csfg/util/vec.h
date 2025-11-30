@@ -19,7 +19,7 @@
 #define VEC_RETAIN 0
 #define VEC_ERASE  1
 
-#if defined(CLITHER_CAPACITY_WARNING)
+#if defined(CSFG_CAPACITY_WARNING)
 #    define VEC_CAPACITY_WARNING(name, count, cap)                             \
         do                                                                     \
         {                                                                      \
@@ -434,7 +434,7 @@
     for (i = (v) ? (v)->count - 1 : -1; i >= 0 && ((var = &(v)->data[i]), 1);  \
          --i)
 
-#if defined(CLITHER_MEM_DEBUGGING)
+#if defined(CSFG_MEM_DEBUGGING)
 #    define mem_own_vec(prefix, v)                                             \
         do                                                                     \
         {                                                                      \
