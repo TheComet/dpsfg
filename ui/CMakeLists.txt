@@ -25,6 +25,7 @@ add_executable (dpsfg-ui
     "src/args.c"
     "src/dynlib.c"
     "src/fs.c"
+    "src/math_pipeline.c"
     "src/plugin_loader.c"
     "src/project_browser.c"
     "src/main.c")

@@ -1,19 +1,12 @@
-#include "csfg/graph/graph.h"
 #include "csfg/io/deserialize.h"
 #include "csfg/io/io.h"
 #include "csfg/io/serialize.h"
-#include "csfg/numeric/poly.h"
-#include "csfg/numeric/tf.h"
 #include "csfg/platform/mfile.h"
-#include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
-#include "csfg/symbolic/tf_expr.h"
-#include "csfg/symbolic/var_table.h"
 #include "csfg/util/log.h"
 #include "csfg/util/tracker.h"
 #include "csfg/util/vec.h"
 #include "dpsfg/args.h"
+#include "dpsfg/math_pipeline.h"
 #include "dpsfg/plugin.h"
 #include "dpsfg/plugin_loader.h"
 #include "dpsfg/project_browser.h"
@@ -82,37 +75,6 @@ track_plugin_widget_deallocation(GtkWidget* self, gpointer user_pointer)
 VEC_DECLARE(plugin_vec, struct plugin, 8)
 VEC_DEFINE(plugin_vec, struct plugin, 8)
 
-enum math_pipeline_state
-{
-    MATH_PIPELINE_GRAPH_CHANGED,
-    MATH_PIPELINE_SUBSTITUTIONS_CHANGED,
-    MATH_PIPELINE_PARAMETERS_CHANGED
-};
-
-struct math_pipeline
-{
-    struct csfg_graph     graph;
-    struct csfg_path_vec* paths;
-    struct csfg_path_vec* loops;
-    int                   node_in, node_out;
-
-    struct csfg_var_table substitutions;
-
-    struct csfg_expr_pool* graph_pool;
-    struct csfg_expr_pool* subs_pool;
-    struct csfg_expr_pool* lim_pool;
-    int                    graph_expr;
-    int                    subs_expr;
-    int                    lim_expr;
-
-    struct csfg_expr_pool* tf_pool;
-    struct csfg_tf_expr    tf_expr;
-
-    struct csfg_var_table parameters;
-
-    struct csfg_tf tf;
-};
-
 struct app_ctx
 {
     GtkWidget* paned1;
@@ -131,205 +93,21 @@ struct dpsfg_plugin_callbacks
 };
 
 /* -------------------------------------------------------------------------- */
-static void update_math_pipeline(
-    struct math_pipeline* pipeline, enum math_pipeline_state state)
-{
-    const struct csfg_coeff_expr* coeff;
-
-    switch (state)
-    {
-        case MATH_PIPELINE_GRAPH_CHANGED: goto calc_graph_expression;
-        case MATH_PIPELINE_SUBSTITUTIONS_CHANGED: goto calc_substitutions;
-        case MATH_PIPELINE_PARAMETERS_CHANGED: goto calc_numeric_tf;
-    }
-
-calc_graph_expression:
-    /* It's OK if node_in/node_out are -1 here */
-    csfg_path_vec_clear(pipeline->paths);
-    csfg_graph_find_forward_paths(
-        &pipeline->graph,
-        &pipeline->paths,
-        pipeline->node_in,
-        pipeline->node_out);
-
-    csfg_path_vec_clear(pipeline->loops);
-    csfg_graph_find_loops(&pipeline->graph, &pipeline->loops);
-
-    csfg_expr_pool_clear(pipeline->graph_pool);
-    pipeline->graph_expr = csfg_graph_mason(
-        &pipeline->graph,
-        &pipeline->graph_pool,
-        pipeline->paths,
-        pipeline->loops);
-    if (pipeline->graph_expr > -1)
-    {
-        csfg_expr_op_run(
-            &pipeline->graph_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
-        pipeline->graph_expr =
-            csfg_expr_gc(pipeline->graph_pool, pipeline->graph_expr);
-    }
-
-calc_substitutions:
-    /* It's OK if graph_expr is -1 here */
-    csfg_expr_pool_clear(pipeline->subs_pool);
-    pipeline->subs_expr = csfg_expr_dup_recurse_from(
-        &pipeline->subs_pool, pipeline->graph_pool, pipeline->graph_expr);
-    if (pipeline->subs_expr > -1)
-        if (csfg_expr_insert_substitutions(
-                &pipeline->subs_pool,
-                pipeline->subs_expr,
-                &pipeline->substitutions) != 0)
-        {
-            csfg_expr_pool_clear(pipeline->subs_pool);
-            pipeline->subs_expr = -1;
-        }
-    if (pipeline->subs_expr > -1)
-    {
-        csfg_expr_op_run(
-            &pipeline->subs_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
-        pipeline->subs_expr =
-            csfg_expr_gc(pipeline->subs_pool, pipeline->subs_expr);
-    }
-
-calc_limits:
-    csfg_expr_pool_clear(pipeline->lim_pool);
-    pipeline->lim_expr = -1;
-    if (pipeline->subs_expr > -1)
-        pipeline->lim_expr = csfg_expr_apply_limits(
-            pipeline->subs_pool,
-            pipeline->subs_expr,
-            &pipeline->substitutions,
-            &pipeline->lim_pool);
-    if (pipeline->lim_expr > -1)
-    {
-        // TODO: Make this optimization pass more generic
-        csfg_expr_op_run(
-            &pipeline->lim_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
-        pipeline->lim_expr =
-            csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
-        csfg_expr_op_simplify_sums(&pipeline->lim_pool);
-        csfg_expr_op_run(
-            &pipeline->lim_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
-        pipeline->lim_expr =
-            csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
-    }
-
-calc_symbolic_tf:
-    csfg_tf_expr_clear(&pipeline->tf_expr);
-    csfg_expr_pool_clear(pipeline->tf_pool);
-    if (pipeline->lim_expr > -1)
-        if (csfg_expr_to_rational(
-                pipeline->lim_pool,
-                pipeline->lim_expr,
-                cstr_view("s"),
-                &pipeline->tf_pool,
-                &pipeline->tf_expr) != 0)
-        {
-            csfg_expr_pool_clear(pipeline->tf_pool);
-            csfg_tf_expr_clear(&pipeline->tf_expr);
-        }
-    if (csfg_expr_pool_count(pipeline->tf_pool) > 0)
-    {
-        csfg_expr_op_run(
-            &pipeline->tf_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
-    }
-
-repopulate_parameter_table:
-    csfg_var_table_reset_visited(&pipeline->parameters);
-    vec_for_each (pipeline->tf_expr.num, coeff)
-        csfg_var_table_populate(
-            &pipeline->parameters, pipeline->tf_pool, coeff->expr);
-    vec_for_each (pipeline->tf_expr.den, coeff)
-        csfg_var_table_populate(
-            &pipeline->parameters, pipeline->tf_pool, coeff->expr);
-    csfg_var_table_erase_unvisited(&pipeline->parameters);
-
-calc_numeric_tf:;
-    csfg_tf_from_symbolic(
-        &pipeline->tf,
-        pipeline->tf_pool,
-        &pipeline->tf_expr,
-        &pipeline->parameters);
-}
-
-/* -------------------------------------------------------------------------- */
 static void notify_plugins(
-    struct plugin_vec*       plugins,
-    const struct plugin_ctx* source_plugin,
-    struct math_pipeline*    pipeline,
-    enum math_pipeline_state state)
+    const struct plugin_vec*    plugins,
+    const struct plugin_ctx*    source_plugin,
+    const struct math_pipeline* pipeline,
+    enum math_pipeline_state    state)
 {
-    struct plugin* plugin;
-
-    switch (state)
-    {
-        case MATH_PIPELINE_GRAPH_CHANGED: goto graph_changed;
-        case MATH_PIPELINE_SUBSTITUTIONS_CHANGED: goto substitutions_changed;
-        case MATH_PIPELINE_PARAMETERS_CHANGED: goto parameters_changed;
-    }
-
-graph_changed:
+    const struct plugin* plugin;
     vec_for_each (plugins, plugin)
     {
-        if (state == MATH_PIPELINE_GRAPH_CHANGED &&
-            plugin->ctx == source_plugin)
-            continue;
-        if (plugin->lib.i->graph)
-            plugin->lib.i->graph->on_structure_changed(
-                plugin->ctx, pipeline->node_in, pipeline->node_out);
-    }
-substitutions_changed:
-    vec_for_each (plugins, plugin)
-    {
-        if (plugin->lib.i->expr == NULL)
-            continue;
-        if (state == MATH_PIPELINE_SUBSTITUTIONS_CHANGED &&
-            plugin->ctx == source_plugin)
-            continue;
-
-        plugin->lib.i->expr->on_mason_expr(
-            plugin->ctx, pipeline->graph_pool, pipeline->graph_expr);
-        plugin->lib.i->expr->on_substituted_expr(
-            plugin->ctx, pipeline->subs_pool, pipeline->subs_expr);
-        plugin->lib.i->expr->on_limit_expr(
-            plugin->ctx, pipeline->lim_pool, pipeline->lim_expr);
-        plugin->lib.i->expr->on_tf_expr(
-            plugin->ctx, pipeline->tf_pool, &pipeline->tf_expr);
-    }
-    vec_for_each (plugins, plugin)
-    {
-        if (plugin->lib.i->parameters == NULL)
-            continue;
-        if (state == MATH_PIPELINE_SUBSTITUTIONS_CHANGED &&
-            plugin->ctx == source_plugin)
-            continue;
-
-        plugin->lib.i->parameters->on_changed(plugin->ctx);
-    }
-parameters_changed:
-    vec_for_each (plugins, plugin)
-    {
-        if (state == MATH_PIPELINE_PARAMETERS_CHANGED &&
-            plugin->ctx == source_plugin)
-            continue;
-
-        if (plugin->lib.i->numeric)
-            plugin->lib.i->numeric->on_tf_changed(plugin->ctx, &pipeline->tf);
+        math_pipeline_notify_plugins(
+            pipeline,
+            plugin->lib.i,
+            plugin->ctx,
+            state,
+            plugin->ctx == source_plugin);
     }
 }
 
@@ -342,22 +120,28 @@ static void graph_structure_changed_cb(
 {
     struct app_ctx*       app = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
+
     pipeline->node_in = node_in;
     pipeline->node_out = node_out;
-    update_math_pipeline(pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+
+    math_pipeline_update(pipeline, MATH_PIPELINE_GRAPH_CHANGED);
     notify_plugins(
         *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
 static void graph_layout_changed_cb(
-    struct dpsfg_plugin_callbacks* ctx, const struct plugin_ctx* source_plugin)
+    struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
 {
+    struct app_ctx*       app = cb->app;
+    struct math_pipeline* pipeline = &app->pipeline;
+    notify_plugins(
+        *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
 static void substitutions_changed_cb(
     struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
 {
     struct app_ctx*       app = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
-    update_math_pipeline(pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
+    math_pipeline_update(pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
     notify_plugins(
         *app->plugins,
         source_plugin,
@@ -369,12 +153,12 @@ static void parameters_changed_cb(
 {
     struct app_ctx*       app = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
-    update_math_pipeline(pipeline, MATH_PIPELINE_PARAMETERS_CHANGED);
+    math_pipeline_update(pipeline, MATH_PIPELINE_PARAMETERS_CHANGED);
     notify_plugins(
         *app->plugins,
         source_plugin,
         pipeline,
-        MATH_PIPELINE_PARAMETERS_CHANGED);
+        MATH_PIPELINE_PARAMETERS_CHANGEu);
 }
 static struct plugin_notify_interface plugin_callbacks = {
     graph_structure_changed_cb,
@@ -653,12 +437,7 @@ static void activate(GtkApplication* app, gpointer user_data)
 }
 
 /* -------------------------------------------------------------------------- */
-static void save_pipeline(
-    const struct csfg_var_table* substitutions,
-    const struct csfg_var_table* parameters,
-    const struct csfg_graph*     graph,
-    int                          node_in,
-    int                          node_out)
+static void save_pipeline(const struct math_pipeline* pl)
 {
     FILE*              fp;
     struct serializer* ser;
@@ -666,11 +445,11 @@ static void save_pipeline(
     serializer_init(&ser);
     if (csfg_io_save(
             &ser,
-            substitutions,
-            parameters,
-            graph,
-            node_in,
-            node_out,
+            &pl->substitutions,
+            &pl->parameters,
+            &pl->graph,
+            pl->node_in,
+            pl->node_out,
             "binary") != 0)
         goto serialize_failed;
     fp = fopen("graph.sfg", "w");
@@ -682,11 +461,11 @@ static void save_pipeline(
     serializer_clear(ser);
     if (csfg_io_save(
             &ser,
-            substitutions,
-            parameters,
-            graph,
-            node_in,
-            node_out,
+            &pl->substitutions,
+            &pl->parameters,
+            &pl->graph,
+            pl->node_in,
+            pl->node_out,
             "graphviz") != 0)
         goto serialize_failed;
     fp = fopen("graph.dot", "w");
@@ -698,11 +477,11 @@ static void save_pipeline(
     serializer_clear(ser);
     if (csfg_io_save(
             &ser,
-            substitutions,
-            parameters,
-            graph,
-            node_in,
-            node_out,
+            &pl->substitutions,
+            &pl->parameters,
+            &pl->graph,
+            pl->node_in,
+            pl->node_out,
             "tikz") != 0)
         goto serialize_failed;
     fp = fopen("graph.tex", "w");
@@ -717,12 +496,7 @@ serialize_failed:
 }
 
 /* -------------------------------------------------------------------------- */
-static void load_pipeline(
-    struct csfg_var_table* substitutions,
-    struct csfg_var_table* parameters,
-    struct csfg_graph*     graph,
-    int*                   node_in,
-    int*                   node_out)
+static void load_pipeline(struct math_pipeline* pl)
 {
     struct mfile        mf;
     struct deserializer des;
@@ -732,7 +506,13 @@ static void load_pipeline(
 
     des = deserializer(mf.address, mf.size);
     csfg_io_load(
-        &des, substitutions, parameters, graph, node_in, node_out, "binary");
+        &des,
+        &pl->substitutions,
+        &pl->parameters,
+        &pl->graph,
+        &pl->node_in,
+        &pl->node_out,
+        "binary");
 
     mfile_unmap(&mf);
 }
@@ -775,34 +555,8 @@ int main(int argc, char** argv)
     app_ctx.plugins = &plugins;
     app_ctx.plugin_callbacks_ctx = &callbacks_ctx;
 
-    csfg_graph_init(&app_ctx.pipeline.graph);
-    csfg_path_vec_init(&app_ctx.pipeline.paths);
-    csfg_path_vec_init(&app_ctx.pipeline.loops);
-    app_ctx.pipeline.node_in = -1;
-    app_ctx.pipeline.node_out = -1;
-
-    csfg_var_table_init(&app_ctx.pipeline.substitutions);
-
-    csfg_expr_pool_init(&app_ctx.pipeline.graph_pool);
-    csfg_expr_pool_init(&app_ctx.pipeline.subs_pool);
-    csfg_expr_pool_init(&app_ctx.pipeline.lim_pool);
-    app_ctx.pipeline.graph_expr = -1;
-    app_ctx.pipeline.subs_expr = -1;
-    app_ctx.pipeline.lim_expr = -1;
-
-    csfg_expr_pool_init(&app_ctx.pipeline.tf_pool);
-    csfg_tf_expr_init(&app_ctx.pipeline.tf_expr);
-
-    csfg_var_table_init(&app_ctx.pipeline.parameters);
-
-    csfg_tf_init(&app_ctx.pipeline.tf);
-
-    load_pipeline(
-        &app_ctx.pipeline.substitutions,
-        &app_ctx.pipeline.parameters,
-        &app_ctx.pipeline.graph,
-        &app_ctx.pipeline.node_in,
-        &app_ctx.pipeline.node_out);
+    math_pipeline_init(&app_ctx.pipeline);
+    load_pipeline(&app_ctx.pipeline);
 
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
@@ -810,28 +564,12 @@ int main(int argc, char** argv)
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 
-    save_pipeline(
-        &app_ctx.pipeline.substitutions,
-        &app_ctx.pipeline.parameters,
-        &app_ctx.pipeline.graph,
-        app_ctx.pipeline.node_in,
-        app_ctx.pipeline.node_out);
-
     vec_for_each (plugins, plugin)
         stop_plugin(plugin);
     plugin_vec_deinit(plugins);
 
-    csfg_var_table_deinit(&app_ctx.pipeline.parameters);
-    csfg_tf_expr_deinit(&app_ctx.pipeline.tf_expr);
-    csfg_expr_pool_deinit(app_ctx.pipeline.tf_pool);
-    csfg_expr_pool_deinit(app_ctx.pipeline.lim_pool);
-    csfg_expr_pool_deinit(app_ctx.pipeline.subs_pool);
-    csfg_expr_pool_deinit(app_ctx.pipeline.graph_pool);
-    csfg_var_table_deinit(&app_ctx.pipeline.substitutions);
-    csfg_path_vec_deinit(app_ctx.pipeline.loops);
-    csfg_path_vec_deinit(app_ctx.pipeline.paths);
-    csfg_graph_deinit(&app_ctx.pipeline.graph);
-    csfg_tf_deinit(&app_ctx.pipeline.tf);
+    save_pipeline(&app_ctx.pipeline);
+    math_pipeline_deinit(&app_ctx.pipeline);
 
 parse_args_break:
     trackers_deinit_tls();
