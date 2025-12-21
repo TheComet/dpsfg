@@ -2,9 +2,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-VEC_DEFINE(csfg_cpoly, struct csfg_complex, 8)
-VEC_DEFINE(csfg_rpoly, struct csfg_complex, 8)
-
 static const double EPSILON = 1e-8;
 
 /* -------------------------------------------------------------------------- */

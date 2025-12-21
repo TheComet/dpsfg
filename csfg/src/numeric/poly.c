@@ -2,6 +2,10 @@
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/poly_expr.h"
 
+VEC_DEFINE(csfg_cpoly, struct csfg_complex, 8)
+VEC_DEFINE(csfg_rpoly, struct csfg_complex, 8)
+VEC_DEFINE(csfg_pfd_poly, struct csfg_pfd, 8)
+
 /* -------------------------------------------------------------------------- */
 int csfg_cpoly_from_symbolic(
     struct csfg_cpoly**          poly,

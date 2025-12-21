@@ -72,6 +72,8 @@ set (csfg_SOURCES
     # numeric
     "src/numeric/poly.c"
     "src/numeric/poly_find_roots.c"
+    "src/numeric/poly_pfd.c"
+    "src/numeric/poly_eval_inverse_laplace.c"
     "src/numeric/tf.c")
 
 if (CSFG_DEBUG_MEMORY)
@@ -155,6 +157,8 @@ if (CSFG_TESTS)
         "tests/test_complex.cpp"
         "tests/test_cpoly_eval.cpp"
         "tests/test_cpoly_find_roots.cpp"
+        "tests/test_poly_eval_inverse_laplace.cpp"
+        "tests/test_poly_pfd.cpp"
         "tests/test_tf_eval.cpp"
 
         # util

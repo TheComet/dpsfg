@@ -158,7 +158,7 @@ static void parameters_changed_cb(
         *app->plugins,
         source_plugin,
         pipeline,
-        MATH_PIPELINE_PARAMETERS_CHANGEu);
+        MATH_PIPELINE_PARAMETERS_CHANGED);
 }
 static struct plugin_notify_interface plugin_callbacks = {
     graph_structure_changed_cb,

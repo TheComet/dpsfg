@@ -33,6 +33,12 @@ csfg_complex_add(struct csfg_complex a, struct csfg_complex b)
 }
 
 static struct csfg_complex
+csfg_complex_sub(struct csfg_complex a, struct csfg_complex b)
+{
+    return csfg_complex(a.real - b.real, a.imag - b.imag);
+}
+
+static struct csfg_complex
 csfg_complex_mul(struct csfg_complex a, struct csfg_complex b)
 {
     /* (a+b*i) * (c+d*i) = (a*c - b*d) + (a*d + c*b)*i */

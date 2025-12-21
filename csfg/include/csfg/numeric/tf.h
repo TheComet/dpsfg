@@ -17,6 +17,8 @@ struct csfg_tf
 
     struct csfg_rpoly* zeros;
     struct csfg_rpoly* poles;
+
+    struct csfg_pfd_poly* pfd_terms;
 };
 
 static void csfg_tf_init(struct csfg_tf* tf)
@@ -26,10 +28,12 @@ static void csfg_tf_init(struct csfg_tf* tf)
     csfg_cpoly_init(&tf->den);
     csfg_rpoly_init(&tf->zeros);
     csfg_rpoly_init(&tf->poles);
+    csfg_pfd_poly_init(&tf->pfd_terms);
 }
 
 static void csfg_tf_deinit(struct csfg_tf* tf)
 {
+    csfg_pfd_poly_deinit(tf->pfd_terms);
     csfg_rpoly_deinit(tf->poles);
     csfg_rpoly_deinit(tf->zeros);
     csfg_cpoly_deinit(tf->den);

@@ -20,6 +20,10 @@ int csfg_tf_from_symbolic(
 
     csfg_cpoly_find_roots(&tf->zeros, tf->num, 0, 0.0);
     csfg_cpoly_find_roots(&tf->poles, tf->den, 0, 0.0);
+
+    csfg_rpoly_partial_fraction_decomposition(
+        &tf->pfd_terms, tf->num, tf->poles);
+
     return 0;
 }
 
