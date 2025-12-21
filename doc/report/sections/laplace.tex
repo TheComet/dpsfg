@@ -1,0 +1,17 @@
+\section{Inverse Laplace Transformation}
+
+\begin{align}
+    \frac{1}{s-p} \quad \laplace \quad \epsilon(t)e^{pt}
+\end{align}
+
+\begin{align}
+    Ae^{pt} &= Ae^{(p_r+ip_i)t} \\
+            &= Ae^{p_r t} e^{i p_i t} \\
+            &= (A_r + iA_i)(e^{p_r t}\cos(p_i t) + ie^{p_r t}\sin(p_i t)) \\
+            &= A_r e^{p_r t}\cos(p_i t)
+                + i A_r e^{p_r t}\sin(p_i t)
+                + i A_i e^{p_r t}\cos(p_i t)
+                - A_i e^{p_r t}\sin(p_i t) \\
+    \Re(Ae^{pt}) &= A_r e^{p_r t}\cos(p_i t) - A_i e^{p_r t}\sin(p_i t) \\
+                 &= e^{p_r t}(A_r\cos(p_i t) - A_i\sin(p_i t))
+\end{align}

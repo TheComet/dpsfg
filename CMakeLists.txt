@@ -19,6 +19,7 @@ endif ()
 
 add_subdirectory ("csfg")
 add_subdirectory ("ui")
+add_subdirectory ("doc/report")
 
 # All subprojects have added targets to this export
 # group, so make sure to install it
