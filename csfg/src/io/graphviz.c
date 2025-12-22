@@ -54,7 +54,7 @@ static int save(
     int err = 0;
     str_init(&str);
 
-    err += serialize_fmt(ser, "%s", "digraph dpsfg {\n");
+    err += serialize_fmt(ser, "digraph dpsfg {\n");
 
     csfg_graph_enumerate_nodes (graph, n_idx, node)
     {
@@ -82,6 +82,7 @@ static int save(
 
     str_deinit(str);
     return err;
+
     (void)substitutions, (void)parameters;
 }
 
