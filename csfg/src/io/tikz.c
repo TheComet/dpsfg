@@ -37,6 +37,10 @@ static int serialize_fmt(struct serializer** ser, const char* fmt, ...)
                     err += serialize_data(ser, str, strlen(str));
                     break;
                 }
+                case '%': {
+                    err += serialize_data(ser, "%", 1);
+                    break;
+                }
                 default: CSFG_DEBUG_ASSERT(0); return -1;
             }
 
@@ -49,10 +53,10 @@ static int write_style(struct serializer** ser)
 {
     int err = 0;
     /* clang-format off */
-    err += serialize_fmt(ser, "% Put this into your preamble\n");
+    err += serialize_fmt(ser, "%% Put this into your preamble\n");
     err += serialize_fmt(ser, "\\usepackage{tikz}\n");
     err += serialize_fmt(ser, "\\usetikzlibrary{decorations.markings,calc,arrows}\n");
-    err += serialize_fmt(ser,"tikzset{%\n");
+    err += serialize_fmt(ser,"tikzset{%%\n");
     err += serialize_fmt(ser, "SFGNode/.style={circle,thick,draw=black,inner sep=0, minimum size=0.15cm},\n");
     err += serialize_fmt(ser, "SFGNodeName/.style={font=\footnotesize,black,outer sep=1},\n");
     err += serialize_fmt(ser, "SFGArrowName/.style={font=\footnotesize,auto,outer sep=1},\n");
