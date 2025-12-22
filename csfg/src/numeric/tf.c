@@ -28,14 +28,13 @@ int csfg_tf_from_symbolic(
 }
 
 /* -------------------------------------------------------------------------- */
-void csfg_tf_interesting_frequency_interval(
+int csfg_tf_interesting_frequency_interval(
     const struct csfg_tf* tf, double* f_start_hz, double* f_end_hz)
 {
     const struct csfg_complex* c;
 
     double min_x = DBL_MAX;
     double max_x = 0.0;
-
     vec_for_each (tf->poles, c)
     {
         double mag = csfg_complex_mag(*c);
@@ -56,18 +55,21 @@ void csfg_tf_interesting_frequency_interval(
         max_x = 1.0;
     }
 
+    if (isinf(min_x) || isnan(min_x) || isinf(max_x) || isnan(max_x))
+        return -1;
+
     *f_start_hz = min_x * 0.01;
     *f_end_hz = max_x * 100;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
-void csfg_tf_interesting_time_interval(
+int csfg_tf_interesting_time_interval(
     const struct csfg_tf* tf, double* t_start_s, double* t_end_s)
 {
     const struct csfg_complex* c;
 
     double closest_pole = DBL_MAX;
-
     vec_for_each (tf->poles, c)
     {
         double real = fabs(c->real);
@@ -75,8 +77,15 @@ void csfg_tf_interesting_time_interval(
             closest_pole = real;
     }
 
+    if (closest_pole == DBL_MAX || closest_pole == 0.0 || isinf(closest_pole) ||
+        isnan(closest_pole))
+    {
+        return -1;
+    }
+
     *t_start_s = 0.0;
     *t_end_s = 10 / closest_pole;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */

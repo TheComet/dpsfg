@@ -46,10 +46,10 @@ int csfg_tf_from_symbolic(
     const struct csfg_tf_expr*   tf_expr,
     const struct csfg_var_table* vt);
 
-void csfg_tf_interesting_frequency_interval(
+int csfg_tf_interesting_frequency_interval(
     const struct csfg_tf* tf, double* f_start_hz, double* f_end_hz);
 
-void csfg_tf_interesting_time_interval(
+int csfg_tf_interesting_time_interval(
     const struct csfg_tf* tf, double* t_start_s, double* t_end_s);
 
 struct csfg_complex

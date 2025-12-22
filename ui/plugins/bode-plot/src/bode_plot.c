@@ -13,6 +13,72 @@ struct _BodePlot
 G_DEFINE_DYNAMIC_TYPE(BodePlot, bode_plot, GTK_TYPE_BOX)
 
 /* -------------------------------------------------------------------------- */
+static void draw_mag_or_phase(
+    int width, int height, cairo_t* cr, BodePlot* plot, int mag_mode)
+{
+    struct csfg_complex y;
+
+    double f_start, f_end, f;
+    double exp_start, exp_end, exp_step, exp_;
+    double val, val_min, val_max;
+    double scale_x, scale_y;
+
+    if (plot->tf == NULL)
+        return;
+
+    if (csfg_tf_interesting_frequency_interval(plot->tf, &f_start, &f_end) != 0)
+        return;
+    exp_start = log10(f_start);
+    exp_end = log10(f_end);
+    exp_step = (exp_end - exp_start) / width;
+
+    val_min = DBL_MAX;
+    val_max = -DBL_MAX;
+    for (exp_ = exp_start; exp_ <= exp_end; exp_ += exp_step)
+    {
+        f = pow(10, exp_);
+        y = csfg_tf_eval(plot->tf, csfg_complex(0.0, f));
+        val = mag_mode ? csfg_complex_mag(y) : csfg_complex_phase(y);
+        if (val_max < val)
+            val_max = val;
+        if (val_min > val)
+            val_min = val;
+    }
+    if (mag_mode)
+    {
+        val_max = 20 * log10(val_max);
+        val_min = 20 * log10(val_min);
+    }
+    scale_x = width / (exp_end - exp_start);
+    scale_y = height / (val_max - val_min) * 0.45;
+
+    cairo_translate(
+        cr, -exp_start * scale_x, val_max * scale_y + height / 20.0);
+    cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
+    cairo_set_line_width(cr, 1.0);
+    cairo_move_to(cr, exp_start * scale_x, 0.0);
+    cairo_line_to(cr, exp_end * scale_x, 0.0);
+    cairo_stroke(cr);
+
+    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    cairo_set_line_width(cr, 1.0);
+    for (exp_ = exp_start; exp_ <= exp_end; exp_ += exp_step)
+    {
+        f = pow(10, exp_);
+        y = csfg_tf_eval(plot->tf, csfg_complex(0.0, f));
+        val = mag_mode ? csfg_complex_mag(y) : csfg_complex_phase(y);
+        if (mag_mode)
+            val = 20 * log10(val);
+
+        if (exp_ == exp_start)
+            cairo_move_to(cr, exp_ * scale_x, val * -scale_y);
+        else
+            cairo_line_to(cr, exp_ * scale_x, val * -scale_y);
+    }
+    cairo_stroke(cr);
+}
+
+/* -------------------------------------------------------------------------- */
 static void draw_mag_cb(
     GtkDrawingArea* area,
     cairo_t*        cr,
@@ -21,49 +87,8 @@ static void draw_mag_cb(
     gpointer        user_pointer)
 {
     BodePlot* plot = user_pointer;
-    (void)area, (void)width, (void)height;
-
-    cairo_translate(cr, width / 2.0, height / 2.0);
-
-    cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
-    cairo_move_to(cr, -1000.0, 0.0);
-    cairo_line_to(cr, 1000.0, 0.0);
-    cairo_move_to(cr, 0.0, -1000.0);
-    cairo_line_to(cr, 0.0, 1000.0);
-    cairo_move_to(cr, 0.0, -1.0);
-    cairo_set_line_width(cr, 1.0);
-    cairo_stroke(cr);
-
-    if (plot->tf != NULL)
-    {
-        struct csfg_complex value;
-        double              f_start, f_end, f_step, f;
-        double              mag;
-
-        csfg_tf_interesting_frequency_interval(plot->tf, &f_start, &f_end);
-
-        f_start = log(f_start) / log(10);
-        f_end = log(f_end) / log(10);
-        f_step = (f_end - f_start) / 100;
-
-        value = csfg_tf_eval(plot->tf, csfg_complex(0.0, pow(10, f_start)));
-        mag = csfg_complex_mag(value);
-        mag = -20 * log(mag) / log(10);
-
-        cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-        cairo_move_to(cr, f_start * 60, mag);
-
-        for (f = f_start + f_step; f <= f_end; f += f_step)
-        {
-            value = csfg_tf_eval(plot->tf, csfg_complex(0.0, pow(10, f)));
-            mag = csfg_complex_mag(value);
-            mag = -20 * log(mag) / log(10);
-            cairo_line_to(cr, f * 60, mag);
-        }
-
-        cairo_set_line_width(cr, 1.0);
-        cairo_stroke(cr);
-    }
+    draw_mag_or_phase(width, height, cr, plot, 1);
+    (void)area;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -74,49 +99,12 @@ static void draw_phase_cb(
     int             height,
     gpointer        user_pointer)
 {
+
     BodePlot* plot = user_pointer;
+    draw_mag_or_phase(width, height, cr, plot, 0);
     (void)area;
-
-    cairo_translate(cr, width / 2.0, height / 2.0);
-
-    cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
-    cairo_move_to(cr, -1000.0, 0.0);
-    cairo_line_to(cr, 1000.0, 0.0);
-    cairo_move_to(cr, 0.0, -1000.0);
-    cairo_line_to(cr, 0.0, 1000.0);
-    cairo_move_to(cr, 0.0, -1.0);
-    cairo_set_line_width(cr, 1.0);
-    cairo_stroke(cr);
-
-    if (plot->tf != NULL)
-    {
-        struct csfg_complex value;
-        double              f_start, f_end, f_step, f;
-        double              phase;
-
-        csfg_tf_interesting_frequency_interval(plot->tf, &f_start, &f_end);
-
-        f_start = log(f_start) / log(10);
-        f_end = log(f_end) / log(10);
-        f_step = (f_end - f_start) / 100;
-
-        value = csfg_tf_eval(plot->tf, csfg_complex(0.0, pow(10, f_start)));
-        phase = -csfg_complex_phase(value) * 180 / M_PI;
-
-        cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-        cairo_move_to(cr, f_start * 60, phase);
-
-        for (f = f_start + f_step; f <= f_end; f += f_step)
-        {
-            value = csfg_tf_eval(plot->tf, csfg_complex(0.0, pow(10, f)));
-            phase = -csfg_complex_phase(value) * 180 / M_PI;
-            cairo_line_to(cr, f * 60, phase);
-        }
-
-        cairo_set_line_width(cr, 1.0);
-        cairo_stroke(cr);
-    }
 }
+
 /* -------------------------------------------------------------------------- */
 static void bode_plot_init(BodePlot* self)
 {

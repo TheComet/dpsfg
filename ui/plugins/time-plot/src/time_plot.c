@@ -22,37 +22,86 @@ static void draw_mag_cb(
     TimePlot* plot = user_pointer;
     (void)area, (void)width, (void)height;
 
-    cairo_translate(cr, width / 2.0, height / 2.0);
-
-    cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
-    cairo_move_to(cr, -1000.0, 0.0);
-    cairo_line_to(cr, 1000.0, 0.0);
-    cairo_move_to(cr, 0.0, -1000.0);
-    cairo_line_to(cr, 0.0, 1000.0);
-    cairo_move_to(cr, 0.0, -1.0);
-    cairo_set_line_width(cr, 1.0);
-    cairo_stroke(cr);
-
     if (plot->tf != NULL)
     {
+        int    exponent, i;
+        double scale_x, scale_y;
         double value;
         double t_start, t_end, t_step, t;
+        double y_min, y_max;
+        double max_abs_value = 0;
 
-        csfg_tf_interesting_time_interval(plot->tf, &t_start, &t_end);
-        t_step = (t_end - t_start) / 100;
+        if (csfg_tf_interesting_time_interval(plot->tf, &t_start, &t_end) != 0)
+            return;
+        t_step = (t_end - t_start) / width * 0.9;
 
-        value =
-            -csfg_pfd_poly_eval_inverse_laplace(plot->tf->pfd_terms, t_start);
-        cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-        cairo_move_to(cr, t_start, value * 120);
-
-        for (t = t_start + t_step; t <= t_end; t += t_step)
+        y_min = DBL_MAX;
+        y_max = -DBL_MAX;
+        for (t = t_start; t <= t_end; t += t_step)
         {
-            value = -csfg_pfd_poly_eval_inverse_laplace(plot->tf->pfd_terms, t);
-            cairo_line_to(cr, t * 4, value * 120);
+            value = csfg_pfd_poly_eval_inverse_laplace(plot->tf->pfd_terms, t);
+            if (y_max < value)
+                y_max = value;
+            if (y_min > value)
+                y_min = value;
+            value = fabs(value);
+            if (max_abs_value < value)
+                max_abs_value = value;
         }
+        scale_x = width / (t_end - t_start) * 0.95;
+        scale_y = height / max_abs_value * 0.45;
+
+        cairo_translate(cr, width / 20.0, height / 2.0);
+        cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
+        cairo_set_line_width(cr, 1.0);
+        cairo_move_to(cr, -1000.0, 0.0);
+        cairo_line_to(cr, 1000.0, 0.0);
+        cairo_move_to(cr, 0.0, -1000.0);
+        cairo_line_to(cr, 0.0, 1000.0);
+        cairo_stroke(cr);
+
+        cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+        cairo_set_line_width(cr, 1.0);
+        for (t = t_start; t <= t_end; t += t_step)
+        {
+            value = csfg_pfd_poly_eval_inverse_laplace(plot->tf->pfd_terms, t);
+            if (t == t_start)
+                cairo_move_to(cr, t * scale_x, value * -scale_y);
+            else
+                cairo_line_to(cr, t * scale_x, value * -scale_y);
+        }
+        cairo_stroke(cr);
+
+        cairo_set_source_rgb(cr, 0.6, 0.6, 0.6);
+        cairo_set_line_width(cr, 1.0);
+        cairo_move_to(cr, -5, y_max * -scale_y);
+        cairo_line_to(cr, 5, y_max * -scale_y);
+        cairo_move_to(cr, -5, y_min * -scale_y);
+        cairo_line_to(cr, 5, y_min * -scale_y);
+        cairo_stroke(cr);
 
         cairo_set_line_width(cr, 1.0);
+        cairo_set_source_rgb(cr, 0.6, 0.6, 0.6);
+        exponent = (int)ceil(log10(t_end));
+        t = pow(10, exponent);
+        cairo_move_to(cr, t * scale_x, 5);
+        cairo_line_to(cr, t * scale_x, -5);
+        t = pow(10, exponent - 1);
+        cairo_move_to(cr, t * scale_x, 5);
+        cairo_line_to(cr, t * scale_x, -5);
+        t = pow(10, exponent - 2);
+        cairo_move_to(cr, t * scale_x, 5);
+        cairo_line_to(cr, t * scale_x, -5);
+
+        t = pow(10, exponent);
+        t_step = t / 100;
+        for (i = 0; i != 100; ++i)
+        {
+            double height = i % 10 == 0 ? 5 : 2;
+            cairo_move_to(cr, t * scale_x, height);
+            cairo_line_to(cr, t * scale_x, -height);
+            t -= t_step;
+        }
         cairo_stroke(cr);
     }
 }
