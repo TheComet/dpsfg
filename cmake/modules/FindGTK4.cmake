@@ -10,7 +10,8 @@ elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
         "/usr/lib64"
         "/usr/local/lib64"
         "/usr/lib/x86_64-linux-gnu"
-        "/lib64")
+        "/lib64"
+        "/usr/local/lib")
 else ()
     set (_GTK4_LIB_PATH_HINTS
         "/usr/lib"

@@ -1,6 +1,6 @@
 #include "csfg/tests/PolyHelper.hpp"
 
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -41,7 +41,7 @@ TEST_F(NAME, copy)
     csfg_poly_push(&p1, csfg_coeff(6.0, -1));
     csfg_poly_push(&p1, csfg_coeff(9.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_copy(&p2, p1), Eq(0));
+    ASSERT_EQ(csfg_poly_copy(&p2, p1), 0);
 
     ASSERT_TRUE(CoeffEq(pool, p2, 0, 2.0));
     ASSERT_TRUE(CoeffEq(pool, p2, 1, 4.0, "a"));
@@ -57,9 +57,9 @@ TEST_F(NAME, add_same_sized)
     csfg_poly_push(&p2, csfg_coeff(9.0, -1));
 
     /* (2+4ax) + (6b+9x) = 2+6b + (4a+9)x */
-    ASSERT_THAT(csfg_poly_add(&pool, &out, p2, p1), Eq(0));
+    ASSERT_EQ(csfg_poly_add(&pool, &out, p2, p1), 0);
 
-    ASSERT_THAT(vec_count(out), Eq(2));
+    ASSERT_EQ(vec_count(out), 2);
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "6*b+2"));
     ASSERT_TRUE(CoeffEq(pool, out, 1, 1.0, "9+4*a"));
 }
@@ -72,9 +72,9 @@ TEST_F(NAME, add_smaller_to_larger)
     csfg_poly_push(&p2, csfg_coeff(9.0, -1));
 
     /* 2 + (4a + 6bx + 9x^2) = 2+4a + 6bx + 9x^2 */
-    ASSERT_THAT(csfg_poly_add(&pool, &out, p2, p1), Eq(0));
+    ASSERT_EQ(csfg_poly_add(&pool, &out, p2, p1), 0);
 
-    ASSERT_THAT(vec_count(out), Eq(3));
+    ASSERT_EQ(vec_count(out), 3);
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "4*a+2"));
     ASSERT_TRUE(CoeffEq(pool, out, 1, 6.0, "b"));
     ASSERT_TRUE(CoeffEq(pool, out, 2, 9.0));
@@ -88,9 +88,9 @@ TEST_F(NAME, add_larger_to_smaller)
     csfg_poly_push(&p2, csfg_coeff(9.0, -1));
 
     /* (2 + 4ax + 6bx^2) + 9 = 11 + 4ax + 6bx^2 */
-    ASSERT_THAT(csfg_poly_add(&pool, &out, p2, p1), Eq(0));
+    ASSERT_EQ(csfg_poly_add(&pool, &out, p2, p1), 0);
 
-    ASSERT_THAT(vec_count(out), Eq(3));
+    ASSERT_EQ(vec_count(out), 3);
     ASSERT_TRUE(CoeffEq(pool, out, 0, 11.0));
     ASSERT_TRUE(CoeffEq(pool, out, 1, 4.0, "a"));
     ASSERT_TRUE(CoeffEq(pool, out, 2, 6.0, "b"));

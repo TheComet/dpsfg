@@ -9,6 +9,8 @@ from rb import rb_PrettyPrinter
 from vec import vec_PrettyPrinter
 from bmap import bmap_PrettyPrinter
 from hmap import hmap_PrettyPrinter
+from mat import mat_PrettyPrinter
+from poly import cpoly_PrettyPrinter, rpoly_PrettyPrinter
 from s import s_PrettyPrinter
 from strspan import strspan_PrettyPrinter
 from strview import strview_PrettyPrinter
@@ -19,14 +21,14 @@ def factories(val):
         return rb_PrettyPrinter(val)
     if str(val.type).endswith("_vec *"):
         return vec_PrettyPrinter(val)
-    if str(val.type).endswith("csfg_poly *"):
-        return vec_PrettyPrinter(val)
     if str(val.type).endswith("csfg_cpoly *"):
-        return vec_PrettyPrinter(val)
+        return cpoly_PrettyPrinter(val)
     if str(val.type).endswith("csfg_rpoly *"):
-        return vec_PrettyPrinter(val)
+        return rpoly_PrettyPrinter(val)
     if str(val.type).endswith("csfg_pfd_poly *"):
         return vec_PrettyPrinter(val)
+    if str(val.type).endswith("csfg_mat *"):
+        return mat_PrettyPrinter(val)
     if str(val.type).endswith("_bmap *"):
         return bmap_PrettyPrinter(val)
     if str(val.type).endswith("_hmap *"):

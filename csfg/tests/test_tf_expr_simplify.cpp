@@ -1,6 +1,6 @@
 #include "csfg/tests/PolyHelper.hpp"
 
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -42,22 +42,22 @@ TEST_F(NAME, case1)
      */
     int expr = csfg_expr_parse(
         &pool1, cstr_view("-1*(G1*(G2+s*C))/(1*((G2+s*C)*(s*C+G2)))"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
 
-    ASSERT_THAT(csfg_expr_opt_remove_useless_ops(&pool1), Eq(1));
+    ASSERT_EQ(csfg_expr_opt_remove_useless_ops(&pool1), 1);
 
     /*
      *         -G2*G1 - (G1*C)*s
      * ---------------------------------
      * G2*G2 + 2*(G2*C*G2*C)*s + C*C*s^2
      */
-    ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(2));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 2);
     ASSERT_TRUE(CoeffEq(pool2, tf.num, 0, -1.0, "G1"));
     ASSERT_TRUE(CoeffEq(pool2, tf.den, 0, 1.0, "G2"));
     ASSERT_TRUE(CoeffEq(pool2, tf.den, 1, 1.0, "C"));

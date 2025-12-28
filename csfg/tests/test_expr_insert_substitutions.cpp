@@ -1,4 +1,4 @@
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -29,22 +29,21 @@ struct NAME : public Test
 TEST_F(NAME, simple)
 {
     int e;
-    ASSERT_THAT(e = csfg_expr_parse(&p, cstr_view("a")), Ge(0));
+    ASSERT_GE(e = csfg_expr_parse(&p, cstr_view("a")), 0);
     csfg_var_table_set_parse_expr(&vt, cstr_view("a"), cstr_view("b"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("b"), cstr_view("c"));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&p, e, &vt), Eq(0));
-    ASSERT_THAT(p->nodes[e].type, Eq(CSFG_EXPR_VAR));
-    ASSERT_THAT(
-        strlist_cstr(p->var_names, p->nodes[e].value.var_idx), StrEq("c"));
+    ASSERT_EQ(csfg_expr_insert_substitutions(&p, e, &vt), 0);
+    ASSERT_EQ(p->nodes[e].type, CSFG_EXPR_VAR);
+    ASSERT_STREQ(strlist_cstr(p->var_names, p->nodes[e].value.var_idx), "c");
 }
 
 TEST_F(NAME, with_cycles_fails)
 {
     int e;
-    ASSERT_THAT(e = csfg_expr_parse(&p, cstr_view("a")), Ge(0));
+    ASSERT_GE(e = csfg_expr_parse(&p, cstr_view("a")), 0);
     csfg_var_table_set_parse_expr(&vt, cstr_view("a"), cstr_view("b"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("b"), cstr_view("c"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("c"), cstr_view("d"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("d"), cstr_view("b"));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&p, e, &vt), Eq(-1));
+    ASSERT_EQ(csfg_expr_insert_substitutions(&p, e, &vt), -1);
 }

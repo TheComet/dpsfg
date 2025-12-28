@@ -74,14 +74,14 @@ TEST_F(NAME, deinit_null_vector_works)
 
 TEST_F(NAME, realloc_new_vector_sets_capacity)
 {
-    EXPECT_THAT(obj_vec_realloc(&obj_vec, 16), Eq(0));
-    ASSERT_THAT(obj_vec, NotNull());
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(16));
+    ASSERT_EQ(obj_vec_realloc(&obj_vec, 16), 0);
+    ASSERT_TRUE(obj_vec != nullptr);
+    ASSERT_EQ(vec_capacity(obj_vec), 16);
 }
 TEST_F(NAME, realloc_returns_error_if_realloc_fails)
 {
-    EXPECT_THAT(shitty_obj_vec_realloc((shitty_obj_vec**)&obj_vec, 16), Eq(-1));
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_EQ(shitty_obj_vec_realloc((shitty_obj_vec**)&obj_vec, 16), -1);
+    ASSERT_TRUE(obj_vec == nullptr);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -90,44 +90,44 @@ TEST_F(NAME, realloc_returns_error_if_realloc_fails)
 
 TEST_F(NAME, push_increments_counter)
 {
-    ASSERT_THAT(obj_vec_push(&obj_vec, obj{5, 5, 5, 5}), Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(1));
+    ASSERT_EQ(obj_vec_push(&obj_vec, obj{5, 5, 5, 5}), 0);
+    ASSERT_EQ(vec_count(obj_vec), 1);
 }
 TEST_F(NAME, emplace_increments_counter)
 {
     ASSERT_THAT(obj_vec_emplace(&obj_vec), NotNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(1));
+    ASSERT_EQ(vec_count(obj_vec), 1);
 }
 TEST_F(NAME, insert_increments_counter)
 {
-    ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{5, 5, 5, 5}), Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(1));
+    ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{5, 5, 5, 5}), 0);
+    ASSERT_EQ(vec_count(obj_vec), 1);
 }
 TEST_F(NAME, insert_emplace_increments_counter)
 {
     ASSERT_THAT(obj_vec_insert_emplace(&obj_vec, 0), NotNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(1));
+    ASSERT_EQ(vec_count(obj_vec), 1);
 }
 
 TEST_F(NAME, push_sets_capacity)
 {
-    ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{5, 5, 5, 5}), Eq(0));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{5, 5, 5, 5}), 0);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 }
 TEST_F(NAME, emplace_sets_capacity)
 {
     ASSERT_THAT(obj_vec_emplace(&obj_vec), NotNull());
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 }
 TEST_F(NAME, insert_sets_capacity)
 {
-    ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{5, 5, 5, 5}), Eq(0));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{5, 5, 5, 5}), 0);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 }
 TEST_F(NAME, insert_emplace_sets_capacity)
 {
     ASSERT_THAT(obj_vec_insert_emplace(&obj_vec, 0), NotNull());
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 }
 
 TEST_F(NAME, push_returns_error_if_realloc_fails)
@@ -135,7 +135,7 @@ TEST_F(NAME, push_returns_error_if_realloc_fails)
     EXPECT_THAT(
         shitty_obj_vec_push((shitty_obj_vec**)&obj_vec, obj{5, 5, 5, 5}),
         Eq(-1));
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_TRUE(obj_vec == nullptr);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -143,8 +143,8 @@ TEST_F(NAME, push_returns_error_if_realloc_fails)
 }
 TEST_F(NAME, emplace_returns_error_if_realloc_fails)
 {
-    EXPECT_THAT(shitty_obj_vec_emplace((shitty_obj_vec**)&obj_vec), IsNull());
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_TRUE(shitty_obj_vec_emplace((shitty_obj_vec**)&obj_vec) == nullptr);
+    ASSERT_TRUE(obj_vec == nullptr);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -155,7 +155,7 @@ TEST_F(NAME, insert_returns_error_if_realloc_fails)
     EXPECT_THAT(
         shitty_obj_vec_insert((shitty_obj_vec**)&obj_vec, 0, obj{5, 5, 5, 5}),
         Eq(-1));
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_TRUE(obj_vec == nullptr);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -165,7 +165,7 @@ TEST_F(NAME, insert_emplace_returns_error_if_realloc_fails)
 {
     EXPECT_THAT(
         shitty_obj_vec_insert_emplace((shitty_obj_vec**)&obj_vec, 0), IsNull());
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_TRUE(obj_vec == nullptr);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -174,10 +174,10 @@ TEST_F(NAME, insert_emplace_returns_error_if_realloc_fails)
 
 TEST_F(NAME, push_few_values_works)
 {
-    EXPECT_THAT(obj_vec_push(&obj_vec, obj{5, 5, 5, 5}), Eq(0));
-    EXPECT_THAT(obj_vec_push(&obj_vec, obj{7, 7, 7, 7}), Eq(0));
-    EXPECT_THAT(obj_vec_push(&obj_vec, obj{3, 3, 3, 3}), Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(3));
+    ASSERT_EQ(obj_vec_push(&obj_vec, obj{5, 5, 5, 5}), 0);
+    ASSERT_EQ(obj_vec_push(&obj_vec, obj{7, 7, 7, 7}), 0);
+    ASSERT_EQ(obj_vec_push(&obj_vec, obj{3, 3, 3, 3}), 0);
+    ASSERT_EQ(vec_count(obj_vec), 3);
     EXPECT_THAT(vec_get(obj_vec, 0), Pointee(obj{5, 5, 5, 5}));
     EXPECT_THAT(vec_get(obj_vec, 1), Pointee(obj{7, 7, 7, 7}));
     EXPECT_THAT(vec_get(obj_vec, 2), Pointee(obj{3, 3, 3, 3}));
@@ -187,17 +187,17 @@ TEST_F(NAME, emplace_few_values_works)
     *obj_vec_emplace(&obj_vec) = obj{5, 5, 5, 5};
     *obj_vec_emplace(&obj_vec) = obj{7, 7, 7, 7};
     *obj_vec_emplace(&obj_vec) = obj{3, 3, 3, 3};
-    EXPECT_THAT(vec_count(obj_vec), Eq(3));
+    ASSERT_EQ(vec_count(obj_vec), 3);
     EXPECT_THAT(vec_get(obj_vec, 0), Pointee(obj{5, 5, 5, 5}));
     EXPECT_THAT(vec_get(obj_vec, 1), Pointee(obj{7, 7, 7, 7}));
     EXPECT_THAT(vec_get(obj_vec, 2), Pointee(obj{3, 3, 3, 3}));
 }
 TEST_F(NAME, insert_few_values_works)
 {
-    ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{5, 5, 5, 5}), Eq(0));
-    ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{7, 7, 7, 7}), Eq(0));
-    ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{3, 3, 3, 3}), Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(3));
+    ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{5, 5, 5, 5}), 0);
+    ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{7, 7, 7, 7}), 0);
+    ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{3, 3, 3, 3}), 0);
+    ASSERT_EQ(vec_count(obj_vec), 3);
     EXPECT_THAT(vec_get(obj_vec, 0), Pointee(obj{3, 3, 3, 3}));
     EXPECT_THAT(vec_get(obj_vec, 1), Pointee(obj{7, 7, 7, 7}));
     EXPECT_THAT(vec_get(obj_vec, 2), Pointee(obj{5, 5, 5, 5}));
@@ -207,7 +207,7 @@ TEST_F(NAME, insert_emplace_few_values_works)
     *obj_vec_insert_emplace(&obj_vec, 0) = obj{5, 5, 5, 5};
     *obj_vec_insert_emplace(&obj_vec, 0) = obj{7, 7, 7, 7};
     *obj_vec_insert_emplace(&obj_vec, 0) = obj{3, 3, 3, 3};
-    EXPECT_THAT(vec_count(obj_vec), Eq(3));
+    ASSERT_EQ(vec_count(obj_vec), 3);
     EXPECT_THAT(vec_get(obj_vec, 0), Pointee(obj{3, 3, 3, 3}));
     EXPECT_THAT(vec_get(obj_vec, 1), Pointee(obj{7, 7, 7, 7}));
     EXPECT_THAT(vec_get(obj_vec, 2), Pointee(obj{5, 5, 5, 5}));
@@ -216,57 +216,57 @@ TEST_F(NAME, insert_emplace_few_values_works)
 TEST_F(NAME, push_with_expand_sets_count_and_capacity_correctly)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        ASSERT_THAT(obj_vec_push(&obj_vec, obj{i, i, i, i}), Eq(0));
+        ASSERT_EQ(obj_vec_push(&obj_vec, obj{i, i, i, i}), 0);
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 
-    ASSERT_THAT(obj_vec_push(&obj_vec, obj{42, 42, 42, 42}), Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY + 1));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY * EXPAND_FACTOR));
+    ASSERT_EQ(obj_vec_push(&obj_vec, obj{42, 42, 42, 42}), 0);
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY + 1);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY * EXPAND_FACTOR);
 }
 TEST_F(NAME, emplace_with_expand_sets_count_and_capacity_correctly)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
         ASSERT_THAT(obj_vec_emplace(&obj_vec), NotNull());
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 
     ASSERT_THAT(obj_vec_emplace(&obj_vec), NotNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY + 1));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY * EXPAND_FACTOR));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY + 1);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY * EXPAND_FACTOR);
 }
 TEST_F(NAME, insert_with_expand_sets_count_and_capacity_correctly)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{i, i, i, i}), Eq(0));
+        ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{i, i, i, i}), 0);
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 
-    ASSERT_THAT(obj_vec_insert(&obj_vec, 3, obj{42, 42, 42, 42}), Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY + 1));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY * EXPAND_FACTOR));
+    ASSERT_EQ(obj_vec_insert(&obj_vec, 3, obj{42, 42, 42, 42}), 0);
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY + 1);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY * EXPAND_FACTOR);
 }
 TEST_F(NAME, insert_emplace_with_expand_sets_count_and_capacity_correctly)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
         ASSERT_THAT(obj_vec_insert_emplace(&obj_vec, 0), NotNull());
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 
     ASSERT_THAT(obj_vec_insert_emplace(&obj_vec, 3), NotNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY + 1));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY * EXPAND_FACTOR));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY + 1);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY * EXPAND_FACTOR);
 }
 
 TEST_F(NAME, push_with_expand_has_correct_values)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        ASSERT_THAT(obj_vec_push(&obj_vec, obj{i, i, i, i}), Eq(0));
-    ASSERT_THAT(obj_vec_push(&obj_vec, obj{42, 42, 42, 42}), Eq(0));
+        ASSERT_EQ(obj_vec_push(&obj_vec, obj{i, i, i, i}), 0);
+    ASSERT_EQ(obj_vec_push(&obj_vec, obj{42, 42, 42, 42}), 0);
 
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
         EXPECT_THAT(vec_get(obj_vec, i), Pointee(obj{i, i, i, i}));
@@ -285,8 +285,8 @@ TEST_F(NAME, emplace_with_expand_has_correct_values)
 TEST_F(NAME, insert_with_expand_has_correct_values)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{i, i, i, i}), Eq(0));
-    ASSERT_THAT(obj_vec_insert(&obj_vec, 3, obj{42, 42, 42, 42}), Eq(0));
+        ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{i, i, i, i}), 0);
+    ASSERT_EQ(obj_vec_insert(&obj_vec, 3, obj{42, 42, 42, 42}), 0);
 
     for (uint64_t i = 0; i != 3; ++i)
         EXPECT_THAT(
@@ -334,16 +334,16 @@ TEST_F(NAME, insert_emplace_with_expand_has_correct_values)
 TEST_F(NAME, push_expand_with_failed_realloc_returns_error)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        ASSERT_THAT(obj_vec_push(&obj_vec, obj{i, i, i, i}), Eq(0));
+        ASSERT_EQ(obj_vec_push(&obj_vec, obj{i, i, i, i}), 0);
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 
     EXPECT_THAT(
         shitty_obj_vec_push((shitty_obj_vec**)&obj_vec, obj{42, 42, 42, 42}),
         Eq(-1));
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -354,12 +354,12 @@ TEST_F(NAME, emplace_expand_with_failed_realloc_returns_error)
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
         ASSERT_THAT(obj_vec_emplace(&obj_vec), NotNull());
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 
-    EXPECT_THAT(shitty_obj_vec_emplace((shitty_obj_vec**)&obj_vec), IsNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_TRUE(shitty_obj_vec_emplace((shitty_obj_vec**)&obj_vec) == nullptr);
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -368,17 +368,17 @@ TEST_F(NAME, emplace_expand_with_failed_realloc_returns_error)
 TEST_F(NAME, insert_expand_with_failed_realloc_returns_error)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        ASSERT_THAT(obj_vec_insert(&obj_vec, 0, obj{i, i, i, i}), Eq(0));
+        ASSERT_EQ(obj_vec_insert(&obj_vec, 0, obj{i, i, i, i}), 0);
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 
     EXPECT_THAT(
         shitty_obj_vec_insert(
             (shitty_obj_vec**)&obj_vec, 3, obj{42, 42, 42, 42}),
         Eq(-1));
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -389,13 +389,13 @@ TEST_F(NAME, insert_emplace_expand_with_failed_realloc_returns_error)
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
         ASSERT_THAT(obj_vec_insert_emplace(&obj_vec, 0), NotNull());
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
 
     EXPECT_THAT(
         shitty_obj_vec_insert_emplace((shitty_obj_vec**)&obj_vec, 3), IsNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY);
     EXPECT_THAT(
         log(),
         LogStartsWith(
@@ -506,13 +506,13 @@ TEST_F(NAME, clear_null_vector_works)
 TEST_F(NAME, clear_keeps_buffer_and_resets_count)
 {
     for (uint64_t i = 0; i != MIN_CAPACITY * 2; ++i)
-        ASSERT_THAT(obj_vec_push(&obj_vec, obj{i, i, i, i}), Eq(0));
+        ASSERT_EQ(obj_vec_push(&obj_vec, obj{i, i, i, i}), 0);
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(MIN_CAPACITY * 2));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY * 2));
+    ASSERT_EQ(vec_count(obj_vec), MIN_CAPACITY * 2);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY * 2);
     obj_vec_clear(obj_vec);
-    EXPECT_THAT(vec_count(obj_vec), Eq(0u));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(MIN_CAPACITY * 2));
+    ASSERT_EQ(vec_count(obj_vec), 0u);
+    ASSERT_EQ(vec_capacity(obj_vec), MIN_CAPACITY * 2);
 }
 
 TEST_F(NAME, compact_null_vector_works)
@@ -525,8 +525,8 @@ TEST_F(NAME, compact_sets_capacity)
     obj_vec_push(&obj_vec, obj{9, 9, 9, 9});
     obj_vec_compact(&obj_vec);
     ASSERT_THAT(obj_vec, NotNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(1));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(1));
+    ASSERT_EQ(vec_count(obj_vec), 1);
+    ASSERT_EQ(vec_capacity(obj_vec), 1);
 }
 
 TEST_F(NAME, compact_removes_excess_space)
@@ -538,8 +538,8 @@ TEST_F(NAME, compact_removes_excess_space)
     obj_vec_pop(obj_vec);
     obj_vec_compact(&obj_vec);
     ASSERT_THAT(obj_vec, NotNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(1));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(1));
+    ASSERT_EQ(vec_count(obj_vec), 1);
+    ASSERT_EQ(vec_capacity(obj_vec), 1);
 }
 
 TEST_F(NAME, clear_and_compact_deletes_buffer)
@@ -547,7 +547,7 @@ TEST_F(NAME, clear_and_compact_deletes_buffer)
     obj_vec_push(&obj_vec, obj{9, 9, 9, 9});
     obj_vec_clear(obj_vec);
     obj_vec_compact(&obj_vec);
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_TRUE(obj_vec == nullptr);
 }
 
 TEST_F(NAME, clear_compact_null_vector_works)
@@ -559,7 +559,7 @@ TEST_F(NAME, clear_compact_deletes_buffer)
 {
     obj_vec_push(&obj_vec, obj{9, 9, 9, 9});
     obj_vec_clear_compact(&obj_vec);
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_TRUE(obj_vec == nullptr);
 }
 
 TEST_F(NAME, pop_returns_pushed_values)
@@ -576,7 +576,7 @@ TEST_F(NAME, pop_returns_pushed_values)
     EXPECT_THAT(obj_vec_pop(obj_vec), Pointee(obj{3, 3, 3, 3}));
 
     ASSERT_THAT(obj_vec, NotNull());
-    EXPECT_THAT(vec_count(obj_vec), Eq(0u));
+    ASSERT_EQ(vec_count(obj_vec), 0u);
 }
 
 TEST_F(NAME, pop_returns_emplaced_values)
@@ -585,7 +585,7 @@ TEST_F(NAME, pop_returns_emplaced_values)
     *obj_vec_emplace(&obj_vec) = obj{24, 24, 24, 24};
     *obj_vec_emplace(&obj_vec) = obj{73, 73, 73, 73};
     EXPECT_THAT(obj_vec_pop(obj_vec), Pointee(obj{73, 73, 73, 73}));
-    EXPECT_THAT(vec_count(obj_vec), Eq(2));
+    ASSERT_EQ(vec_count(obj_vec), 2);
     *obj_vec_emplace(&obj_vec) = obj{28, 28, 28, 28};
     *obj_vec_emplace(&obj_vec) = obj{72, 72, 72, 72};
     EXPECT_THAT(obj_vec_pop(obj_vec), Pointee(obj{72, 72, 72, 72}));
@@ -593,8 +593,8 @@ TEST_F(NAME, pop_returns_emplaced_values)
     EXPECT_THAT(obj_vec_pop(obj_vec), Pointee(obj{24, 24, 24, 24}));
     EXPECT_THAT(obj_vec_pop(obj_vec), Pointee(obj{53, 53, 53, 53}));
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(0u));
-    EXPECT_THAT(obj_vec, NotNull());
+    ASSERT_EQ(vec_count(obj_vec), 0u);
+    ASSERT_TRUE(obj_vec != nullptr);
 }
 
 TEST_F(NAME, popping_preserves_existing_elements)
@@ -683,7 +683,7 @@ TEST_F(NAME, for_each_zero_elements)
     vec_for_each (obj_vec, value)
         counter++;
 
-    EXPECT_THAT(counter, Eq(0));
+    ASSERT_EQ(counter, 0);
 }
 
 TEST_F(NAME, for_each_one_element)
@@ -698,7 +698,7 @@ TEST_F(NAME, for_each_one_element)
         EXPECT_THAT(value, Pointee(obj{1, 1, 1, 1}));
     }
 
-    EXPECT_THAT(counter, Eq(1));
+    ASSERT_EQ(counter, 1);
 }
 
 TEST_F(NAME, for_each_three_elements)
@@ -715,7 +715,7 @@ TEST_F(NAME, for_each_three_elements)
         EXPECT_THAT(value, Pointee(obj{counter, counter, counter, counter}));
     }
 
-    EXPECT_THAT(counter, Eq(3));
+    ASSERT_EQ(counter, 3);
 }
 
 TEST_F(NAME, retain_empty_vec)
@@ -731,8 +731,8 @@ TEST_F(NAME, retain_empty_vec)
             },
             &counter),
         Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(0));
-    EXPECT_THAT(counter, Eq(0));
+    ASSERT_EQ(vec_count(obj_vec), 0);
+    ASSERT_EQ(counter, 0);
 }
 
 TEST_F(NAME, retain_all)
@@ -741,7 +741,7 @@ TEST_F(NAME, retain_all)
         obj_vec_push(&obj_vec, obj{i, i, i, i});
 
     int counter = 0;
-    EXPECT_THAT(vec_count(obj_vec), Eq(8));
+    ASSERT_EQ(vec_count(obj_vec), 8);
     EXPECT_THAT(
         obj_vec_retain(
             obj_vec,
@@ -752,8 +752,8 @@ TEST_F(NAME, retain_all)
             },
             &counter),
         Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(8));
-    EXPECT_THAT(counter, Eq(8));
+    ASSERT_EQ(vec_count(obj_vec), 8);
+    ASSERT_EQ(counter, 8);
 }
 
 TEST_F(NAME, retain_half)
@@ -761,7 +761,7 @@ TEST_F(NAME, retain_half)
     for (uint64_t i = 0; i != 8; ++i)
         obj_vec_push(&obj_vec, obj{i, i, i, i});
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(8));
+    ASSERT_EQ(vec_count(obj_vec), 8);
     int counter = 0;
     EXPECT_THAT(
         obj_vec_retain(
@@ -769,8 +769,8 @@ TEST_F(NAME, retain_half)
             [](obj*, void* user) { return (*(int*)user)++ % 2; },
             &counter),
         Eq(0));
-    EXPECT_THAT(vec_count(obj_vec), Eq(4));
-    EXPECT_THAT(counter, Eq(8));
+    ASSERT_EQ(vec_count(obj_vec), 4);
+    ASSERT_EQ(counter, 8);
     EXPECT_THAT(vec_get(obj_vec, 0), Pointee(obj{0, 0, 0, 0}));
     EXPECT_THAT(vec_get(obj_vec, 1), Pointee(obj{2, 2, 2, 2}));
     EXPECT_THAT(vec_get(obj_vec, 2), Pointee(obj{4, 4, 4, 4}));
@@ -782,10 +782,10 @@ TEST_F(NAME, retain_returning_error)
     for (uint64_t i = 0; i != 8; ++i)
         obj_vec_push(&obj_vec, obj{i, i, i, i});
 
-    EXPECT_THAT(vec_count(obj_vec), Eq(8));
+    ASSERT_EQ(vec_count(obj_vec), 8);
     EXPECT_THAT(
         obj_vec_retain(obj_vec, [](obj*, void*) { return -5; }, NULL), Eq(-5));
-    EXPECT_THAT(vec_count(obj_vec), Eq(8));
+    ASSERT_EQ(vec_count(obj_vec), 8);
 }
 
 TEST_F(NAME, insert_up_to_realloc_doesnt_cause_invalid_memmove)
@@ -793,24 +793,24 @@ TEST_F(NAME, insert_up_to_realloc_doesnt_cause_invalid_memmove)
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
         obj_vec_insert(&obj_vec, i, obj{i, i, i, i});
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        EXPECT_THAT(obj_vec->data[i], Eq(obj{i, i, i, i}));
+        ASSERT_THAT(obj_vec->data[i], Eq(obj{i, i, i, i}));
 }
 
 TEST_F(NAME, realloc_from_0_to_0)
 {
     obj_vec_realloc(&obj_vec, 0);
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_TRUE(obj_vec == nullptr);
 }
 
 TEST_F(NAME, realloc_from_8_to_0)
 {
     obj_vec_realloc(&obj_vec, 8);
-    EXPECT_THAT(vec_count(obj_vec), Eq(0));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(8));
-    EXPECT_THAT(obj_vec->data, NotNull());
+    ASSERT_EQ(vec_count(obj_vec), 0);
+    ASSERT_EQ(vec_capacity(obj_vec), 8);
+    ASSERT_THAT(obj_vec->data, NotNull());
 
     obj_vec_realloc(&obj_vec, 0);
-    EXPECT_THAT(vec_count(obj_vec), Eq(0));
-    EXPECT_THAT(vec_capacity(obj_vec), Eq(0));
-    EXPECT_THAT(obj_vec, IsNull());
+    ASSERT_EQ(vec_count(obj_vec), 0);
+    ASSERT_EQ(vec_capacity(obj_vec), 0);
+    ASSERT_TRUE(obj_vec == nullptr);
 }

@@ -1,6 +1,6 @@
 #include "csfg/tests/PolyHelper.hpp"
 
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -49,20 +49,20 @@ TEST_F(NAME, converge)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(a*y + b*x*y)/(b*y + d*x*y)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("x"), cstr_view("oo"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y"), cstr_view("oo"));
 
     expr = csfg_expr_apply_limits(in_pool, expr, &vt, &out_pool);
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational(out_pool, expr, cstr_view("s"), &tf_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(tf_pool, tf.num, 0, 1.0, "b"));
     ASSERT_TRUE(CoeffEq(tf_pool, tf.den, 0, 1.0, "d"));
 }

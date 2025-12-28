@@ -72,10 +72,10 @@ def plot_expr_graph(pool, root):
         nonlocal text
         left = pool["nodes"][n]["child"][0]
         right = pool["nodes"][n]["child"][1]
-        if left != -1:
-            text += f'  n{n} -> n{left} [color="{style['edgecolor']}", fontcolor="{style['edgecolor']}"];\n'
-        if right != -1:
-            text += f'  n{n} -> n{right} [color="{style['edgecolor']}", fontcolor="{style['edgecolor']}"];\n'
+        #if left != -1:
+        #    text += f'  n{n} -> n{left} [color="{style['edgecolor']}", fontcolor="{style['edgecolor']}"];\n'
+        #if right != -1:
+        #    text += f'  n{n} -> n{right} [color="{style['edgecolor']}", fontcolor="{style['edgecolor']}"];\n'
     def print_edges(n):
         print_edge(n)
         left = pool["nodes"][n]["child"][0]
@@ -95,7 +95,7 @@ def plot_expr_graph(pool, root):
             print_nodes(right)
         print_node(n)
     text = "digraph {\n"
-    text += f'  bgcolor="{style['bgcolor']}";\n'
+    #text += f'  bgcolor="{style['bgcolor']}";\n'
     if root is not None:
         unvisited = set(range(pool["count"]))
         print_nodes(root)

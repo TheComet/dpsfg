@@ -16,7 +16,9 @@ transfer function:
 First, bring everything to a common denominator:
 
 \begin{equation}
-    \frac{A_1}{(s-p_1)}\cdot\frac{s-p_2}{s-p_2} + \frac{A_2}{(s-p_2)}\cdot\frac{s-p_1}{s-p_1} = \frac{A_1s - A_1p_2 + A_2s - A_2p_1}{(s-p_1)(s-p_2)}
+    \frac{A_1}{(s-p_1)}\cdot\frac{s-p_2}{s-p_2}
+        + \frac{A_2}{(s-p_2)}\cdot\frac{s-p_1}{s-p_1}
+    = \frac{A_1s - A_1p_2 + A_2s - A_2p_1}{(s-p_1)(s-p_2)}
 \end{equation}
 
 Then factor the terms for $s$:
@@ -56,6 +58,35 @@ or, in matrix form:
     \end{bmatrix}
 \end{equation}
 
+\subsubsection{Second Order Example with Repeating Roots}
+
+\begin{align}
+    T(s) &= \frac{b_0 + b_1s}{(s-p)^2}
+            = \frac{A_1}{(s-p)^2} + \frac{A_2}{s-p} \\
+         &= \frac{A_1}{(s-p)^2} + \frac{A_2}{s-p} \cdot \frac{s-p}{s-p}
+            = \frac{A_1 + A_2s - A_2p}{(s-p)^2} \\
+         &= \frac{(A_1 - A_2p) + (A_2)s}{(s-p)^2}
+\end{align}
+
+\begin{align}
+    s^1: b_1 &= A_2 \\
+    s^0: b_0 &= A_1 - A_2p
+\end{align}
+
+\begin{equation}
+    \begin{bmatrix}
+        b_1 \\
+        b_0 \\
+    \end{bmatrix} =
+    \begin{bmatrix}
+        0 &  1 \\
+        1 & -p \\
+    \end{bmatrix}
+    \begin{bmatrix}
+        A_1 \\
+        A_2 \\
+    \end{bmatrix}
+\end{equation}
 
 \subsubsection{Third Order Example}
 
@@ -169,4 +200,26 @@ Which is now more readable in matrix form:
         A_4 \\
     \end{bmatrix}
 \end{equation}
+
+\subsubsection{Example 4}
+
+\begin{align}
+  T(s) &= \frac{(s-8)(s-7)(s-5)(s+4)}{(s-1)^4(s+2)}
+        = \frac{s^4 - 16s^3 + 51s^2 + 244s - 1120}{(s-1)^4(s+2)} \\
+       &= \frac{A_1}{(s-1)^4}
+          + \frac{A_2}{(s-1)^3}
+          + \frac{A_3}{(s-1)^2}
+          + \frac{A_4}{s-1}
+          + \frac{A_5}{s+2} \\
+       &= \frac{A_1(s+2) + A_2(s-1)(s+2) + A_3(s-1)^2(s+2) + A_4(s-1)^3(s+2) + A_5(s-1)^4}{(s-4)^4(s+2)}
+\end{align}
+
+\begin{align}
+    s^5   0    &= \\
+    s^4:  1    &= \\
+    s^3: -16   &= \\
+    s^2:  51   &= \\
+    s^1:  244  &= \\
+    s^0: -1120 &= 
+\end{align}
 

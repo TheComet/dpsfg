@@ -1,6 +1,6 @@
 #include "csfg/tests/PolyHelper.hpp"
 
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -46,15 +46,15 @@ TEST_F(NAME, zero_divided_by_zero)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(0*x^2 + 0*x)/(0*x^2 + 0*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 0.0));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 0.0));
 }
@@ -68,15 +68,15 @@ TEST_F(NAME, zero_numerator)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(0*x^2 + 0*x)/(c*x^2 + d*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 0.0));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
 }
@@ -90,15 +90,15 @@ TEST_F(NAME, positive_zero_denominator)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(a*x^2 + b*x)/(0*x^2 + 0*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, CSFG_EXPR_INF));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 0.0));
 }
@@ -112,15 +112,15 @@ TEST_F(NAME, negative_zero_denominator)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(-a*x^2 + b*x)/(0*x^2 + 0*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, -1.0, CSFG_EXPR_INF));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 0.0));
 }
@@ -134,15 +134,15 @@ TEST_F(NAME, numerator_diverges_positive_inf)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(a*x^2 + b*x)/(0*x^2 + d*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, CSFG_EXPR_INF));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
 }
@@ -156,15 +156,15 @@ TEST_F(NAME, numerator_diverges_negative_inf)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(-a*x^2 + b*x)/(0*x^2 + d*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, -1.0, CSFG_EXPR_INF));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
 }
@@ -178,15 +178,15 @@ TEST_F(NAME, denominator_diverges)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(0*x^2 + b*x)/(c*x^2 + d*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 0.0));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
 }
@@ -200,15 +200,15 @@ TEST_F(NAME, converge_1)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(0*x^2 + b*x)/(0*x^2 + d*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, "b"));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0, "d"));
 }
@@ -222,15 +222,15 @@ TEST_F(NAME, converge_2)
      */
     int expr =
         csfg_expr_parse(&in_pool, cstr_view("(a*x^2 + b*x)/(c*x^2 + d*x)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational_limit(
             in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, "a"));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0, "c"));
 }

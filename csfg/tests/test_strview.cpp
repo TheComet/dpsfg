@@ -1,6 +1,6 @@
 #include "csfg/tests/LogHelper.hpp"
 
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/util/strview.h"
@@ -17,5 +17,5 @@ struct NAME : Test, LogHelper
 TEST_F(NAME, compare_cstr)
 {
     struct strview view = strview("Hello, world!", 0, 10);
-    ASSERT_THAT(strview_eq_cstr(view, "Hello, wor"), IsTrue());
+    ASSERT_TRUE(strview_eq_cstr(view, "Hello, wor"));
 }

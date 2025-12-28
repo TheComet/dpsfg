@@ -1,4 +1,4 @@
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -30,10 +30,10 @@ TEST_F(NAME, expand_simple)
 {
     int r1 = csfg_expr_parse(&p1, cstr_view("(a*b)^s"));
     int r2 = csfg_expr_parse(&p2, cstr_view("a^s*b^s"));
-    ASSERT_THAT(r1, Ge(0));
-    ASSERT_THAT(r2, Ge(0));
-    ASSERT_THAT(csfg_expr_op_expand_exponent_products(&p1), Gt(0));
-    ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
+    ASSERT_GE(r1, 0);
+    ASSERT_GE(r2, 0);
+    ASSERT_GT(csfg_expr_op_expand_exponent_products(&p1), 0);
+    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, expand_nested)
@@ -41,7 +41,7 @@ TEST_F(NAME, expand_nested)
     int r1 = csfg_expr_parse(&p1, cstr_view("((c+d)*(e+f)*(g+h))^(a+b)"));
     int r2 = csfg_expr_parse(
         &p2, cstr_view("(c+d)^(a+b) * (e+f)^(a+b) * (g+h)^(a+b)"));
-    ASSERT_THAT(r1, Ge(0));
-    ASSERT_THAT(csfg_expr_op_expand_exponent_products(&p1), Gt(0));
-    ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
+    ASSERT_GE(r1, 0);
+    ASSERT_GT(csfg_expr_op_expand_exponent_products(&p1), 0);
+    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }

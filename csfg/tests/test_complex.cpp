@@ -37,14 +37,14 @@ struct NAME : public Test
 TEST_F(NAME, construct)
 {
     z = csfg_complex(2.0, 5.0);
-    ASSERT_THAT(z.real, DoubleEq(2.0));
-    ASSERT_THAT(z.imag, DoubleEq(5.0));
+    ASSERT_DOUBLE_EQ(z.real, 2.0);
+    ASSERT_DOUBLE_EQ(z.imag, 5.0);
 }
 
 TEST_F(NAME, mag)
 {
     z = csfg_complex(2.0, 5.0);
-    ASSERT_THAT(csfg_complex_mag(z), DoubleEq(sqrt(2 * 2 + 5 * 5)));
+    ASSERT_DOUBLE_EQ(csfg_complex_mag(z), sqrt(2 * 2 + 5 * 5));
 }
 
 TEST_F(NAME, add)

@@ -1,6 +1,6 @@
 #include "csfg/tests/PolyHelper.hpp"
 
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -40,16 +40,16 @@ struct NAME : public Test, public PolyHelper
 TEST_F(NAME, simple)
 {
     int expr = csfg_expr_parse(&in_pool, cstr_view("(s+3)^-2"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
     csfg_expr_opt_fold_constants(&in_pool);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational(in_pool, expr, cstr_view("s"), &out_pool, &tf),
-        Eq(0));
+        0);
 
     /* 1 / (s^2 + 6s + 9) */
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(3));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 3);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 9.0));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 1, 6.0));
@@ -59,14 +59,14 @@ TEST_F(NAME, simple)
 TEST_F(NAME, sum_of_var_and_constant)
 {
     int expr = csfg_expr_parse(&in_pool, cstr_view("a+4"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational(in_pool, expr, cstr_view("s"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(1));
-    ASSERT_THAT(vec_count(tf.den), Eq(1));
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, "4+a"));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
 }
@@ -81,16 +81,16 @@ TEST_F(NAME, multilevel_fraction)
      *    s     a
      */
     int expr = csfg_expr_parse(&in_pool, cstr_view("1/(1/s - 1/a)"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
     csfg_expr_opt_remove_useless_ops(&in_pool);
     expr = csfg_expr_gc(in_pool, expr);
 
-    ASSERT_THAT(
+    ASSERT_EQ(
         csfg_expr_to_rational(in_pool, expr, cstr_view("s"), &out_pool, &tf),
-        Eq(0));
+        0);
 
-    ASSERT_THAT(vec_count(tf.num), Eq(2));
-    ASSERT_THAT(vec_count(tf.den), Eq(2));
+    ASSERT_EQ(vec_count(tf.num), 2);
+    ASSERT_EQ(vec_count(tf.den), 2);
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 0.0));
     ASSERT_TRUE(CoeffEq(out_pool, tf.num, 1, 1.0, "a"));
     ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0, "a"));

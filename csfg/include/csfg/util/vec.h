@@ -112,6 +112,7 @@
      * @return Returns a pointer to the inserted space.                        \
      */                                                                        \
     T* prefix##_emplace(struct prefix** v);                                    \
+    T* prefix##_emplace_no_realloc(struct prefix* v);                          \
                                                                                \
     /*!                                                                        \
      * @brief Inserts (copies) a new element into the end of the vector.       \
@@ -131,6 +132,10 @@
             return -1;                                                         \
         *ins = elem;                                                           \
         return 0;                                                              \
+    }                                                                          \
+    static void prefix##_push_no_realloc(struct prefix* v, T elem)             \
+    {                                                                          \
+        *prefix##_emplace_no_realloc(v) = elem;                                \
     }                                                                          \
                                                                                \
     /*!                                                                        \
@@ -316,6 +321,11 @@
                                                                                \
         return &(*v)->data[(*v)->count++];                                     \
     }                                                                          \
+    T* prefix##_emplace_no_realloc(struct prefix* v)                           \
+    {                                                                          \
+        CSFG_DEBUG_ASSERT(v != NULL && v->count < v->capacity);                \
+        return &v->data[v->count++];                                           \
+    }                                                                          \
     T* prefix##_insert_emplace(struct prefix** v, int##bits##_t i)             \
     {                                                                          \
         CSFG_DEBUG_ASSERT(i >= 0 && i <= (*v ? (*v)->count : 0));              \
@@ -427,6 +437,11 @@
 #define vec_for_each(v, var) for (var = vec_begin(v); var != vec_end(v); var++)
 #define vec_for_each_r(v, var)                                                 \
     for (var = vec_begin_r(v); var != vec_end_r(v); var--)
+#define vec_for_each_range(v, var, start_idx, end_idx)                         \
+    for (CSFG_DEBUG_ASSERT(start_idx <= end_idx),                              \
+         var = vec_begin(v) + start_idx;                                       \
+         var != vec_begin(v) + end_idx;                                        \
+         var++)
 
 #define vec_enumerate(v, i, var)                                               \
     for (i = 0; (v) && i != (v)->count && ((var = &(v)->data[i]), 1); ++i)

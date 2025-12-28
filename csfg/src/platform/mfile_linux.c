@@ -2,6 +2,8 @@
 #include "csfg/platform/mfile.h"
 #include "csfg/util/log.h"
 
+#define _GNU_SOURCE
+#define _LARGEFILE64_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
@@ -14,7 +16,7 @@ int mfile_map_read(struct mfile* mf, const char* filepath, int log_error)
     struct stat stbuf;
     int         fd;
 
-    fd = open(filepath, O_RDONLY);
+    fd = open(filepath, O_RDONLY | O_LARGEFILE);
     if (fd < 0)
     {
         if (log_error)
@@ -51,7 +53,7 @@ int mfile_map_read(struct mfile* mf, const char* filepath, int log_error)
         NULL,
         (size_t)(stbuf.st_size),
         PROT_READ,
-        MAP_PRIVATE,
+        MAP_PRIVATE | MAP_NORESERVE,
         fd,
         0);
     if (mf->address == MAP_FAILED)
@@ -97,7 +99,7 @@ int mfile_map_overwrite(struct mfile* mf, int size, const char* filepath)
     /* When truncating the file, it must be expanded again, otherwise writes to
      * the memory will cause SIGBUS.
      * NOTE: If this ever gets ported to non-Linux, see posix_fallocate() */
-    if (posix_fallocate(fd, 0, size) != 0)
+    if (fallocate(fd, 0, 0, size) != 0)
     {
         log_err(
             "Failed to resize file {quote:%s} to {quote:%d}: %s\n",

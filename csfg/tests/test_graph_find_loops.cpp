@@ -30,8 +30,8 @@ TEST_F(NAME, single_loop_to_self)
     int n1 = csfg_graph_add_node(&g, "V1");
     int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n1, cstr_view("5"));
 
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
-    ASSERT_THAT(vec_count(loops), Eq(2));
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
+    ASSERT_EQ(vec_count(loops), 2);
     ASSERT_THAT(vec_get(loops, 0), Pointee(e1));
     ASSERT_THAT(vec_get(loops, 1), Pointee(-1));
 }
@@ -44,8 +44,8 @@ TEST_F(NAME, single_loop_with_two_nodes)
     int e1 = csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("5"));
     int e2 = csfg_graph_add_edge_parse_expr(&g, n2, n1, cstr_view("11"));
 
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
-    ASSERT_THAT(vec_count(loops), Eq(3));
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
+    ASSERT_EQ(vec_count(loops), 3);
     ASSERT_THAT(vec_get(loops, 0), Pointee(e1));
     ASSERT_THAT(vec_get(loops, 1), Pointee(e2));
     ASSERT_THAT(vec_get(loops, 2), Pointee(-1));
@@ -76,8 +76,8 @@ TEST_F(NAME, multiple_overlapping_loops)
     int e6 = csfg_graph_add_edge_parse_expr(&g, n3, n5, cstr_view("3"));
     (void)e1, (void)e3, (void)e5, (void)e6;
 
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
-    ASSERT_THAT(vec_count(loops), Eq(7));
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
+    ASSERT_EQ(vec_count(loops), 7);
     ASSERT_THAT(vec_get(loops, 0), Pointee(e2));
     ASSERT_THAT(vec_get(loops, 1), Pointee(e4));
     ASSERT_THAT(vec_get(loops, 2), Pointee(-1));

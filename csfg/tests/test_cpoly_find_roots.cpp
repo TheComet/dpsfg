@@ -1,4 +1,4 @@
-#include <iomanip>
+#include "csfg/tests/Printers.hpp"
 
 #include "gmock/gmock.h"
 
@@ -11,12 +11,6 @@ extern "C" {
 MATCHER_P3(ComplexEq, real, imag, epsilon, "")
 {
     return abs(arg.real - real) < epsilon && abs(arg.imag - imag) < epsilon;
-}
-
-std::ostream& operator<<(std::ostream& os, const struct csfg_complex& c)
-{
-    os << "(real: " << c.real << ", imag: " << c.imag << ")";
-    return os;
 }
 
 using namespace testing;
@@ -45,7 +39,7 @@ TEST_F(NAME, single_value_has_no_roots)
 
     csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
-    ASSERT_THAT(vec_count(roots), Eq(0));
+    ASSERT_EQ(vec_count(roots), 0);
 }
 
 TEST_F(NAME, simple_root)
@@ -56,7 +50,7 @@ TEST_F(NAME, simple_root)
 
     csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
-    ASSERT_THAT(vec_count(roots), Eq(1));
+    ASSERT_EQ(vec_count(roots), 1);
     ASSERT_THAT(*vec_get(roots, 0), ComplexEq(1.0, 0.0, epsilon));
 }
 
@@ -70,7 +64,7 @@ TEST_F(NAME, two_roots)
     csfg_cpoly_monic(coeffs);
     csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
-    ASSERT_THAT(vec_count(roots), Eq(2));
+    ASSERT_EQ(vec_count(roots), 2);
     EXPECT_THAT(*vec_get(roots, 0), ComplexEq(-0.618034, 0.0, epsilon));
     EXPECT_THAT(*vec_get(roots, 1), ComplexEq(1.6180340, 0.0, epsilon));
 }
@@ -85,7 +79,7 @@ TEST_F(NAME, two_repeated_roots)
     csfg_cpoly_monic(coeffs);
     csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
-    ASSERT_THAT(vec_count(roots), Eq(2));
+    ASSERT_EQ(vec_count(roots), 2);
     EXPECT_THAT(*vec_get(roots, 0), ComplexEq(4.0 / 3.0, 0.0, epsilon));
     EXPECT_THAT(*vec_get(roots, 1), ComplexEq(4.0 / 3.0, 0.0, epsilon));
 }
@@ -101,7 +95,7 @@ TEST_F(NAME, three_repeated_roots)
     csfg_cpoly_monic(coeffs);
     csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
-    ASSERT_THAT(vec_count(roots), Eq(3));
+    ASSERT_EQ(vec_count(roots), 3);
     EXPECT_THAT(*vec_get(roots, 0), ComplexEq(3.0, 0.0, epsilon));
     EXPECT_THAT(*vec_get(roots, 1), ComplexEq(3.0, 0.0, epsilon));
     EXPECT_THAT(*vec_get(roots, 2), ComplexEq(3.0, 0.0, epsilon));

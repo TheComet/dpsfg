@@ -59,6 +59,7 @@ ForEachMacros: [
     ui_for_each_active,
     vec_for_each,
     vec_for_each_r,
+    vec_for_each_range,
     vec_enumerate,
     vec_enumerate_r,
     csfg_graph_for_each_node,
@@ -66,7 +67,8 @@ ForEachMacros: [
     csfg_graph_enumerate_nodes,
     csfg_graph_enumerate_edges,
     csfg_paths_for_each,
-    csfg_paths_enumerate
+    csfg_paths_enumerate,
+    csfg_mat_for_each
 ]
 IncludeBlocks: Regroup
 IncludeCategories:

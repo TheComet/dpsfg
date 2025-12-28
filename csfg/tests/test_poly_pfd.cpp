@@ -1,3 +1,5 @@
+#include "csfg/tests/Printers.hpp"
+
 #include "gmock/gmock.h"
 
 extern "C" {
@@ -18,8 +20,8 @@ MATCHER_P2(
 {
     return ExplainMatchResult(
         AllOf(
-            Field(&csfg_complex::real, DoubleEq(expected_real)),
-            Field(&csfg_complex::imag, DoubleEq(expected_imag))),
+            Field(&csfg_complex::real, DoubleNear(expected_real, 1e-4)),
+            Field(&csfg_complex::imag, DoubleNear(expected_imag, 1e-4))),
         arg,
         result_listener);
 }
@@ -62,6 +64,37 @@ struct NAME : public Test
     struct csfg_pfd_poly* pfd;
 };
 
+TEST_F(NAME, constant_expr)
+{
+    csfg_cpoly_push(&num, csfg_complex(42, 0));
+
+    ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), -1);
+}
+
+TEST_F(NAME, one_pole)
+{
+    /*
+     *  7
+     * ---
+     * s+2
+     */
+    csfg_cpoly_push(&num, csfg_complex(7, 0));
+    csfg_rpoly_push(&den, csfg_complex(-2, 0));
+
+    ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
+
+    /*
+     *  7
+     * ---
+     * s+2
+     */
+    ASSERT_EQ(vec_count(pfd), 1);
+    ASSERT_THAT(vec_get(pfd, 0), Pointee(Field(&csfg_pfd::A, ComplexEq(7, 0))));
+    ASSERT_THAT(
+        vec_get(pfd, 0), Pointee(Field(&csfg_pfd::p, ComplexEq(-2, 0))));
+    ASSERT_THAT(vec_get(pfd, 0), Pointee(Field(&csfg_pfd::n, 1)));
+}
+
 TEST_F(NAME, example1)
 {
     /*
@@ -74,15 +107,30 @@ TEST_F(NAME, example1)
     csfg_rpoly_push(&den, csfg_complex(1, 0));
     csfg_rpoly_push(&den, csfg_complex(-2, 0));
 
-    ASSERT_THAT(
-        csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), Eq(0));
+    ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
+
+    /*
+     *   A1    A2    A1*s + 2*A1 + A2*s - A2
+     * = --- + --- = -----------------------
+     *   s-1   s+2         (s-1)(s+2)
+     *
+     *   (A1+A2)s + (2*A1-A2)
+     * = --------------------
+     *       (s-1)(s+2)
+     *
+     * s^0: -7 = 2*A1 - A2
+     * s^1:  1 = A1 + A2
+     *
+     *   [-7] = [2 -1][A1]
+     *   [ 1]   [1  1][A2]
+     */
 
     /*
      * -2     3
      * --- + ---
      * s-1   s+2
      */
-    ASSERT_THAT(vec_count(pfd), Eq(2));
+    ASSERT_EQ(vec_count(pfd), 2);
     ASSERT_THAT(
         vec_get(pfd, 0),
         Pointee(AllOf(
@@ -100,24 +148,23 @@ TEST_F(NAME, example1)
 TEST_F(NAME, example2)
 {
     /*
-     *     1
-     * ----------
-     * s(s-1)(s+1)
+     *     1         A1   A2    A3
+     * ---------- = --- + --- + ---
+     * s(s-1)(s+1)  s-0   s-1   s+1
      */
     csfg_cpoly_push(&num, csfg_complex(1, 0));
     csfg_rpoly_push(&den, csfg_complex(0, 0));
     csfg_rpoly_push(&den, csfg_complex(1, 0));
     csfg_rpoly_push(&den, csfg_complex(-1, 0));
 
-    ASSERT_THAT(
-        csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), Eq(0));
+    ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
 
     /*
      * -1   1/2   1/2
      * -- + --- + ---
      *  s   s-1   s+1
      */
-    ASSERT_THAT(vec_count(pfd), Eq(3));
+    ASSERT_EQ(vec_count(pfd), 3);
     ASSERT_THAT(
         vec_get(pfd, 0),
         Pointee(AllOf(
@@ -150,15 +197,28 @@ TEST_F(NAME, example3)
     csfg_rpoly_push(&den, csfg_complex(1, 0));
     csfg_rpoly_push(&den, csfg_complex(-2, 0));
 
-    ASSERT_THAT(
-        csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), Eq(0));
+    ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
 
     /*
-     *   1/3     1/9   -1/9 
+     *   A1      A2    A3    A1(s+2) + A2(s^2+s-2) + A3(s^2-2s+1)
+     * ------- + --- + --- = ------------------------------------
+     * (s-1)^2   s-1   s+2               (s-1)^2(s+2)
+     *
+     * s^0: 1 = 2*A1 - 2*A2 + A3
+     * s^1: 0 = A1 + A2 - 2*A3
+     * s^2: 0 = A2 + A3
+     *
+     * [1]   [2 -2  1][A1]
+     * [0] = [1  1 -2][A2]
+     * [0]   [0  1  1][A3]
+     */
+
+    /*
+     *   1/3     1/9   -1/9
      * ------- + --- + -----
      * (s-1)^2   s+2   (s-1)
      */
-    ASSERT_THAT(vec_count(pfd), Eq(3));
+    ASSERT_EQ(vec_count(pfd), 3);
     ASSERT_THAT(
         vec_get(pfd, 0),
         Pointee(AllOf(
@@ -176,6 +236,39 @@ TEST_F(NAME, example3)
         Pointee(AllOf(
             Field(&csfg_pfd::A, ComplexEq(-1.0 / 9.0, 0)),
             Field(&csfg_pfd::p, ComplexEq(1, 0)),
+            Field(&csfg_pfd::n, Eq(1)))));
+}
+
+TEST_F(NAME, example5)
+{
+    /*
+     *     1
+     * ----------
+     * (s+3)(s+1)
+     */
+    csfg_cpoly_push(&num, csfg_complex(1, 0));
+    csfg_rpoly_push(&den, csfg_complex(-3, 0));
+    csfg_rpoly_push(&den, csfg_complex(-1, 0));
+
+    ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
+
+    /*
+     * 1/2   -1/2
+     * --- + ----
+     * s+3    s+1
+     */
+    ASSERT_EQ(vec_count(pfd), 2);
+    ASSERT_THAT(
+        vec_get(pfd, 0),
+        Pointee(AllOf(
+            Field(&csfg_pfd::A, ComplexEq(-0.5, 0)),
+            Field(&csfg_pfd::p, ComplexEq(-3, 0)),
+            Field(&csfg_pfd::n, Eq(1)))));
+    ASSERT_THAT(
+        vec_get(pfd, 1),
+        Pointee(AllOf(
+            Field(&csfg_pfd::A, ComplexEq(0.5, 0)),
+            Field(&csfg_pfd::p, ComplexEq(-1, 0)),
             Field(&csfg_pfd::n, Eq(1)))));
 }
 
@@ -197,15 +290,14 @@ TEST_F(NAME, example4)
     csfg_rpoly_push(&den, csfg_complex(1, 0));
     csfg_rpoly_push(&den, csfg_complex(-2, 0));
 
-    ASSERT_THAT(
-        csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), Eq(0));
+    ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
 
     /*
      *    4         2         7        3     1/2
      * ------- + ------- + ------- + ----- + ---
      * (s-1)^4   (s-1)^3   (s-1)^2   (s-1)   s+2
      */
-    ASSERT_THAT(vec_count(pfd), Eq(5));
+    ASSERT_EQ(vec_count(pfd), 5);
     ASSERT_THAT(
         vec_get(pfd, 0),
         Pointee(AllOf(
@@ -236,4 +328,42 @@ TEST_F(NAME, example4)
             Field(&csfg_pfd::A, ComplexEq(0.5, 0)),
             Field(&csfg_pfd::p, ComplexEq(-2, 0)),
             Field(&csfg_pfd::n, Eq(1)))));
+}
+
+TEST_F(NAME, lp2_repeated_roots)
+{
+    /*
+     *       k*wp^2                  k=1
+     * --------------------   with   wp=1
+     * s^2 + s*wp/qp + wp^2          qp=0.5
+     *
+     *        1           A1        A2      A1 + A2*s + A2
+     * -------------- = ------- + ----- = ----------------
+     *  s^2 + 2*s + 1   (s+1)^2   (s+1)       (s+1)^2
+     *
+     *  s^1: 0 = A2
+     *  s^0: 1 = A1 + A2
+     */
+    struct csfg_cpoly* den_coeffs;
+    csfg_cpoly_init(&den_coeffs);
+    csfg_cpoly_push(&num, csfg_complex(1, 0));
+    csfg_cpoly_push(&den_coeffs, csfg_complex(1, 0));
+    csfg_cpoly_push(&den_coeffs, csfg_complex(1 / 0.5, 0));
+    csfg_cpoly_push(&den_coeffs, csfg_complex(1, 0));
+    csfg_cpoly_find_roots(&den, den_coeffs, 100, 1e-6);
+    csfg_cpoly_deinit(den_coeffs);
+
+    ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
+
+    /*    1
+     * -------
+     * (s+1)^2
+     */
+    ASSERT_EQ(vec_count(pfd), 1);
+    ASSERT_THAT(
+        vec_get(pfd, 0),
+        Pointee(AllOf(
+            Field(&csfg_pfd::A, ComplexEq(1, 0)),
+            Field(&csfg_pfd::p, ComplexEq(-1, 0)),
+            Field(&csfg_pfd::n, Eq(2)))));
 }

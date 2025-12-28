@@ -1,4 +1,4 @@
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/graph/graph.h"
@@ -76,10 +76,10 @@ TEST_F(NAME, andersen_ang_example2)
     csfg_graph_add_edge_parse_expr(&g, n3, n2, cstr_view("H6"));
     csfg_graph_add_edge_parse_expr(&g, n4, n3, cstr_view("H7"));
 
-    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n8), Eq(0));
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, n1, n8), 0);
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
     int expr = csfg_graph_mason(&g, &pool, paths, loops);
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
     // clang-format off
     double G1 = 3;  csfg_var_table_set_lit(&vt, cstr_view("G1"), G1);
@@ -94,10 +94,10 @@ TEST_F(NAME, andersen_ang_example2)
     double H3 = 31; csfg_var_table_set_lit(&vt, cstr_view("H3"), H3);
     double H6 = 37; csfg_var_table_set_lit(&vt, cstr_view("H6"), H6);
     double H7 = 41; csfg_var_table_set_lit(&vt, cstr_view("H7"), H7);
-    ASSERT_THAT(csfg_expr_eval(pool, expr, &vt), DoubleEq(
+    ASSERT_DOUBLE_EQ(csfg_expr_eval(pool, expr, &vt), 
         (G5*G6*G7*G8*(1 - G2*H2 - G3*H3) + G1*G2*G3*G4*(1 - G6*H6 - G7*H7)) /
         (1 - (G2*H2 + G3*H3 + G6*H6 + G7*H7) + (G2*H2*G6*H6 + G2*H2*G7*H7 + G3*H3*G6*H6 + G3*H3*G7*H7))
-    ));
+    );
     // clang-format on
 }
 
@@ -143,10 +143,10 @@ TEST_F(NAME, active_lowpass_filter)
     csfg_graph_add_edge_parse_expr(&g, V4, Vout, cstr_view("A"));
     csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("G2+s*C"));
 
-    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), 0);
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
     int expr = csfg_graph_mason(&g, &pool, paths, loops);
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
     // clang-format off
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G1 + G2 + s*C"));
@@ -157,9 +157,9 @@ TEST_F(NAME, active_lowpass_filter)
     double s  = 11; csfg_var_table_set_lit(&vt, cstr_view("s"), s);
     double A  = 13; csfg_var_table_set_lit(&vt, cstr_view("A"), A);
     double z2 = 1.0 / (G1 + G2 + s*C);
-    ASSERT_THAT(csfg_expr_eval(pool, expr, &vt), DoubleEq(
+    ASSERT_DOUBLE_EQ(csfg_expr_eval(pool, expr, &vt), 
         (-G1*z2*A) /
         (1 + A*(G2+s*C)*z2)
-    ));
+    );
     // clang-format on
 }

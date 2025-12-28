@@ -1,4 +1,4 @@
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/graph/graph.h"
@@ -61,9 +61,9 @@ TEST_F(NAME, simple)
      *    s     a
      */
     int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/s - 1/a)"));
-    ASSERT_THAT(expr, Ge(0));
-    ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
+    ASSERT_GE(expr, 0);
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
 }
 
 TEST_F(NAME, light)
@@ -76,12 +76,12 @@ TEST_F(NAME, light)
      *   s-1   a+4
      */
     int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/(s-1)-1/(a+4))"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
     csfg_expr_opt_remove_useless_ops(&pool1);
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
-    ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
 }
 
 TEST_F(NAME, medium)
@@ -98,12 +98,12 @@ TEST_F(NAME, medium)
      *            s^2 + 2s + a + 3                    s^2 + 2s + a + 3
      */
     int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/(s-1)^2-1/(a+4))"));
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
     csfg_expr_opt_remove_useless_ops(&pool1);
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
-    ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
 }
 
 TEST_F(NAME, harder)
@@ -137,8 +137,8 @@ TEST_F(NAME, harder)
     csfg_expr_opt_remove_useless_ops(&pool1);
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
-    ASSERT_THAT(
-        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), Eq(0));
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
 
 #if 0
     for (std::size_t i = 0; i != tfc.numerator.size(); ++i)
@@ -162,8 +162,8 @@ TEST_F(NAME, harder)
 
     Reference<VariableTable> vt = new VariableTable;
     vt->set("a", 7.2);
-    ASSERT_THAT(tfc.numerator.size(), Eq(6u));
-    ASSERT_THAT(tfc.denominator.size(), Eq(6u));
+    ASSERT_EQ(tfc.numerator.size(), 6u);
+    ASSERT_EQ(tfc.denominator.size(), 6u);
 
     ASSERT_THAT(tfc.numerator[0]->evaluate(vt), DoubleEq(0.0));
     ASSERT_THAT(tfc.numerator[1]->evaluate(vt), DoubleEq(0.0));
@@ -231,8 +231,8 @@ TEST_F(NAME, compute_transfer_function)
     Reference<VariableTable> vt = new VariableTable;
     vt->set("a", 7.2);
     TransferFunction tf = TFManipulator::calculateTransferFunction(tfc, vt);
-    ASSERT_THAT(tf.roots(), Eq(5));
-    ASSERT_THAT(tf.poles(), Eq(5));
+    ASSERT_EQ(tf.roots(), 5);
+    ASSERT_EQ(tf.poles(), 5);
 #endif
 }
 
@@ -281,15 +281,15 @@ TEST_F(NAME, inverting_amplifier)
     csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("G2"));
 
     int expr;
-    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), 0);
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
     expr = csfg_graph_mason(&g, &pool1, paths, loops);
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&pool1, expr, &vt), Eq(0));
+    ASSERT_EQ(csfg_expr_insert_substitutions(&pool1, expr, &vt), 0);
     csfg_expr_opt_remove_useless_ops(&pool1);
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
@@ -300,9 +300,9 @@ TEST_F(NAME, inverting_amplifier)
      * G2*(G2+(A*G2))   G2*G2 + G2*G2*A   G2*G2    G2
      */
     expr = csfg_expr_apply_limits(pool1, expr, &vt, &pool2);
-    ASSERT_THAT(expr, Ge(0));
-    ASSERT_THAT(
-        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), Eq(0));
+    ASSERT_GE(expr, 0);
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), 0);
 }
 
 TEST_F(NAME, integrator)
@@ -346,20 +346,20 @@ TEST_F(NAME, integrator)
     csfg_graph_add_edge_parse_expr(&g, Vout, I2, cstr_view("s*C"));
 
     int expr;
-    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), 0);
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
     expr = csfg_graph_mason(&g, &pool1, paths, loops);
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&pool1, expr, &vt), Eq(0));
+    ASSERT_EQ(csfg_expr_insert_substitutions(&pool1, expr, &vt), 0);
     csfg_expr_opt_remove_useless_ops(&pool1);
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
 
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
     /*
      *           -G1*(G2+s*C)*A           |        -G1*(G2+s*C)   -G1
      * ---------------------------------- |      = ------------ = ---
@@ -372,8 +372,8 @@ TEST_F(NAME, integrator)
      * -----------------------------------------
      * G2^2 + 2*G2^2*C*(C+C*A)*s + C*(C+C*A)*s^2
      */
-    ASSERT_THAT(
-        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), Eq(0));
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), 0);
 }
 
 TEST_F(NAME, active_lowpass_filter)
@@ -431,15 +431,15 @@ TEST_F(NAME, active_lowpass_filter)
      * 1 - L1   1 + A*(G2+s*C)/(G1+G2+s*C)
      */
     int expr;
-    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), Eq(0));
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
+    ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, Vin, Vout), 0);
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
     expr = csfg_graph_mason(&g, &pool1, paths, loops);
-    ASSERT_THAT(expr, Ge(0));
+    ASSERT_GE(expr, 0);
 
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("s*C + G2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_THAT(csfg_expr_insert_substitutions(&pool1, expr, &vt), Eq(0));
+    ASSERT_EQ(csfg_expr_insert_substitutions(&pool1, expr, &vt), 0);
     csfg_expr_opt_remove_useless_ops(&pool1);
     csfg_expr_opt_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
@@ -456,6 +456,6 @@ TEST_F(NAME, active_lowpass_filter)
      * (G2+s*C)*(G2+s*C)
      */
 
-    ASSERT_THAT(
-        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), Eq(0));
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool2, expr, cstr_view("s"), &pool3, &tf), 0);
 }

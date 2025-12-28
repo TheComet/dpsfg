@@ -1,4 +1,4 @@
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -31,19 +31,19 @@ TEST_F(NAME, product)
 {
     int r1 = csfg_expr_parse(&p1, cstr_view("-(a*b)"));
     int r2 = csfg_expr_parse(&p2, cstr_view("-a*b"));
-    ASSERT_THAT(r1, Ge(0));
-    ASSERT_THAT(r2, Ge(0));
-    ASSERT_THAT(csfg_expr_op_lower_negates(&p1), Gt(0));
-    ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
+    ASSERT_GE(r1, 0);
+    ASSERT_GE(r2, 0);
+    ASSERT_GT(csfg_expr_op_lower_negates(&p1), 0);
+    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, power)
 {
     int r1 = csfg_expr_parse(&p1, cstr_view("-s^a"));
     int r2 = csfg_expr_parse(&p2, cstr_view("(-1)*s^a"));
-    ASSERT_THAT(r1, Ge(0));
-    ASSERT_THAT(r2, Ge(0));
+    ASSERT_GE(r1, 0);
+    ASSERT_GE(r2, 0);
     csfg_expr_opt_fold_constants(&p2);
-    ASSERT_THAT(csfg_expr_op_lower_negates(&p1), Gt(0));
-    ASSERT_THAT(csfg_expr_equal(p1, r1, p2, r2), IsTrue());
+    ASSERT_GT(csfg_expr_op_lower_negates(&p1), 0);
+    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }

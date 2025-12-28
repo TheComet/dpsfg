@@ -26,6 +26,11 @@ static double csfg_complex_phase(const struct csfg_complex c)
     return atan2(c.imag, c.real);
 }
 
+static int csfg_complex_eq(struct csfg_complex a, struct csfg_complex b)
+{
+    return a.real == b.real && a.imag == b.imag;
+}
+
 static struct csfg_complex
 csfg_complex_add(struct csfg_complex a, struct csfg_complex b)
 {
@@ -36,6 +41,11 @@ static struct csfg_complex
 csfg_complex_sub(struct csfg_complex a, struct csfg_complex b)
 {
     return csfg_complex(a.real - b.real, a.imag - b.imag);
+}
+
+static struct csfg_complex csfg_complex_neg(struct csfg_complex c)
+{
+    return csfg_complex(-c.real, -c.imag);
 }
 
 static struct csfg_complex

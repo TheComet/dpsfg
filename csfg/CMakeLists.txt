@@ -70,6 +70,9 @@ set (csfg_SOURCES
     "src/symbolic/var_table.c"
 
     # numeric
+    "src/numeric/mat.c"
+    "src/numeric/mat_solve_linear_system_lu.c"
+    "src/numeric/mat_lu_decomposition.c"
     "src/numeric/poly.c"
     "src/numeric/poly_find_roots.c"
     "src/numeric/poly_pfd.c"
@@ -91,10 +94,16 @@ if (WIN32)
     endif ()
 elseif (LINUX)
     list (APPEND csfg_SOURCES
-        "src/platform/mfile_posix.c")
+        "src/platform/mfile_linux.c")
     if (CSFG_BACKTRACE)
         list (APPEND csfg_SOURCES
             "src/platform/backtrace_linux.c")
+    endif ()
+elseif (UNIX)
+    list (APPEND csfg_SOURCES
+        "src/platform/mfile_posix.c")
+    if (CSFG_BACKTRACE)
+        message (FATAL_ERROR "backtraces are not yet implemented for this platform. Build with -DCSFG_BACKTRACE=OFF, or implement it yourself ;)")
     endif ()
 endif ()
 
@@ -124,6 +133,7 @@ endif ()
 if (CSFG_TESTS)
     target_sources (dpsfg-tests INTERFACE
         "tests/LogHelper.cpp"
+        "tests/Printers.cpp"
 
         # symbolic
         "tests/test_expr.cpp"
@@ -157,6 +167,9 @@ if (CSFG_TESTS)
         "tests/test_complex.cpp"
         "tests/test_cpoly_eval.cpp"
         "tests/test_cpoly_find_roots.cpp"
+        "tests/test_mat.cpp"
+        "tests/test_mat_lu_decomposition.cpp"
+        "tests/test_mat_solve_linear_system_lu.cpp"
         "tests/test_poly_eval_inverse_laplace.cpp"
         "tests/test_poly_pfd.cpp"
         "tests/test_tf_eval.cpp"

@@ -72,21 +72,21 @@ TEST_F(NAME, andersen_ang_example2)
     int H7 = csfg_graph_add_edge_parse_expr(&g, n4, n3, cstr_view("H7"));
     (void)G1, (void)G4, (void)G5, (void)G8;
 
-    ASSERT_THAT(csfg_graph_find_forward_paths(&g, &paths, n1, n8), Eq(0));
-    ASSERT_THAT(csfg_graph_find_loops(&g, &loops), Eq(0));
-    ASSERT_THAT(vec_count(paths), Eq(10));
-    ASSERT_THAT(vec_count(loops), Eq(12));
+    ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, n1, n8), 0);
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
+    ASSERT_EQ(vec_count(paths), 10);
+    ASSERT_EQ(vec_count(loops), 12);
 
     csfg_path path;
     path.edge_idxs = vec_get(paths, 0); // G1*G2*G3*G4
 
     ASSERT_THAT(
         csfg_graph_find_nontouching(&g, &nontouching, paths, path), Eq(0));
-    ASSERT_THAT(vec_count(nontouching), Eq(0));
+    ASSERT_EQ(vec_count(nontouching), 0);
 
     ASSERT_THAT(
         csfg_graph_find_nontouching(&g, &nontouching, loops, path), Eq(0));
-    ASSERT_THAT(vec_count(nontouching), Eq(6));
+    ASSERT_EQ(vec_count(nontouching), 6);
     ASSERT_THAT(vec_get(nontouching, 0), Pointee(G6));
     ASSERT_THAT(vec_get(nontouching, 1), Pointee(H6));
     ASSERT_THAT(vec_get(nontouching, 2), Pointee(-1));
@@ -97,13 +97,11 @@ TEST_F(NAME, andersen_ang_example2)
     path.edge_idxs = vec_get(paths, 5); // G5*G6*G7*G8
     csfg_path_vec_clear(nontouching);
 
-    ASSERT_THAT(
-        csfg_graph_find_nontouching(&g, &nontouching, paths, path), Eq(0));
-    ASSERT_THAT(vec_count(nontouching), Eq(0));
+    ASSERT_EQ(csfg_graph_find_nontouching(&g, &nontouching, paths, path), 0);
+    ASSERT_EQ(vec_count(nontouching), 0);
 
-    ASSERT_THAT(
-        csfg_graph_find_nontouching(&g, &nontouching, loops, path), Eq(0));
-    ASSERT_THAT(vec_count(nontouching), Eq(6));
+    ASSERT_EQ(csfg_graph_find_nontouching(&g, &nontouching, loops, path), 0);
+    ASSERT_EQ(vec_count(nontouching), 6);
     ASSERT_THAT(vec_get(nontouching, 0), Pointee(G2));
     ASSERT_THAT(vec_get(nontouching, 1), Pointee(H2));
     ASSERT_THAT(vec_get(nontouching, 2), Pointee(-1));

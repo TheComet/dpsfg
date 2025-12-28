@@ -1,3 +1,4 @@
+#include "csfg/numeric/mat.h"
 #include "csfg/numeric/poly.h"
 
 /* -------------------------------------------------------------------------- */
@@ -30,67 +31,102 @@ static int push_unique_roots(
 }
 
 /* -------------------------------------------------------------------------- */
-static struct csfg_complex heaviside_coverup(
-    struct csfg_pfd_poly*    pfd_terms,
-    const struct csfg_cpoly* numerator,
-    int                      covered_idx)
+static int push_repeated_roots(struct csfg_pfd_poly** pfd_terms)
 {
-    int                 i, first;
-    struct csfg_pfd*    term;
-    struct csfg_complex den;
-
-    struct csfg_complex p = vec_get(pfd_terms, covered_idx)->p;
-    struct csfg_complex num = csfg_cpoly_eval(numerator, p);
-
-    first = 1;
-    vec_enumerate (pfd_terms, i, term)
+    struct csfg_pfd* term;
+    vec_for_each_r (*pfd_terms, term)
     {
-        struct csfg_complex pole;
-        if (i == covered_idx)
-            continue;
-
-        pole = csfg_complex_sub(p, term->p);
-        if (first)
-            first = 0, den = pole;
-        else
-            den = csfg_complex_mul(den, pole);
-    }
-
-    return csfg_complex_div(num, den);
-}
-
-/* -------------------------------------------------------------------------- */
-static int factor_in_root(struct csfg_pfd_poly** pfd_terms, int index_to_factor)
-{
-    int              i;
-    struct csfg_pfd *term, *other_term;
-    struct csfg_pfd* factor_term = vec_get(*pfd_terms, index_to_factor);
-
-    vec_enumerate_r (*pfd_terms, i, term)
-    {
-        if (i == index_to_factor)
-            continue;
-
-        if (term->p.real == factor_term->p.real &&
-            term->p.imag == factor_term->p.imag)
+        int n = term->n;
+        while (n-- > 1)
         {
-            term->n++;
-            continue;
+            struct csfg_pfd* repeat = csfg_pfd_poly_emplace(pfd_terms);
+            if (repeat == NULL)
+                return -1;
+            repeat->n = n;
+            repeat->p = term->p;
+            repeat->A = csfg_complex(NAN, NAN);
         }
-
-        other_term = csfg_pfd_poly_emplace(pfd_terms);
-        if (other_term == NULL)
-            return -1;
-        other_term->p = factor_term->p;
-        other_term->n = 1;
-
-        other_term->A =
-            csfg_complex_div(term->A, csfg_complex_sub(other_term->p, term->p));
-        term->A =
-            csfg_complex_div(term->A, csfg_complex_sub(term->p, other_term->p));
     }
 
     return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+static void expand_term(
+    struct csfg_cpoly*          poly,
+    const struct csfg_pfd_poly* pfd_terms,
+    int                         term_idx)
+{
+    int                    i, c;
+    const struct csfg_pfd *term, *my_term;
+
+    CSFG_DEBUG_ASSERT(vec_count(pfd_terms) >= 2);
+
+    my_term = vec_get(pfd_terms, term_idx);
+    vec_enumerate (pfd_terms, i, term)
+    {
+        if (i == term_idx)
+            continue;
+
+        if (vec_count(poly) == 0)
+            csfg_cpoly_push_no_realloc(poly, csfg_complex_neg(term->p));
+
+        if (csfg_complex_eq(my_term->p, term->p))
+            if (my_term->n >= term->n)
+                continue;
+
+        if (vec_count(poly) == 1)
+        {
+            csfg_cpoly_push_no_realloc(poly, csfg_complex(1, 0));
+            continue;
+        }
+
+        csfg_cpoly_push_no_realloc(poly, *vec_last(poly));
+        for (c = vec_count(poly) - 2; c >= 1; --c)
+        {
+            struct csfg_complex c0 = *vec_get(poly, c - 1);
+            struct csfg_complex c1 = *vec_get(poly, c);
+            *vec_get(poly, c) =
+                csfg_complex_sub(c0, csfg_complex_mul(c1, term->p));
+        }
+        *vec_first(poly) =
+            csfg_complex_neg(csfg_complex_mul(*vec_first(poly), term->p));
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static int
+populate_matrix(struct csfg_mat* mat, const struct csfg_pfd_poly* pfd_terms)
+{
+    int                        r, c;
+    struct csfg_cpoly*         poly;
+    const struct csfg_pfd*     term;
+    const struct csfg_complex* coeff;
+
+    csfg_cpoly_init(&poly);
+    if (csfg_cpoly_realloc(&poly, csfg_mat_cols(mat)) != 0)
+        return -1;
+
+    csfg_mat_zero(mat);
+    vec_enumerate (pfd_terms, c, term)
+    {
+        csfg_cpoly_clear(poly);
+        expand_term(poly, pfd_terms, c);
+        vec_enumerate (poly, r, coeff)
+            *csfg_mat_get(mat, r, c) = *coeff;
+    }
+
+    csfg_cpoly_deinit(poly);
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+static int eliminate_zero_terms(struct csfg_pfd* term, void* user)
+{
+    (void)user;
+    if (term->A.real == 0.0 && term->A.imag == 0.0)
+        return VEC_ERASE;
+    return VEC_RETAIN;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -99,26 +135,68 @@ int csfg_rpoly_partial_fraction_decomposition(
     const struct csfg_cpoly* numerator,
     const struct csfg_rpoly* denominator)
 {
-    int              i;
+    struct csfg_mat *in, *out, *L, *U;
     struct csfg_pfd* term;
+    int              pfd_term_count, i;
+
+    csfg_mat_init(&in);
+    csfg_mat_init(&out);
+    csfg_mat_init(&L);
+    csfg_mat_init(&U);
 
     csfg_pfd_poly_clear(*pfd_terms);
+    if (vec_count(numerator) >= vec_count(denominator) + 1)
+        return log_err(
+            "Partial fraction decomposition on reducible rational functions is "
+            "currently not supported\n");
 
     if (push_unique_roots(pfd_terms, denominator) != 0)
-        return -1;
+        goto fail;
+    if (push_repeated_roots(pfd_terms) != 0)
+        goto fail;
 
-    vec_enumerate (*pfd_terms, i, term)
-        term->A = heaviside_coverup(*pfd_terms, numerator, i);
-
-    vec_enumerate_r (*pfd_terms, i, term)
+    if (vec_count(*pfd_terms) == 1)
     {
-        int degree = term->n;
-        while (degree-- > 1)
+        vec_first(*pfd_terms)->A = *vec_first(numerator);
+    }
+    else
+    {
+        pfd_term_count = vec_count(*pfd_terms);
+        if (csfg_mat_realloc(&in, pfd_term_count, pfd_term_count) != 0)
+            goto fail;
+
+        if (populate_matrix(in, *pfd_terms) != 0)
+            goto fail;
+        if (csfg_mat_lu_decomposition(&L, &U, in) != 0)
+            goto fail;
+
+        if (csfg_mat_realloc(&in, pfd_term_count, 1) != 0 ||
+            csfg_mat_realloc(&out, pfd_term_count, 1) != 0)
+            goto fail;
+        for (i = 0; i != pfd_term_count; ++i)
         {
-            if (factor_in_root(pfd_terms, i) != 0)
-                return -1;
+            struct csfg_complex value = i < vec_count(numerator)
+                                            ? *vec_get(numerator, i)
+                                            : csfg_complex(0, 0);
+            *csfg_mat_get(in, i, 0) = value;
         }
+        csfg_mat_solve_linear_lu(out, in, L, U);
+        vec_enumerate (*pfd_terms, i, term)
+            term->A = *csfg_mat_get(out, i, 0);
     }
 
+    csfg_pfd_poly_retain(*pfd_terms, eliminate_zero_terms, NULL);
+
+    csfg_mat_deinit(U);
+    csfg_mat_deinit(L);
+    csfg_mat_deinit(out);
+    csfg_mat_deinit(in);
     return 0;
+
+fail:
+    csfg_mat_deinit(U);
+    csfg_mat_deinit(L);
+    csfg_mat_deinit(out);
+    csfg_mat_deinit(in);
+    return -1;
 }

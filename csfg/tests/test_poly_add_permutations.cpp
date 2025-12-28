@@ -1,6 +1,6 @@
 #include "csfg/tests/PolyHelper.hpp"
 
-#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -39,7 +39,7 @@ TEST_F(NAME, add_0_0)
     csfg_poly_expr_push(&p1, csfg_coeff_expr(0.0, -1));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(0.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 0.0));
 }
@@ -50,7 +50,7 @@ TEST_F(NAME, add_0a_0)
         &p1, csfg_coeff_expr(0.0, csfg_expr_var(&pool, cstr_view("a"))));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(0.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 0.0));
 }
@@ -61,7 +61,7 @@ TEST_F(NAME, add_0_0b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(0.0, csfg_expr_var(&pool, cstr_view("a"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 0.0));
 }
@@ -73,7 +73,7 @@ TEST_F(NAME, add_0a_0b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(0.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 0.0));
 }
@@ -83,7 +83,7 @@ TEST_F(NAME, add_1_1)
     csfg_poly_expr_push(&p1, csfg_coeff_expr(1.0, -1));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 2.0));
 }
@@ -94,7 +94,7 @@ TEST_F(NAME, add_1a_1)
         &p1, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("a"))));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "a+1"));
 }
@@ -105,7 +105,7 @@ TEST_F(NAME, add_1_1b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "1+b"));
 }
@@ -117,7 +117,7 @@ TEST_F(NAME, add_1a_1b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "a+b"));
 }
@@ -127,7 +127,7 @@ TEST_F(NAME, add_1_3)
     csfg_poly_expr_push(&p1, csfg_coeff_expr(1.0, -1));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 4.0));
 }
@@ -138,7 +138,7 @@ TEST_F(NAME, add_1a_3)
         &p1, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("a"))));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "a+3"));
 }
@@ -149,7 +149,7 @@ TEST_F(NAME, add_1_3b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(3.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "1+3*b"));
 }
@@ -161,7 +161,7 @@ TEST_F(NAME, add_1a_3b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(3.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "a+3*b"));
 }
@@ -171,7 +171,7 @@ TEST_F(NAME, add_2_1)
     csfg_poly_expr_push(&p1, csfg_coeff_expr(2.0, -1));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 3.0));
 }
@@ -182,7 +182,7 @@ TEST_F(NAME, add_2a_1)
         &p1, csfg_coeff_expr(2.0, csfg_expr_var(&pool, cstr_view("a"))));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2*a+1"));
 }
@@ -193,7 +193,7 @@ TEST_F(NAME, add_2_1b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2+b"));
 }
@@ -205,7 +205,7 @@ TEST_F(NAME, add_2a_1b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2*a+b"));
 }
@@ -215,7 +215,7 @@ TEST_F(NAME, add_2_3)
     csfg_poly_expr_push(&p1, csfg_coeff_expr(2.0, -1));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 5.0));
 }
@@ -226,7 +226,7 @@ TEST_F(NAME, add_2a_3)
         &p1, csfg_coeff_expr(2.0, csfg_expr_var(&pool, cstr_view("a"))));
     csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2*a+3"));
 }
@@ -237,7 +237,7 @@ TEST_F(NAME, add_2_3b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(3.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2+3*b"));
 }
@@ -249,7 +249,7 @@ TEST_F(NAME, add_2a_3b)
     csfg_poly_expr_push(
         &p2, csfg_coeff_expr(3.0, csfg_expr_var(&pool, cstr_view("b"))));
 
-    ASSERT_THAT(csfg_poly_expr_add(&pool, &out, p1, p2), Eq(0));
+    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
     ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2*a+3*b"));
 }
