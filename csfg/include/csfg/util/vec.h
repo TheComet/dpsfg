@@ -411,7 +411,7 @@
  * @return A pointer to the element. See warning and use with caution.
  * Vector must not be empty.
  */
-#define vec_get(v, i) (&(v)->data[(i)])
+#define vec_get(v, i) ((v)->data + (i))
 
 /*!
  * @brief Returns the nth last element of the vector, starting at count - 1.

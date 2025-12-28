@@ -67,8 +67,10 @@ struct NAME : public Test
 TEST_F(NAME, constant_expr)
 {
     csfg_cpoly_push(&num, csfg_complex(42, 0));
+    csfg_pfd_poly_push(&pfd, {});  // we test if the pfd is cleared
 
     ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), -1);
+    ASSERT_EQ(vec_count(pfd), 0);
 }
 
 TEST_F(NAME, one_pole)
@@ -153,8 +155,8 @@ TEST_F(NAME, example2)
      * s(s-1)(s+1)  s-0   s-1   s+1
      */
     csfg_cpoly_push(&num, csfg_complex(1, 0));
-    csfg_rpoly_push(&den, csfg_complex(0, 0));
     csfg_rpoly_push(&den, csfg_complex(1, 0));
+    csfg_rpoly_push(&den, csfg_complex(0, 0));
     csfg_rpoly_push(&den, csfg_complex(-1, 0));
 
     ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
@@ -168,14 +170,14 @@ TEST_F(NAME, example2)
     ASSERT_THAT(
         vec_get(pfd, 0),
         Pointee(AllOf(
-            Field(&csfg_pfd::A, ComplexEq(-1, 0)),
-            Field(&csfg_pfd::p, ComplexEq(0, 0)),
+            Field(&csfg_pfd::A, ComplexEq(0.5, 0)),
+            Field(&csfg_pfd::p, ComplexEq(1, 0)),
             Field(&csfg_pfd::n, Eq(1)))));
     ASSERT_THAT(
         vec_get(pfd, 1),
         Pointee(AllOf(
-            Field(&csfg_pfd::A, ComplexEq(0.5, 0)),
-            Field(&csfg_pfd::p, ComplexEq(1, 0)),
+            Field(&csfg_pfd::A, ComplexEq(-1, 0)),
+            Field(&csfg_pfd::p, ComplexEq(0, 0)),
             Field(&csfg_pfd::n, Eq(1)))));
     ASSERT_THAT(
         vec_get(pfd, 2),
@@ -253,7 +255,7 @@ TEST_F(NAME, example5)
     ASSERT_EQ(csfg_rpoly_partial_fraction_decomposition(&pfd, num, den), 0);
 
     /*
-     * 1/2   -1/2
+     * -1/2   1/2
      * --- + ----
      * s+3    s+1
      */
@@ -307,26 +309,26 @@ TEST_F(NAME, example4)
     ASSERT_THAT(
         vec_get(pfd, 1),
         Pointee(AllOf(
+            Field(&csfg_pfd::A, ComplexEq(0.5, 0)),
+            Field(&csfg_pfd::p, ComplexEq(-2, 0)),
+            Field(&csfg_pfd::n, Eq(1)))));
+    ASSERT_THAT(
+        vec_get(pfd, 2),
+        Pointee(AllOf(
             Field(&csfg_pfd::A, ComplexEq(2, 0)),
             Field(&csfg_pfd::p, ComplexEq(1, 0)),
             Field(&csfg_pfd::n, Eq(3)))));
     ASSERT_THAT(
-        vec_get(pfd, 2),
+        vec_get(pfd, 3),
         Pointee(AllOf(
             Field(&csfg_pfd::A, ComplexEq(7, 0)),
             Field(&csfg_pfd::p, ComplexEq(1, 0)),
             Field(&csfg_pfd::n, Eq(2)))));
     ASSERT_THAT(
-        vec_get(pfd, 3),
+        vec_get(pfd, 4),
         Pointee(AllOf(
             Field(&csfg_pfd::A, ComplexEq(3, 0)),
             Field(&csfg_pfd::p, ComplexEq(1, 0)),
-            Field(&csfg_pfd::n, Eq(1)))));
-    ASSERT_THAT(
-        vec_get(pfd, 4),
-        Pointee(AllOf(
-            Field(&csfg_pfd::A, ComplexEq(0.5, 0)),
-            Field(&csfg_pfd::p, ComplexEq(-2, 0)),
             Field(&csfg_pfd::n, Eq(1)))));
 }
 

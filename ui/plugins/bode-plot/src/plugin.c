@@ -52,7 +52,8 @@ static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
 static struct dpsfg_ui_pane_interface ui_pane = {
     ui_pane_create, ui_pane_destroy};
 
-static struct dpsfg_numeric_interface numeric = {on_tf_changed};
+static struct dpsfg_numeric_interface numeric = {
+    on_tf_changed, NULL, NULL, NULL};
 
 static struct dpsfg_plugin_info info = {
     "Bode Plot",

@@ -1,4 +1,30 @@
 import gdb
+from util import float_to_str, complex_to_str
+
+def root_to_str(p):
+    real = float(p["real"])
+    imag = float(p["imag"])
+
+    s = "s"
+    if real < 0:
+        s += "+"
+    else:
+        s += "-"
+
+    if abs(imag) > 1e-4:
+        s += "("
+
+    if real < 0:
+        s += float_to_str(-real)
+    else:
+        s += float_to_str(real)
+
+    if abs(imag) > 1e-4:
+        if imag >= 0.0:
+            s += "+"
+        s += float_to_str(imag) + "j"
+
+    return s
 
 class cpoly_PrettyPrinter:
     def __init__(self, p):
@@ -17,11 +43,7 @@ class cpoly_PrettyPrinter:
         for i in range(count):
             if i > 0:
                 s += " + "
-            real = data[i]["real"]
-            imag = data[i]["imag"]
-            s += str(real)
-            if abs(imag) > 1e-4:
-                s += str(imag) + "j"
+            s += complex_to_str(data[i])
             if i > 0:
                 s += "s"
             if i > 1:
@@ -43,15 +65,8 @@ class rpoly_PrettyPrinter:
 
         s = ""
         for i in range(count):
-            s += "(s"
-            real = data[i]["real"]
-            imag = data[i]["imag"]
-            if float(real) < 0:
-                s += f"+{-float(real)}"
-            else:
-                s += f"-{real}"
-            if abs(imag) > 1e-4:
-                s += str(imag) + "j"
+            s += "("
+            s += root_to_str(data[i])
             s += ")"
         return s
 
@@ -71,23 +86,16 @@ class pfd_poly_PrettyPrinter:
 
         s = ""
         for i in range(count):
+            if i > 0:
+                s += " + "
+
             term = data[i]
-            A = term["A"]
-            p = term["p"]
             n = int(term["n"])
 
-            real = A["real"]
-            imag = A["imag"]
-            s += str(real)
-            if abs(imag) > 1e-4:
-                s += str(imag) + "j"
+            s += complex_to_str(term["A"])
             s += "/("
-
-            real = p["real"]
-            imag = p["imag"]
-            s += str(real)
-            if abs(imag) > 1e-4:
-                s += str(imag) + "j"
+            s += root_to_str(term["p"])
+            s += ")"
             if n > 1:
                 s += f"^{n}"
         return s

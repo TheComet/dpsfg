@@ -32,11 +32,18 @@ void math_pipeline_init(struct math_pipeline* pl)
     csfg_var_table_init(&pl->parameters);
 
     csfg_tf_init(&pl->tf);
+    csfg_pfd_poly_init(&pl->pfd_impulse);
+    csfg_pfd_poly_init(&pl->pfd_step);
+    csfg_pfd_poly_init(&pl->pfd_ramp);
 }
 
 /* -------------------------------------------------------------------------- */
 void math_pipeline_deinit(struct math_pipeline* pl)
 {
+    csfg_pfd_poly_deinit(pl->pfd_ramp);
+    csfg_pfd_poly_deinit(pl->pfd_step);
+    csfg_pfd_poly_deinit(pl->pfd_impulse);
+    csfg_tf_deinit(&pl->tf);
     csfg_var_table_deinit(&pl->parameters);
     csfg_tf_expr_deinit(&pl->tf_expr);
     csfg_expr_pool_deinit(pl->tf_pool);
@@ -47,7 +54,6 @@ void math_pipeline_deinit(struct math_pipeline* pl)
     csfg_path_vec_deinit(pl->loops);
     csfg_path_vec_deinit(pl->paths);
     csfg_graph_deinit(&pl->graph);
-    csfg_tf_deinit(&pl->tf);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -181,6 +187,28 @@ static void calc_numeric_tf(struct math_pipeline* mp)
 {
     csfg_tf_from_symbolic(&mp->tf, mp->tf_pool, &mp->tf_expr, &mp->parameters);
 }
+static void calc_pfds(struct math_pipeline* mp)
+{
+    csfg_rpoly_partial_fraction_decomposition(
+        &mp->pfd_impulse, mp->tf.num, mp->tf.poles);
+
+    /* temporarily append poles to get step and ramp responses */
+    if (csfg_rpoly_push(&mp->tf.poles, csfg_complex(0, 0)) != 0)
+        goto push_step_pole_failed;
+    csfg_rpoly_partial_fraction_decomposition(
+        &mp->pfd_step, mp->tf.num, mp->tf.poles);
+
+    if (csfg_rpoly_push(&mp->tf.poles, csfg_complex(0, 0)) != 0)
+        goto push_ramp_pole_failed;
+    csfg_rpoly_partial_fraction_decomposition(
+        &mp->pfd_ramp, mp->tf.num, mp->tf.poles);
+
+    csfg_rpoly_pop(mp->tf.poles);
+push_step_pole_failed:
+    csfg_rpoly_pop(mp->tf.poles);
+push_ramp_pole_failed:
+    return;
+}
 void math_pipeline_update(
     struct math_pipeline* mp, enum math_pipeline_state state)
 {
@@ -197,6 +225,7 @@ void math_pipeline_update(
             /* fallthrough */
         case MATH_PIPELINE_PARAMETERS_CHANGED: /**/
             calc_numeric_tf(mp);
+            calc_pfds(mp);
             /* fallthrough */
     }
 }
@@ -242,7 +271,14 @@ static void notify_numeric_changed(
     if (i->numeric == NULL)
         return;
 
-    i->numeric->on_tf_changed(ctx, &pipeline->tf);
+    if (i->numeric->on_tf_changed != NULL)
+        i->numeric->on_tf_changed(ctx, &pipeline->tf);
+    if (i->numeric->on_impulse_response_changed != NULL)
+        i->numeric->on_impulse_response_changed(ctx, pipeline->pfd_impulse);
+    if (i->numeric->on_step_response_changed != NULL)
+        i->numeric->on_step_response_changed(ctx, pipeline->pfd_step);
+    if (i->numeric->on_ramp_response_changed != NULL)
+        i->numeric->on_ramp_response_changed(ctx, pipeline->pfd_ramp);
 }
 void math_pipeline_notify_plugins(
     const struct math_pipeline*          pipeline,

@@ -47,19 +47,22 @@ struct NAME : public Test
         csfg_mat_init(&N);
         csfg_mat_init(&L);
         csfg_mat_init(&U);
+        csfg_mat_reorder_init(&reorder);
     }
     void TearDown() override
     {
+        csfg_mat_reorder_deinit(reorder);
         csfg_mat_deinit(U);
         csfg_mat_deinit(L);
         csfg_mat_deinit(N);
         csfg_mat_deinit(M);
     }
 
-    struct csfg_mat* M;
-    struct csfg_mat* N;
-    struct csfg_mat* L;
-    struct csfg_mat* U;
+    struct csfg_mat*         M;
+    struct csfg_mat*         N;
+    struct csfg_mat*         L;
+    struct csfg_mat*         U;
+    struct csfg_mat_reorder* reorder;
 };
 
 TEST_F(NAME, example_paper)
@@ -72,7 +75,7 @@ TEST_F(NAME, example_paper)
         4.0, 15.0, 3.0);
     /* clang-format on */
 
-    ASSERT_EQ(csfg_mat_lu_decomposition(&L, &U, M), 0);
+    ASSERT_EQ(csfg_mat_lu_decomposition(&L, &U, &reorder, M), 0);
 
     csfg_mat_mul(&N, L, U);
     AssertMatricesAreEqual(N, M);
@@ -100,7 +103,7 @@ TEST_F(NAME, example4)
         0.0,  1.0,  0.0,  0.0,  1.0);
     /* clang-format on */
 
-    ASSERT_EQ(csfg_mat_lu_decomposition(&L, &U, M), 0);
+    ASSERT_EQ(csfg_mat_lu_decomposition(&L, &U, &reorder, M), 0);
 
     csfg_mat_mul(&N, L, U);
     AssertMatricesAreEqual(N, M);
@@ -127,8 +130,28 @@ TEST_F(NAME, lp2_repeated_roots)
         1.0, 1.0);
     /* clang-format on */
 
-    ASSERT_EQ(csfg_mat_lu_decomposition(&L, &U, M), 0);
+    ASSERT_EQ(csfg_mat_lu_decomposition(&L, &U, &reorder, M), 0);
 
     csfg_mat_mul(&N, L, U);
+    AssertMatricesAreEqual(N, M);
+}
+
+TEST_F(NAME, ramp_response)
+{
+    csfg_mat_realloc(&M, 4, 4);
+    /* clang-format off */
+    csfg_mat_set_real(M,
+         1.0,   0.0,    0.0,    0.0,
+        -1.154, 0.0,    0.0,    1.0,
+         1.0,  -0.577, -0.577, -1.154,
+         0.0,   1.0,    1.0,    1.0);
+    csfg_mat_get(M, 2, 1)->imag =  0.817;
+    csfg_mat_get(M, 2, 2)->imag = -0.817;
+    /* clang-format on */
+
+    ASSERT_EQ(csfg_mat_lu_decomposition(&L, &U, &reorder, M), 0);
+
+    csfg_mat_mul(&N, L, U);
+    csfg_mat_apply_reorder(N, reorder);
     AssertMatricesAreEqual(N, M);
 }

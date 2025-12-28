@@ -20,6 +20,7 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
     (void)ctx;
     g_object_unref(ui);
+    ctx->time_plot = NULL;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -47,12 +48,31 @@ static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
 {
     time_plot_set_tf(ctx->time_plot, tf);
 }
+static void on_impulse_response_changed(
+    struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
+{
+    time_plot_set_impulse(ctx->time_plot, pfd_terms);
+}
+static void on_step_response_changed(
+    struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
+{
+    time_plot_set_step(ctx->time_plot, pfd_terms);
+}
+static void on_ramp_response_changed(
+    struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
+{
+    time_plot_set_ramp(ctx->time_plot, pfd_terms);
+}
 
 /* -------------------------------------------------------------------------- */
 static struct dpsfg_ui_pane_interface ui_pane = {
     ui_pane_create, ui_pane_destroy};
 
-static struct dpsfg_numeric_interface numeric = {on_tf_changed};
+static struct dpsfg_numeric_interface numeric = {
+    on_tf_changed,
+    on_impulse_response_changed,
+    on_step_response_changed,
+    on_ramp_response_changed};
 
 static struct dpsfg_plugin_info info = {
     "Time Plot",

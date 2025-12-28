@@ -4,10 +4,11 @@
 
 /* -------------------------------------------------------------------------- */
 void csfg_mat_solve_linear_lu(
-    struct csfg_mat*       out,
-    struct csfg_mat*       in,
-    const struct csfg_mat* L,
-    const struct csfg_mat* U)
+    struct csfg_mat*               out,
+    struct csfg_mat*               in,
+    const struct csfg_mat*         L,
+    const struct csfg_mat*         U,
+    const struct csfg_mat_reorder* reorder)
 {
     int c, r;
 
@@ -15,6 +16,7 @@ void csfg_mat_solve_linear_lu(
     CSFG_DEBUG_ASSERT(csfg_mat_cols(out) == 1);
     CSFG_DEBUG_ASSERT(csfg_mat_rows(in) == csfg_mat_rows(L));
     CSFG_DEBUG_ASSERT(csfg_mat_rows(out) == csfg_mat_rows(L));
+    CSFG_DEBUG_ASSERT(vec_count(reorder) == csfg_mat_rows(U));
     CSFG_DEBUG_ASSERT(csfg_mat_rows(L) == csfg_mat_cols(L));
     CSFG_DEBUG_ASSERT(csfg_mat_rows(U) == csfg_mat_cols(U));
     CSFG_DEBUG_ASSERT(csfg_mat_rows(L) == csfg_mat_rows(U));
@@ -24,7 +26,8 @@ void csfg_mat_solve_linear_lu(
     csfg_mat_zero(out);
     for (r = 0; r != csfg_mat_rows(L); ++r)
     {
-        *csfg_mat_get(out, r, 0) = *csfg_mat_get(in, r, 0);
+        int reordered_idx = *vec_get(reorder, r);
+        *csfg_mat_get(out, r, 0) = *csfg_mat_get(in, reordered_idx, 0);
 
         /* clang-format off */
         for (c = 0; c != r ; ++c)

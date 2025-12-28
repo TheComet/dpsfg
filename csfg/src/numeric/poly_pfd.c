@@ -53,71 +53,59 @@ static int push_repeated_roots(struct csfg_pfd_poly** pfd_terms)
 
 /* -------------------------------------------------------------------------- */
 static void expand_term(
-    struct csfg_cpoly*          poly,
-    const struct csfg_pfd_poly* pfd_terms,
-    int                         term_idx)
+    struct csfg_mat* mat, const struct csfg_pfd_poly* pfd_terms, int term_idx)
 {
-    int                    i, c;
+    int                    i, c, coeffs;
     const struct csfg_pfd *term, *my_term;
 
     CSFG_DEBUG_ASSERT(vec_count(pfd_terms) >= 2);
 
+    coeffs = 0;
     my_term = vec_get(pfd_terms, term_idx);
     vec_enumerate (pfd_terms, i, term)
     {
         if (i == term_idx)
             continue;
 
-        if (vec_count(poly) == 0)
-            csfg_cpoly_push_no_realloc(poly, csfg_complex_neg(term->p));
+        if (coeffs == 0)
+            *csfg_mat_get(mat, coeffs++, term_idx) = csfg_complex_neg(term->p);
 
         if (csfg_complex_eq(my_term->p, term->p))
             if (my_term->n >= term->n)
                 continue;
 
-        if (vec_count(poly) == 1)
+        if (coeffs == 1)
         {
-            csfg_cpoly_push_no_realloc(poly, csfg_complex(1, 0));
+            *csfg_mat_get(mat, coeffs++, term_idx) = csfg_complex(1, 0);
             continue;
         }
 
-        csfg_cpoly_push_no_realloc(poly, *vec_last(poly));
-        for (c = vec_count(poly) - 2; c >= 1; --c)
+        *csfg_mat_get(mat, coeffs, term_idx) =
+            *csfg_mat_get(mat, coeffs - 1, term_idx);
+        coeffs++;
+
+        for (c = coeffs - 2; c >= 1; --c)
         {
-            struct csfg_complex c0 = *vec_get(poly, c - 1);
-            struct csfg_complex c1 = *vec_get(poly, c);
-            *vec_get(poly, c) =
+            struct csfg_complex c0 = *csfg_mat_get(mat, c - 1, term_idx);
+            struct csfg_complex c1 = *csfg_mat_get(mat, c, term_idx);
+            *csfg_mat_get(mat, c, term_idx) =
                 csfg_complex_sub(c0, csfg_complex_mul(c1, term->p));
         }
-        *vec_first(poly) =
-            csfg_complex_neg(csfg_complex_mul(*vec_first(poly), term->p));
+        *csfg_mat_get(mat, 0, term_idx) = csfg_complex_neg(
+            csfg_complex_mul(*csfg_mat_get(mat, 0, term_idx), term->p));
     }
 }
 
 /* -------------------------------------------------------------------------- */
-static int
+static void
 populate_matrix(struct csfg_mat* mat, const struct csfg_pfd_poly* pfd_terms)
 {
-    int                        r, c;
-    struct csfg_cpoly*         poly;
-    const struct csfg_pfd*     term;
-    const struct csfg_complex* coeff;
-
-    csfg_cpoly_init(&poly);
-    if (csfg_cpoly_realloc(&poly, csfg_mat_cols(mat)) != 0)
-        return -1;
+    int                    c;
+    const struct csfg_pfd* term;
 
     csfg_mat_zero(mat);
     vec_enumerate (pfd_terms, c, term)
-    {
-        csfg_cpoly_clear(poly);
-        expand_term(poly, pfd_terms, c);
-        vec_enumerate (poly, r, coeff)
-            *csfg_mat_get(mat, r, c) = *coeff;
-    }
-
-    csfg_cpoly_deinit(poly);
-    return 0;
+        expand_term(mat, pfd_terms, c);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -135,14 +123,15 @@ int csfg_rpoly_partial_fraction_decomposition(
     const struct csfg_cpoly* numerator,
     const struct csfg_rpoly* denominator)
 {
-    struct csfg_mat *in, *out, *L, *U;
-    struct csfg_pfd* term;
-    int              pfd_term_count, i;
+    struct csfg_mat *        in, *out, *L, *U;
+    struct csfg_mat_reorder* reorder;
+    int                      pfd_term_count, i;
 
     csfg_mat_init(&in);
     csfg_mat_init(&out);
     csfg_mat_init(&L);
     csfg_mat_init(&U);
+    csfg_mat_reorder_init(&reorder);
 
     csfg_pfd_poly_clear(*pfd_terms);
     if (vec_count(numerator) >= vec_count(denominator) + 1)
@@ -157,7 +146,10 @@ int csfg_rpoly_partial_fraction_decomposition(
 
     if (vec_count(*pfd_terms) == 1)
     {
-        vec_first(*pfd_terms)->A = *vec_first(numerator);
+        if (vec_count(numerator) == 0)
+            vec_first(*pfd_terms)->A = csfg_complex(0, 0);
+        else
+            vec_first(*pfd_terms)->A = *vec_first(numerator);
     }
     else
     {
@@ -165,9 +157,8 @@ int csfg_rpoly_partial_fraction_decomposition(
         if (csfg_mat_realloc(&in, pfd_term_count, pfd_term_count) != 0)
             goto fail;
 
-        if (populate_matrix(in, *pfd_terms) != 0)
-            goto fail;
-        if (csfg_mat_lu_decomposition(&L, &U, in) != 0)
+        populate_matrix(in, *pfd_terms);
+        if (csfg_mat_lu_decomposition(&L, &U, &reorder, in) != 0)
             goto fail;
 
         if (csfg_mat_realloc(&in, pfd_term_count, 1) != 0 ||
@@ -180,13 +171,14 @@ int csfg_rpoly_partial_fraction_decomposition(
                                             : csfg_complex(0, 0);
             *csfg_mat_get(in, i, 0) = value;
         }
-        csfg_mat_solve_linear_lu(out, in, L, U);
-        vec_enumerate (*pfd_terms, i, term)
-            term->A = *csfg_mat_get(out, i, 0);
+        csfg_mat_solve_linear_lu(out, in, L, U, reorder);
+        for (i = 0; i != pfd_term_count; ++i)
+            vec_get(*pfd_terms, i)->A = *csfg_mat_get(out, i, 0);
     }
 
     csfg_pfd_poly_retain(*pfd_terms, eliminate_zero_terms, NULL);
 
+    csfg_mat_reorder_deinit(reorder);
     csfg_mat_deinit(U);
     csfg_mat_deinit(L);
     csfg_mat_deinit(out);

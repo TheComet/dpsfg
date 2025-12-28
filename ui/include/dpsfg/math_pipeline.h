@@ -37,6 +37,9 @@ struct math_pipeline
     struct csfg_var_table parameters;
 
     struct csfg_tf tf;
+    struct csfg_pfd_poly* pfd_impulse;
+    struct csfg_pfd_poly* pfd_step;
+    struct csfg_pfd_poly* pfd_ramp;
 };
 
 void math_pipeline_init(struct math_pipeline* pl);

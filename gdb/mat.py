@@ -1,4 +1,5 @@
 import gdb
+from util import float_to_str, complex_to_str
 
 class mat_PrettyPrinter:
     def __init__(self, mat):
@@ -19,9 +20,7 @@ class mat_PrettyPrinter:
             for c in range(cols):
                 real = data[r*cols + c]["real"]
                 imag = data[r*cols + c]["imag"]
-                s += " " +  str(real)
-                if abs(imag) > 1e-4:
-                    s += str(imag) + "j"
+                s += " " +  complex_to_str(data[r*cols+c])
             s += "\n"
         s += ")"
         return s

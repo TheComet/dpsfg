@@ -8,6 +8,7 @@ struct csfg_expr_pool;
 struct csfg_var_table;
 struct csfg_tf_expr;
 struct csfg_tf;
+struct csfg_pfd_poly;
 
 typedef struct _GtkWidget   GtkWidget;
 typedef struct _GTypeModule GTypeModule;
@@ -190,6 +191,12 @@ struct dpsfg_parameters_interface
 struct dpsfg_numeric_interface
 {
     void (*on_tf_changed)(struct plugin_ctx* ctx, const struct csfg_tf* tf);
+    void (*on_impulse_response_changed)(
+        struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms);
+    void (*on_step_response_changed)(
+        struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms);
+    void (*on_ramp_response_changed)(
+        struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms);
 };
 
 struct dpsfg_plugin_info
