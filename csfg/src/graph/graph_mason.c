@@ -175,6 +175,7 @@ int csfg_graph_mason(
     struct csfg_path      path;
     struct csfg_path_vec* nontouching_loops;
     csfg_path_vec_init(&nontouching_loops);
+    csfg_expr_pool_clear(*pool);
 
     expr = -1;
     csfg_paths_for_each (paths, path)

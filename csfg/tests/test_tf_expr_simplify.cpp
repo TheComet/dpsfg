@@ -62,3 +62,28 @@ TEST_F(NAME, case1)
     ASSERT_TRUE(CoeffEq(pool2, tf.den, 0, 1.0, "G2"));
     ASSERT_TRUE(CoeffEq(pool2, tf.den, 1, 1.0, "C"));
 }
+
+TEST_F(NAME, case2)
+{
+    /*
+     *           -G1*(C*s + G1 + G2)
+     * ----------------------------------------
+     * C*s*(C*s + G1 + G2) + G2*(C*s + G1 + G2)
+     */
+    int expr = csfg_expr_parse(
+        &pool1,
+        cstr_view("-G1*(C*s+G1+G2) / (C*s*(C*s+G1+G2) + G2*(C*s+G1+G2))"));
+    ASSERT_GE(expr, 0);
+    csfg_expr_opt_fold_constants(&pool1);
+    expr = csfg_expr_gc(pool1, expr);
+    csfg_expr_opt_remove_useless_ops(&pool1);
+
+    ASSERT_EQ(
+        csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
+
+    ASSERT_EQ(vec_count(tf.num), 1);
+    ASSERT_EQ(vec_count(tf.den), 2);
+    ASSERT_TRUE(CoeffEq(pool2, tf.num, 0, -1.0, "G1"));
+    ASSERT_TRUE(CoeffEq(pool2, tf.den, 0, 1.0, "G2"));
+    ASSERT_TRUE(CoeffEq(pool2, tf.den, 1, 1.0, "C"));
+}

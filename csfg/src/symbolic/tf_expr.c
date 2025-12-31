@@ -443,6 +443,8 @@ static int run(struct csfg_expr_pool** num, struct csfg_expr_pool** den, ...)
 }
 
 /* -------------------------------------------------------------------------- */
+/* TODO: Delete this function (is unused, only for reference for previous
+ * implementation) */
 int csfg_expr_to_standard_tf(
     struct csfg_expr_pool** num_pool,
     int*                    num_root,

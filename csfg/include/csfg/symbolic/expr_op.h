@@ -1,9 +1,40 @@
 #pragma once
 
+#include "csfg/util/hmap_str.h"
+#include "csfg/util/strview.h"
+#include "csfg/util/vec.h"
 #include <stdarg.h>
 
 struct csfg_expr_pool;
+
 typedef int (*csfg_expr_pass_func)(struct csfg_expr_pool**);
+
+struct csfg_expr_op_group
+{
+    csfg_expr_pass_func extern_pass;        /* Set to NULL if not used */
+    int                 next;               /* Index into groups[] */
+    int                 child;              /* Index into groups[] */
+    int                 expr_from, expr_to; /* Index into pool[] */
+};
+VEC_DECLARE(csfg_expr_op_group_vec, struct csfg_expr_op_group, 16)
+HMAP_DECLARE_STR(extern, csfg_expr_op_hmap, int, 16)
+
+struct csfg_expr_op
+{
+    struct csfg_expr_pool*         pool;
+    struct csfg_expr_op_group_vec* groups;
+    struct csfg_expr_op_hmap*      group_map;
+};
+
+void csfg_expr_op_init(struct csfg_expr_op* op);
+void csfg_expr_op_deinit(struct csfg_expr_op* op);
+int  csfg_expr_op_parse_def(
+     struct csfg_expr_op* op, const char* filename, struct strview text);
+int csfg_expr_op_run_def(
+    struct csfg_expr_pool**    pool,
+    int*                       expr,
+    const struct csfg_expr_op* op,
+    const char*                name);
 
 /*!
  * Use this if you want to run multiple operations and combine their results.

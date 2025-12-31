@@ -572,29 +572,29 @@ int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n)
 
 /* -------------------------------------------------------------------------- */
 int csfg_expr_equal(
-    const struct csfg_expr_pool* p1,
-    int                          root1,
-    const struct csfg_expr_pool* p2,
-    int                          root2)
+    const struct csfg_expr_pool* pool1,
+    int                          expr1,
+    const struct csfg_expr_pool* pool2,
+    int                          expr2)
 {
     int child1, child2;
 
-    if (p1->nodes[root1].type != p2->nodes[root2].type)
+    if (pool1->nodes[expr1].type != pool2->nodes[expr2].type)
         return 0;
 
-    switch (p1->nodes[root1].type)
+    switch (pool1->nodes[expr1].type)
     {
         case CSFG_EXPR_GC: break;
         case CSFG_EXPR_LIT:
-            if (p1->nodes[root1].value.lit != p2->nodes[root2].value.lit)
+            if (pool1->nodes[expr1].value.lit != pool2->nodes[expr2].value.lit)
                 return 0;
             break;
         case CSFG_EXPR_VAR: {
-            struct strview s1 =
-                strlist_view(p1->var_names, p1->nodes[root1].value.var_idx);
-            struct strview s2 =
-                strlist_view(p2->var_names, p2->nodes[root2].value.var_idx);
-            if (strview_eq(s1, s2) == 0)
+            struct strview s1 = strlist_view(
+                pool1->var_names, pool1->nodes[expr1].value.var_idx);
+            struct strview s2 = strlist_view(
+                pool2->var_names, pool2->nodes[expr2].value.var_idx);
+            if (!strview_eq(s1, s2))
                 return 0;
             break;
         }
@@ -605,17 +605,80 @@ int csfg_expr_equal(
         case CSFG_EXPR_POW: break;
     }
 
-    child1 = p1->nodes[root1].child[0];
-    child2 = p2->nodes[root2].child[0];
+    child1 = pool1->nodes[expr1].child[0];
+    child2 = pool2->nodes[expr2].child[0];
     if (child1 != -1)
-        if (csfg_expr_equal(p1, child1, p2, child2) == 0)
+        if (csfg_expr_equal(pool1, child1, pool2, child2) == 0)
             return 0;
 
-    child1 = p1->nodes[root1].child[1];
-    child2 = p2->nodes[root2].child[1];
+    child1 = pool1->nodes[expr1].child[1];
+    child2 = pool2->nodes[expr2].child[1];
     if (child1 != -1)
-        if (csfg_expr_equal(p1, child1, p2, child2) == 0)
+        if (csfg_expr_equal(pool1, child1, pool2, child2) == 0)
             return 0;
 
     return 1;
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_expr_structurally_mathematically_equivalent(
+    const struct csfg_expr_pool* pool1,
+    int                          expr1,
+    const struct csfg_expr_pool* pool2,
+    int                          expr2)
+{
+    if (pool1->nodes[expr1].type != pool2->nodes[expr2].type)
+        return 0;
+
+    switch (pool1->nodes[expr1].type)
+    {
+        case CSFG_EXPR_GC: break;
+        case CSFG_EXPR_LIT:
+            if (pool1->nodes[expr1].value.lit == pool2->nodes[expr2].value.lit)
+                return 1;
+            break;
+        case CSFG_EXPR_VAR: {
+            struct strview s1 = strlist_view(
+                pool1->var_names, pool1->nodes[expr1].value.var_idx);
+            struct strview s2 = strlist_view(
+                pool2->var_names, pool2->nodes[expr2].value.var_idx);
+            if (strview_eq(s1, s2))
+                return 1;
+            break;
+        }
+        case CSFG_EXPR_INF: break;
+        case CSFG_EXPR_NEG: {
+            int child1 = pool1->nodes[expr1].child[0];
+            int child2 = pool2->nodes[expr2].child[0];
+            if (csfg_expr_structurally_mathematically_equivalent(
+                    pool1, child1, pool2, child2))
+                return 1;
+            break;
+        }
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+        case CSFG_EXPR_POW: {
+            int left1 = pool1->nodes[expr1].child[0];
+            int left2 = pool2->nodes[expr2].child[0];
+            int right1 = pool1->nodes[expr1].child[1];
+            int right2 = pool2->nodes[expr2].child[1];
+            if (csfg_expr_structurally_mathematically_equivalent(
+                    pool1, left1, pool2, left2) &&
+                csfg_expr_structurally_mathematically_equivalent(
+                    pool1, right1, pool2, right2))
+            {
+                return 1;
+            }
+            if (csfg_expr_structurally_mathematically_equivalent(
+                    pool1, left1, pool2, right2) &&
+                csfg_expr_structurally_mathematically_equivalent(
+                    pool1, right1, pool2, left2))
+            {
+                return 1;
+            }
+            break;
+        }
+    }
+
+    return 0;
 }

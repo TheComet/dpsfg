@@ -60,17 +60,13 @@ void math_pipeline_deinit(struct math_pipeline* pl)
 static void calc_graph_expression(struct math_pipeline* pipeline)
 {
     /* It's OK if node_in/node_out are -1 here */
-    csfg_path_vec_clear(pipeline->paths);
     csfg_graph_find_forward_paths(
         &pipeline->graph,
         &pipeline->paths,
         pipeline->node_in,
         pipeline->node_out);
-
-    csfg_path_vec_clear(pipeline->loops);
     csfg_graph_find_loops(&pipeline->graph, &pipeline->loops);
 
-    csfg_expr_pool_clear(pipeline->graph_pool);
     pipeline->graph_expr = csfg_graph_mason(
         &pipeline->graph,
         &pipeline->graph_pool,

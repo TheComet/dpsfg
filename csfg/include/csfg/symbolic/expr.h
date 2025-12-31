@@ -167,10 +167,16 @@ int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n);
  * but the structure and the values contained within the nodes must match.
  * Returns true or false. */
 int csfg_expr_equal(
-    const struct csfg_expr_pool* p1,
-    int                          root1,
-    const struct csfg_expr_pool* p2,
-    int                          root2);
+    const struct csfg_expr_pool* pool1,
+    int                          expr1,
+    const struct csfg_expr_pool* pool2,
+    int                          expr2);
+
+int csfg_expr_structurally_mathematically_equivalent(
+    const struct csfg_expr_pool* pool1,
+    int                          expr1,
+    const struct csfg_expr_pool* pool2,
+    int                          expr2);
 
 int csfg_expr_integrity_check_allow_islands(struct csfg_expr_pool* pool);
 int csfg_expr_integrity_check(struct csfg_expr_pool* pool, int expr);

@@ -60,6 +60,7 @@ int csfg_graph_find_forward_paths(
     csfg_graph_for_each_node (graph, node)
         node->visited = 0;
 
+    csfg_path_vec_clear(*paths);
     csfg_graph_enumerate_edges (graph, edge_idx, edge)
     {
         if (edge->n_idx_from != n_idx_in)
@@ -89,6 +90,7 @@ int csfg_graph_find_loops(
     csfg_graph_for_each_node (graph, node)
         node->visited = 0;
 
+    csfg_path_vec_clear(*paths);
     csfg_graph_enumerate_nodes (graph, node_idx, node)
     {
         csfg_graph_enumerate_edges (graph, edge_idx, edge)

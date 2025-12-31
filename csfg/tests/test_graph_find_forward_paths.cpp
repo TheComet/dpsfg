@@ -122,7 +122,6 @@ TEST_F(NAME, multiple_paths_with_dead_ends)
     ASSERT_THAT(vec_get(paths, 9), Pointee(e5));
     ASSERT_THAT(vec_get(paths, 10), Pointee(-1));
 
-    csfg_path_vec_clear(paths);
     ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, n1, n5), 0);
     ASSERT_EQ(vec_count(paths), 8);
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));
@@ -170,7 +169,6 @@ TEST_F(NAME, multiple_paths_with_loops_and_dead_ends)
     ASSERT_THAT(vec_get(paths, 5), Pointee(e5));
     ASSERT_THAT(vec_get(paths, 6), Pointee(-1));
 
-    csfg_path_vec_clear(paths);
     ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, n1, n5), 0);
     ASSERT_EQ(vec_count(paths), 4);
     ASSERT_THAT(vec_get(paths, 0), Pointee(e1));

@@ -188,7 +188,17 @@ static int parse_unary(struct parser* p, struct csfg_expr_pool** e)
     if (sign == 1)
         return parse_factor(p, e);
     else
-        return csfg_expr_neg(e, parse_factor(p, e));
+    {
+        int fact = parse_factor(p, e);
+        if (fact < 0)
+            return -1;
+        if ((*e)->nodes[fact].type == CSFG_EXPR_LIT)
+        {
+            (*e)->nodes[fact].value.lit = -(*e)->nodes[fact].value.lit;
+            return fact;
+        }
+        return csfg_expr_neg(e, fact);
+    }
 }
 
 /* -------------------------------------------------------------------------- */

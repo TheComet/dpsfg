@@ -5,9 +5,6 @@ class mat_PrettyPrinter:
     def __init__(self, mat):
         self.mat = mat
 
-    def display_hint(self):
-        return "array"
-
     def to_string(self):
         if int(self.mat) == 0:
             return "mat(0)"

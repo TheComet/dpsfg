@@ -54,6 +54,7 @@ set (csfg_SOURCES
     "src/symbolic/expr_integrity_check.c"
     "src/symbolic/expr_parse.c"
     "src/symbolic/expr_op.c"
+    "src/symbolic/expr_op_parse.c"
     "src/symbolic/expr_op_distribute_products.c"
     "src/symbolic/expr_op_expand_constant_exponents.c"
     "src/symbolic/expr_op_expand_exponent_products.c"
@@ -139,6 +140,7 @@ if (CSFG_TESTS)
         "tests/test_expr.cpp"
         "tests/test_expr_apply_limits.cpp"
         "tests/test_expr_insert_substitutions.cpp"
+        "tests/test_expr_op_parse.cpp"
         "tests/test_expr_op_distribute_products.cpp"
         "tests/test_expr_op_expand_constant_exponents.cpp"
         "tests/test_expr_op_expand_exponent_products.cpp"
@@ -146,6 +148,7 @@ if (CSFG_TESTS)
         "tests/test_expr_op_factor_common_denominator.cpp"
         "tests/test_expr_op_lower_negates.cpp"
         "tests/test_expr_op_rebalance_fraction.cpp"
+        "tests/test_expr_op_simplify.cpp"
         "tests/test_expr_op_simplify_products.cpp"
         "tests/test_expr_op_simplify_sums.cpp"
         "tests/test_expr_opt_remove_useless_ops.cpp"
@@ -175,6 +178,7 @@ if (CSFG_TESTS)
         "tests/test_tf_eval.cpp"
 
         # util
+        "tests/test_bmap.cpp"
         "tests/test_hmap.cpp"
         "tests/test_hmap_full.cpp"
         "tests/test_hset.cpp"
