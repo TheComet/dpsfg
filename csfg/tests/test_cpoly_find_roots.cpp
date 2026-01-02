@@ -65,8 +65,12 @@ TEST_F(NAME, two_roots)
     csfg_cpoly_find_roots(&roots, coeffs, 0, 0.0);
 
     ASSERT_EQ(vec_count(roots), 2);
-    EXPECT_THAT(*vec_get(roots, 0), ComplexEq(1.6180340, 0.0, epsilon));
-    EXPECT_THAT(*vec_get(roots, 1), ComplexEq(-0.618034, 0.0, epsilon));
+    EXPECT_THAT(
+        vec_get(roots, 0)->real, DoubleNear(0.5 - sqrt(5) / 2, epsilon));
+    EXPECT_THAT(vec_get(roots, 0)->imag, DoubleNear(0, epsilon));
+    EXPECT_THAT(
+        vec_get(roots, 1)->real, DoubleNear(0.5 + sqrt(5) / 2, epsilon));
+    EXPECT_THAT(vec_get(roots, 1)->imag, DoubleNear(0, epsilon));
 }
 
 TEST_F(NAME, two_repeated_roots)

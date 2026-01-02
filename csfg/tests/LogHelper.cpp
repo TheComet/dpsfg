@@ -1,4 +1,5 @@
 #include "csfg/tests/LogHelper.hpp"
+#include <algorithm>
 
 extern "C" {
 #include "csfg/util/cli_colors.h"

@@ -27,6 +27,7 @@ configure_file ("templates/config.h.in" "include/csfg/config.h")
 
 set (csfg_SOURCES
     # util
+    "src/util/bm.c"
     "src/util/hash.c"
     "src/util/log.c"
     "src/util/str.c"
@@ -178,6 +179,7 @@ if (CSFG_TESTS)
         "tests/test_tf_eval.cpp"
 
         # util
+        "tests/test_bm.cpp"
         "tests/test_bmap.cpp"
         "tests/test_hmap.cpp"
         "tests/test_hmap_full.cpp"

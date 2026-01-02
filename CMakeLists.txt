@@ -9,6 +9,16 @@ list (APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules")
 project ("dpsfg" LANGUAGES)
 
 option (DPSFG_TESTS "Build unit tests" ON)
+option (DPSFG_ASAN "Compile with address sanitizer" OFF)
+
+if (DPSFG_ASAN)
+    add_compile_options (
+        $<$<C_COMPILER_ID:GNU>:-fsanitize=address>
+        $<$<C_COMPILER_ID:Clang>:-fsanitize=address>)
+    add_link_options (
+        $<$<C_COMPILER_ID:GNU>:-fsanitize=address>
+        $<$<C_COMPILER_ID:Clang>:-fsanitize=address>)
+endif ()
 
 set (DPSFG_PREFIX "${PROJECT_BINARY_DIR}/bin")
 

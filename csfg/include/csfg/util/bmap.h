@@ -196,7 +196,7 @@ enum
     static int prefix##_kvs_realloc(                                           \
         struct prefix** bmap, int##bits##_t new_capacity)                      \
     {                                                                          \
-        int##bits##_t  header, data;                                           \
+        int            header, data;                                           \
         struct prefix* new_bmap;                                               \
         K*             new_keys;                                               \
                                                                                \
@@ -356,8 +356,7 @@ enum
         void (*erase)(struct prefix*, int##bits##_t) = kvs_erase;              \
         int (*less_than)(K, K) = kvs_less_than;                                \
         int (*equal)(K, K) = kvs_equal;                                        \
-        K(*get_key)                                                            \
-        (const struct prefix*, int##bits##_t) = kvs_get_key;                   \
+        K (*get_key)(const struct prefix*, int##bits##_t) = kvs_get_key;       \
         V* (*get_value)(struct prefix*, int##bits##_t) = kvs_get_value;        \
         (void)deinit;                                                          \
         (void)emplace;                                                         \

@@ -542,7 +542,7 @@ TEST_F(NAME, retain_half)
             obj_bmap,
             [](int16_t, obj*, void* user) { return (*(int*)user)++ % 2; },
             &counter),
-        Eq(0));
+        Eq(4));
     EXPECT_THAT(bmap_count(obj_bmap), Eq(4));
     EXPECT_THAT(counter, Eq(8));
     EXPECT_THAT(

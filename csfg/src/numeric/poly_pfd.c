@@ -105,7 +105,7 @@ populate_matrix(struct csfg_mat* mat, const struct csfg_pfd_poly* pfd_terms)
 
     csfg_mat_zero(mat);
     vec_enumerate (pfd_terms, c, term)
-        expand_term(mat, pfd_terms, c);
+        (void)term, expand_term(mat, pfd_terms, c);
 }
 
 /* -------------------------------------------------------------------------- */

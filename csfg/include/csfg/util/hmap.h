@@ -288,7 +288,8 @@ enum hmap_status
     static int prefix##_grow(struct prefix** hmap)                             \
     {                                                                          \
         struct prefix* new_hmap;                                               \
-        int##bits##_t  i, header, data;                                        \
+        int            header, data;                                           \
+        int##bits##_t  i;                                                      \
         int##bits##_t  old_cap = *hmap ? (*hmap)->capacity : 0;                \
         int##bits##_t  new_cap = old_cap ? old_cap * 2 : MIN_CAPACITY;         \
         /* Must be power of 2 */                                               \

@@ -36,6 +36,53 @@ struct NAME : public Test
     struct csfg_var_table  vt;
 };
 
+TEST_F(NAME, two_nontouching_loops)
+{
+    int n1 = csfg_graph_add_node(&g, "n1");
+    int n2 = csfg_graph_add_node(&g, "n2");
+    int n3 = csfg_graph_add_node(&g, "n3");
+    int n4 = csfg_graph_add_node(&g, "n4");
+    /*
+     *     ------<-----
+     *    /      H2    \
+     *  /               \
+     * |  H1          H3 |
+     * |  <-          <- |
+     * |/   \       /   \|
+     * o-->--o-->--o-->--o
+     * n1 G1 n2 G2 n3 G3 n4
+     */
+    csfg_graph_add_edge_parse_expr(&g, n1, n2, cstr_view("G1"));
+    csfg_graph_add_edge_parse_expr(&g, n2, n3, cstr_view("G2"));
+    csfg_graph_add_edge_parse_expr(&g, n3, n4, cstr_view("G3"));
+    csfg_graph_add_edge_parse_expr(&g, n4, n3, cstr_view("H3"));
+    csfg_graph_add_edge_parse_expr(&g, n2, n1, cstr_view("H1"));
+    csfg_graph_add_edge_parse_expr(&g, n4, n1, cstr_view("H2"));
+
+    ASSERT_EQ(csfg_graph_find_forward_paths(&g, &paths, n1, n4), 0);
+    ASSERT_EQ(csfg_graph_find_loops(&g, &loops), 0);
+    int expr = csfg_graph_mason(&g, &pool, paths, loops);
+    ASSERT_GE(expr, 0);
+
+    // clang-format off
+    double G1 = 3;  csfg_var_table_set_lit(&vt, cstr_view("G1"), G1);
+    double G2 = 5;  csfg_var_table_set_lit(&vt, cstr_view("G2"), G2);
+    double G3 = 7;  csfg_var_table_set_lit(&vt, cstr_view("G3"), G3);
+    double H1 = 11; csfg_var_table_set_lit(&vt, cstr_view("H1"), H1);
+    double H2 = 13; csfg_var_table_set_lit(&vt, cstr_view("H2"), H2);
+    double H3 = 17; csfg_var_table_set_lit(&vt, cstr_view("H3"), H3);
+    // obtained using SignalFlowGrapher
+    ASSERT_DOUBLE_EQ(csfg_expr_eval(pool, expr, &vt), 
+                       -G1*G2*G3/
+        (G1*G2*G3*H2 - G1*G3*H1*H3 + G1*H1 + G3*H3 - 1)
+    );
+    // clang-format on
+    /*
+     *            G1*G2*G3
+     * -------------------------------------
+     * 1 - (G1*G2*G3*H2) - (G1*H1) - (G3*H3)
+     */
+}
 TEST_F(NAME, andersen_ang_example2)
 {
     int n1 = csfg_graph_add_node(&g, "V1");
@@ -94,10 +141,15 @@ TEST_F(NAME, andersen_ang_example2)
     double H3 = 31; csfg_var_table_set_lit(&vt, cstr_view("H3"), H3);
     double H6 = 37; csfg_var_table_set_lit(&vt, cstr_view("H6"), H6);
     double H7 = 41; csfg_var_table_set_lit(&vt, cstr_view("H7"), H7);
+    // obtained using SignalFlowGrapher
     ASSERT_DOUBLE_EQ(csfg_expr_eval(pool, expr, &vt), 
-        (G5*G6*G7*G8*(1 - G2*H2 - G3*H3) + G1*G2*G3*G4*(1 - G6*H6 - G7*H7)) /
-        (1 - (G2*H2 + G3*H3 + G6*H6 + G7*H7) + (G2*H2*G6*H6 + G2*H2*G7*H7 + G3*H3*G6*H6 + G3*H3*G7*H7))
-    );
+                (-G1*G2*G3*G4*(G6*H6 + G7*H7 - 1) - G5*G6*G7*G8*(G2*H2 + G3*H3 - 1)) /
+        (G2*G6*H2*H6 + G2*G7*H2*H7 - G2*H2 + G3*G6*H3*H6 + G3*G7*H3*H7 - G3*H3 - G6*H6 - G7*H7 + 1));
+    // original solution in pdf slides
+    //ASSERT_DOUBLE_EQ(csfg_expr_eval(pool, expr, &vt), 
+    //    (G5*G6*G7*G8*(1 - G2*H2 - G3*H3) + G1*G2*G3*G4*(1 - G6*H6 - G7*H7)) /
+    //    (1 - (G2*H2 + G3*H3 + G6*H6 + G7*H7) + (G2*H2*G6*H6 + G2*H2*G7*H7 + G3*H3*G6*H6 + G3*H3*G7*H7))
+    //);
     // clang-format on
 }
 
@@ -158,7 +210,7 @@ TEST_F(NAME, active_lowpass_filter)
     double A  = 13; csfg_var_table_set_lit(&vt, cstr_view("A"), A);
     double z2 = 1.0 / (G1 + G2 + s*C);
     ASSERT_DOUBLE_EQ(csfg_expr_eval(pool, expr, &vt), 
-        (-G1*z2*A) /
+           (-G1*z2*A) /
         (1 + A*(G2+s*C)*z2)
     );
     // clang-format on
