@@ -4,22 +4,22 @@ remove_useless_ops {
     //fold_constants
 
     "-(-a)"         --> "a"
-    //"0+a"           --> "a"
-    //"1*a"           --> "a"
-    //"-1*a"          --> "-a"
-    //"a^1"           --> "a"
-    //"a^0"           --> "1"
-    //"a*a^-1"        --> "1"
-    //"a^-1^-1"       --> "a"
+    "0+a"           --> "a"
+    "1*a"           --> "a"
+    "-1*a"          --> "-a"
+    "a^1"           --> "a"
+    "a^0"           --> "1"
+    "a*a^-1"        --> "1"
+    "a^-1^-1"       --> "a"
 
-    //"a*b/b"         --> "a"
-    //"-a*b/b"        --> "-a"
-    //"a*-b/b"        --> "-a"
-    //"-(a*b)/b"      --> "-a"
-    //"a*b/(b*c)"     --> "a/c"
-    //"-a*b/(b*c)"    --> "-a/c"
-    //"a*-b/(b*c)"    --> "-a/c"
-    //"-(a*b)/(b*c)"  --> "-a/c"
+    "a*b/b"         --> "a"
+    "-a*b/b"        --> "-a"
+    "a*-b/b"        --> "-a"
+    "-(a*b)/b"      --> "-a"
+    "a*b/(b*c)"     --> "a/c"
+    "-a*b/(b*c)"    --> "-a/c"
+    "a*-b/(b*c)"    --> "-a/c"
+    "-(a*b)/(b*c)"  --> "-a/c"
 }
 
 //extern expand_constant_exponents
@@ -44,8 +44,8 @@ expand {
 }
 
 simplify {
+    remove_useless_ops
     expand
     remove_useless_ops
     factor
-    remove_useless_ops
 }

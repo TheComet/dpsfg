@@ -259,6 +259,35 @@ static int replace_subtree(
 }
 
 /* -------------------------------------------------------------------------- */
+static void debug_print_run_group(
+    const struct csfg_expr_pool* pool, const struct csfg_expr_op_group* group)
+{
+    struct str* str;
+    if (group->expr_from < 0 || group->expr_to < 0)
+    {
+        fprintf(stderr, "(Pseudo-group...)\n");
+        return;
+    }
+
+    str_init(&str);
+    csfg_expr_to_str(&str, pool, group->expr_from);
+    fprintf(stderr, "(Trying \"%s\"...)\n", str_cstr(str));
+    str_deinit(str);
+}
+static void debug_print_replace_subtree(
+    const struct csfg_expr_pool* pool, const struct csfg_expr_op_group* group)
+{
+    struct str* str;
+    str_init(&str);
+    csfg_expr_to_str(&str, pool, group->expr_from);
+    fprintf(stderr, "Applying rule: \"%s\" --> ", str_cstr(str));
+    str_clear(str);
+    csfg_expr_to_str(&str, pool, group->expr_to);
+    fprintf(stderr, "\"%s\"\n", str_cstr(str));
+    str_deinit(str);
+}
+
+/* -------------------------------------------------------------------------- */
 static int run_group(
     struct csfg_expr_pool**          pool,
     int*                             expr,
@@ -267,6 +296,9 @@ static int run_group(
     const struct csfg_expr_op_group* group)
 {
     int modified = 0;
+
+    debug_print_run_group(pattern_pool, group);
+
     if (group->extern_pass != NULL)
     {
         switch (group->extern_pass(pool))
@@ -293,6 +325,7 @@ static int run_group(
             if (replace_subtree(
                     pool, n, pattern_pool, group->expr_to, *matched_nodes) != 0)
                 return -1;
+            debug_print_replace_subtree(pattern_pool, group);
             modified = 1;
         }
         *expr = csfg_expr_gc(*pool, *expr);
@@ -355,6 +388,7 @@ int csfg_expr_op_run_def(
     modified = 0;
     while (1)
     {
+        fprintf(stderr, "Executing ---------------------------------------\n");
         switch (process_group_recurse(pool, expr, &matched_nodes, op, *group))
         {
             case -1: goto fail;
@@ -363,6 +397,7 @@ int csfg_expr_op_run_def(
         }
         break;
     }
+    fprintf(stderr, "Done --------------------------------------------\n");
 
     match_info_bmap_deinit(matched_nodes);
     return modified;

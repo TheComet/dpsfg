@@ -15,6 +15,7 @@ struct csfg_expr_op_group
     int                 next;               /* Index into groups[] */
     int                 child;              /* Index into groups[] */
     int                 expr_from, expr_to; /* Index into pool[] */
+    unsigned            ignore : 1;
 };
 VEC_DECLARE(csfg_expr_op_group_vec, struct csfg_expr_op_group, 16)
 HMAP_DECLARE_STR(extern, csfg_expr_op_hmap, int, 16)

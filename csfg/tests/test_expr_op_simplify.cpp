@@ -15,12 +15,12 @@ struct NAME : public Test
 {
     void SetUp() override
     {
-        ASSERT_EQ(mfile_map_read(&mf, filename, 1), 0);
-        source = strview((const char*)mf.address, 0, mf.size);
         csfg_expr_op_init(&op);
-        ASSERT_EQ(csfg_expr_op_parse_def(&op, filename, source), 0);
         csfg_expr_pool_init(&pool);
         csfg_expr_pool_init(&expected_pool);
+        ASSERT_EQ(mfile_map_read(&mf, filename, 1), 0);
+        source = strview((const char*)mf.address, 0, mf.size);
+        ASSERT_EQ(csfg_expr_op_parse_def(&op, filename, source), 0);
     }
     void TearDown() override
     {
