@@ -103,8 +103,8 @@ enum
      * @param[in] bmap Pointer to an initialized bmap.                         \
      * @param[in] key The key to insert.                                       \
      * @param[in] value The value to insert, if the key does not exist.        \
-     * @return Returns 0 if the key+value was inserted. Returns -1 if the key  \
-     * exists, or if allocation failed.                                        \
+     * @return Returns BMAP_NEW if the key+value was inserted. Returns         \
+     * BMAP_EXISTS if the key exists. Returns BMAP_OOM if allocation failed.   \
      */                                                                        \
     static enum bmap_status prefix##_insert_new(                               \
         struct prefix** bmap, K key, V value)                                  \
@@ -142,7 +142,8 @@ enum
      * @return If the key exists, returns 1. If the key does not exist,        \
      * returns 0.                                                              \
      */                                                                        \
-    int prefix##_erase(struct prefix* bmap, K key);                            \
+    int  prefix##_erase(struct prefix* bmap, K key);                           \
+    void prefix##_erase_index(struct prefix* bmap, int##bits##_t idx);         \
                                                                                \
     /*!                                                                        \
      * @brief Removes all elements for which the callback function returns     \
@@ -416,6 +417,11 @@ enum
             return 1;                                                          \
         }                                                                      \
         return 0;                                                              \
+    }                                                                          \
+                                                                               \
+    void prefix##_erase_index(struct prefix* bmap, int##bits##_t idx)          \
+    {                                                                          \
+        kvs_erase(bmap, idx);                                                  \
     }                                                                          \
                                                                                \
     int prefix##_retain(                                                       \

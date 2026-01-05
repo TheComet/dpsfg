@@ -66,7 +66,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
             (*pool)->nodes[product] = (*pool)->nodes[mul];
             (*pool)->nodes[mul] = (*pool)->nodes[other_summand];
             csfg_expr_set_mul(
-                pool,
+                *pool,
                 other_summand,
                 mul,
                 csfg_expr_pow(
@@ -74,7 +74,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
                     csfg_expr_dup_recurse(pool, (*pool)->nodes[pow].child[0]),
                     csfg_expr_lit(pool, neg_exp)));
             csfg_expr_set_mul(
-                pool,
+                *pool,
                 n,
                 pow,
                 csfg_expr_add(
@@ -86,7 +86,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
         else
         {
             if (csfg_expr_set_mul(
-                    pool,
+                    *pool,
                     n,
                     pow,
                     csfg_expr_add(

@@ -44,7 +44,7 @@ static int move_reciprocs(
         return 0;
 
     if (csfg_expr_set_mul(
-            to,
+            *to,
             to_root,
             csfg_expr_pow(
                 to,
@@ -57,7 +57,7 @@ static int move_reciprocs(
 
     csfg_expr_mark_deleted_recursive(*from, base);
     csfg_expr_mark_deleted(*from, exp);
-    csfg_expr_set_lit(from, from_root, 1.0);
+    csfg_expr_set_lit(*from, from_root, 1.0);
 
     return 1;
 }

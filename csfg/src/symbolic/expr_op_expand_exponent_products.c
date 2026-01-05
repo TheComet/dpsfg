@@ -21,10 +21,11 @@ static int expand_exponent_products(struct csfg_expr_pool** pool)
         base2 = (*pool)->nodes[prod].child[1];
 
         if (csfg_expr_set_mul(
-                pool,
+                *pool,
                 n,
-                csfg_expr_set_pow(pool, prod, base1, exp),
-                csfg_expr_pow(pool, base2, csfg_expr_dup_recurse(pool, exp))) == -1)
+                csfg_expr_set_pow(*pool, prod, base1, exp),
+                csfg_expr_pow(pool, base2, csfg_expr_dup_recurse(pool, exp))) ==
+            -1)
         {
             return -1;
         }

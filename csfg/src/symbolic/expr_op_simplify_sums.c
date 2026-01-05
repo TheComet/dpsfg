@@ -50,9 +50,8 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
             top,
             /* If the sum is multiplied by a product, want to search only for
                the sum and not the whole product */
-            (*pool)->nodes[n].type == CSFG_EXPR_MUL
-                ? (*pool)->nodes[n].child[0]
-                : n);
+            (*pool)->nodes[n].type == CSFG_EXPR_MUL ? (*pool)->nodes[n].child[0]
+                                                    : n);
         if (match == -1)
             continue;
 
@@ -64,19 +63,20 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
                 (*pool)->nodes[match].type == CSFG_EXPR_MUL
                     ? csfg_expr_dup_single(pool, (*pool)->nodes[match].child[1])
                     : csfg_expr_lit(pool, 1.0);
-            if (csfg_expr_set_add(pool, prod1, sum1, sum2) == -1)
+            if (csfg_expr_set_add(*pool, prod1, sum1, sum2) == -1)
                 return -1;
         }
         else
         {
-            int exp =
-                (*pool)->nodes[match].type == CSFG_EXPR_MUL
-                    ? csfg_expr_add(
-                          pool,
-                          csfg_expr_dup_single(pool, (*pool)->nodes[match].child[1]),
-                          csfg_expr_lit(pool, 1.0))
-                    : csfg_expr_lit(pool, 2.0);
-            if (csfg_expr_set_pow(pool, n, csfg_expr_dup_single(pool, n), exp) == -1)
+            int exp = (*pool)->nodes[match].type == CSFG_EXPR_MUL
+                          ? csfg_expr_add(
+                                pool,
+                                csfg_expr_dup_single(
+                                    pool, (*pool)->nodes[match].child[1]),
+                                csfg_expr_lit(pool, 1.0))
+                          : csfg_expr_lit(pool, 2.0);
+            if (csfg_expr_set_pow(
+                    *pool, n, csfg_expr_dup_single(pool, n), exp) == -1)
                 return -1;
         }
         csfg_expr_collapse_sibling_into_parent(*pool, match);
@@ -121,10 +121,10 @@ int csfg_expr_op_simplify_sums(struct csfg_expr_pool** pool)
 }
 
 #if 0
-#include "csfg/config.h"
-#include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include <assert.h>
+#    include "csfg/config.h"
+#    include "csfg/symbolic/expr.h"
+#    include "csfg/symbolic/expr_op.h"
+#    include <assert.h>
 
 /* -------------------------------------------------------------------------- */
 static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)

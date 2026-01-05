@@ -188,7 +188,7 @@ static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
         {
             csfg_expr_mark_deleted_recursive(*pool, left);
             csfg_expr_mark_deleted(*pool, right);
-            csfg_expr_set_lit(pool, n, 1.0);
+            csfg_expr_set_lit(*pool, n, 1.0);
             modified = 1;
         }
     }
@@ -206,7 +206,7 @@ static void replace_node_with_one(struct csfg_expr_pool** pool, int n)
     if (right > -1)
         csfg_expr_mark_deleted_recursive(*pool, right);
 
-    csfg_expr_set_lit(pool, n, 1.0);
+    csfg_expr_set_lit(*pool, n, 1.0);
 }
 static int
 find_common_products(struct csfg_expr_pool** pool, int expr1, int expr2)

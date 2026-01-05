@@ -200,7 +200,7 @@ int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name)
     if (n == -1)
         return -1;
 
-    if (csfg_expr_set_var(pool, n, name) == -1)
+    if (csfg_expr_set_var(*pool, n, name) == -1)
         return -1;
 
     return n;
@@ -223,21 +223,21 @@ int csfg_expr_neg(struct csfg_expr_pool** pool, int child)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_set_lit(struct csfg_expr_pool** pool, int n, double value)
+int csfg_expr_set_lit(struct csfg_expr_pool* pool, int n, double value)
 {
     if (n == -1)
         return -1;
 
-    (*pool)->nodes[n].type = CSFG_EXPR_LIT;
-    (*pool)->nodes[n].child[0] = -1;
-    (*pool)->nodes[n].child[1] = -1;
-    (*pool)->nodes[n].value.lit = value;
+    pool->nodes[n].type = CSFG_EXPR_LIT;
+    pool->nodes[n].child[0] = -1;
+    pool->nodes[n].child[1] = -1;
+    pool->nodes[n].value.lit = value;
 
     return n;
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_set_var(struct csfg_expr_pool** pool, int n, struct strview name)
+int csfg_expr_set_var(struct csfg_expr_pool* pool, int n, struct strview name)
 {
     int            i;
     struct strview str;
@@ -245,29 +245,29 @@ int csfg_expr_set_var(struct csfg_expr_pool** pool, int n, struct strview name)
     if (n == -1)
         return -1;
 
-    strlist_for_each ((*pool)->var_names, i, str)
+    strlist_for_each (pool->var_names, i, str)
         if (strview_eq(str, name))
         {
-            (*pool)->nodes[n].value.var_idx = i;
+            pool->nodes[n].value.var_idx = i;
             return 0;
         }
 
-    (*pool)->nodes[n].value.var_idx = strlist_count((*pool)->var_names);
-    if (strlist_add_view(&(*pool)->var_names, name) != 0)
+    pool->nodes[n].value.var_idx = strlist_count(pool->var_names);
+    if (strlist_add_view(&pool->var_names, name) != 0)
         return -1;
 
     return 0;
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_set_inf(struct csfg_expr_pool** pool, int n)
+int csfg_expr_set_inf(struct csfg_expr_pool* pool, int n)
 {
     if (n == -1)
         return -1;
 
-    (*pool)->nodes[n].type = CSFG_EXPR_INF;
-    (*pool)->nodes[n].child[0] = -1;
-    (*pool)->nodes[n].child[1] = -1;
+    pool->nodes[n].type = CSFG_EXPR_INF;
+    pool->nodes[n].child[0] = -1;
+    pool->nodes[n].child[1] = -1;
 
     return n;
 }
@@ -315,27 +315,27 @@ int csfg_expr_div(struct csfg_expr_pool** pool, int left, int right)
 
 /* -------------------------------------------------------------------------- */
 int csfg_expr_set_binop(
-    struct csfg_expr_pool** pool,
-    int                     n,
-    enum csfg_expr_type     type,
-    int                     left,
-    int                     right)
+    struct csfg_expr_pool* pool,
+    int                    n,
+    enum csfg_expr_type    type,
+    int                    left,
+    int                    right)
 {
     if (n == -1 || left == -1 || right == -1)
         return -1;
 
-    (*pool)->nodes[n].type = type;
-    (*pool)->nodes[n].child[0] = left;
-    (*pool)->nodes[n].child[1] = right;
+    pool->nodes[n].type = type;
+    pool->nodes[n].child[0] = left;
+    pool->nodes[n].child[1] = right;
 
     return n;
 }
 /* clang-format off */
-int csfg_expr_set_add(struct csfg_expr_pool** pool, int n, int left, int right)
+int csfg_expr_set_add(struct csfg_expr_pool* pool, int n, int left, int right)
 {return csfg_expr_set_binop(pool, n, CSFG_EXPR_ADD, left, right);}
-int csfg_expr_set_mul(struct csfg_expr_pool** pool, int n, int left, int right)
+int csfg_expr_set_mul(struct csfg_expr_pool* pool, int n, int left, int right)
 {return csfg_expr_set_binop(pool, n, CSFG_EXPR_MUL, left, right);}
-int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp)
+int csfg_expr_set_pow(struct csfg_expr_pool* pool, int n, int base, int exp)
 {return csfg_expr_set_binop(pool, n, CSFG_EXPR_POW, base, exp);}
 /* clang-format on */
 
@@ -410,7 +410,7 @@ int csfg_expr_dup_single_from(
         case CSFG_EXPR_VAR: {
             int            orig_idx = src->nodes[n].value.var_idx;
             struct strview orig = strlist_view(src->var_names, orig_idx);
-            if (csfg_expr_set_var(dst, dup, orig) == -1)
+            if (csfg_expr_set_var(*dst, dup, orig) == -1)
                 return -1;
             break;
         }
@@ -621,7 +621,7 @@ int csfg_expr_equal(
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_structurally_mathematically_equivalent(
+int csfg_expr_mathematically_equivalent(
     const struct csfg_expr_pool* pool1,
     int                          expr1,
     const struct csfg_expr_pool* pool2,
@@ -634,49 +634,48 @@ int csfg_expr_structurally_mathematically_equivalent(
     {
         case CSFG_EXPR_GC: break;
         case CSFG_EXPR_LIT:
-            if (pool1->nodes[expr1].value.lit == pool2->nodes[expr2].value.lit)
-                return 1;
-            break;
+            return pool1->nodes[expr1].value.lit ==
+                   pool2->nodes[expr2].value.lit;
         case CSFG_EXPR_VAR: {
-            struct strview s1 = strlist_view(
-                pool1->var_names, pool1->nodes[expr1].value.var_idx);
-            struct strview s2 = strlist_view(
-                pool2->var_names, pool2->nodes[expr2].value.var_idx);
-            if (strview_eq(s1, s2))
-                return 1;
-            break;
+            return strview_eq(
+                strlist_view(
+                    pool2->var_names, pool2->nodes[expr2].value.var_idx),
+                strlist_view(
+                    pool1->var_names, pool1->nodes[expr1].value.var_idx));
         }
         case CSFG_EXPR_INF: break;
         case CSFG_EXPR_NEG: {
             int child1 = pool1->nodes[expr1].child[0];
             int child2 = pool2->nodes[expr2].child[0];
-            if (csfg_expr_structurally_mathematically_equivalent(
-                    pool1, child1, pool2, child2))
-                return 1;
-            break;
+            return csfg_expr_mathematically_equivalent(
+                pool1, child1, pool2, child2);
         }
         case CSFG_EXPR_ADD:
-        case CSFG_EXPR_MUL:
+        case CSFG_EXPR_MUL: {
+            int left1 = pool1->nodes[expr1].child[0];
+            int left2 = pool2->nodes[expr2].child[0];
+            int right1 = pool1->nodes[expr1].child[1];
+            int right2 = pool2->nodes[expr2].child[1];
+            int l1l2 =
+                csfg_expr_mathematically_equivalent(pool1, left1, pool2, left2);
+            int r1r2 = csfg_expr_mathematically_equivalent(
+                pool1, right1, pool2, right2);
+            int l1r2 = csfg_expr_mathematically_equivalent(
+                pool1, left1, pool2, right2);
+            int r1l2 = csfg_expr_mathematically_equivalent(
+                pool1, right1, pool2, left2);
+            return (l1l2 && r1r2) || (l1r2 && r1l2);
+        }
         case CSFG_EXPR_POW: {
             int left1 = pool1->nodes[expr1].child[0];
             int left2 = pool2->nodes[expr2].child[0];
             int right1 = pool1->nodes[expr1].child[1];
             int right2 = pool2->nodes[expr2].child[1];
-            if (csfg_expr_structurally_mathematically_equivalent(
-                    pool1, left1, pool2, left2) &&
-                csfg_expr_structurally_mathematically_equivalent(
-                    pool1, right1, pool2, right2))
-            {
-                return 1;
-            }
-            if (csfg_expr_structurally_mathematically_equivalent(
-                    pool1, left1, pool2, right2) &&
-                csfg_expr_structurally_mathematically_equivalent(
-                    pool1, right1, pool2, left2))
-            {
-                return 1;
-            }
-            break;
+            int l1l2 =
+                csfg_expr_mathematically_equivalent(pool1, left1, pool2, left2);
+            int r1r2 = csfg_expr_mathematically_equivalent(
+                pool1, right1, pool2, right2);
+            return l1l2 && r1r2;
         }
     }
 

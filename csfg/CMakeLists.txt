@@ -51,6 +51,7 @@ set (csfg_SOURCES
 
     # symbolic
     "src/symbolic/expr.c"
+    "src/symbolic/expr_canonicalize.c"
     "src/symbolic/expr_eval.c"
     "src/symbolic/expr_integrity_check.c"
     "src/symbolic/expr_parse.c"
@@ -140,6 +141,7 @@ if (CSFG_TESTS)
         # symbolic
         "tests/test_expr.cpp"
         "tests/test_expr_apply_limits.cpp"
+        "tests/test_expr_canonicalize.cpp"
         "tests/test_expr_insert_substitutions.cpp"
         "tests/test_expr_op_parse.cpp"
         "tests/test_expr_op_distribute_products.cpp"

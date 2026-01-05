@@ -19,7 +19,7 @@ static int eval_subtrees(struct csfg_expr_pool** pool)
             (*pool)->nodes[left].type == CSFG_EXPR_LIT &&
             (*pool)->nodes[right].type == CSFG_EXPR_LIT)
         {
-            csfg_expr_set_lit(pool, n, csfg_expr_eval(*pool, n, NULL));
+            csfg_expr_set_lit(*pool, n, csfg_expr_eval(*pool, n, NULL));
             csfg_expr_mark_deleted_recursive(*pool, left);
             csfg_expr_mark_deleted_recursive(*pool, right);
             modified = 1;
@@ -30,7 +30,7 @@ static int eval_subtrees(struct csfg_expr_pool** pool)
             right == -1 && left != -1 &&
             (*pool)->nodes[left].type == CSFG_EXPR_LIT)
         {
-            csfg_expr_set_lit(pool, n, csfg_expr_eval(*pool, n, NULL));
+            csfg_expr_set_lit(*pool, n, csfg_expr_eval(*pool, n, NULL));
             csfg_expr_mark_deleted_recursive(*pool, left);
             modified = 1;
         }
@@ -109,7 +109,7 @@ static int combine_constants(struct csfg_expr_pool** pool)
         else
             combined_value = (*pool)->nodes[constant].value.lit *
                              (*pool)->nodes[match].value.lit;
-        csfg_expr_set_lit(pool, constant, combined_value);
+        csfg_expr_set_lit(*pool, constant, combined_value);
         csfg_expr_collapse_sibling_into_parent(*pool, match);
         modified = 1;
     }

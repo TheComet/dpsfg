@@ -1,5 +1,6 @@
 #include "csfg/graph/graph.h"
 #include "csfg/numeric/tf.h"
+#include "csfg/platform/mfile.h"
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/expr_opt.h"
@@ -9,8 +10,35 @@
 #include "dpsfg/plugin.h"
 
 /* -------------------------------------------------------------------------- */
-void math_pipeline_init(struct math_pipeline* pl)
+static int load_expr_ops(struct csfg_expr_op* ops)
 {
+    struct mfile   mf;
+    struct strview source;
+    const char*    filepath = "../../csfg/src/symbolic/ops.def";
+
+    if (mfile_map_read(&mf, filepath, 1) != 0)
+        goto open_file_failed;
+
+    source = strview(mf.address, 0, mf.size);
+    if (csfg_expr_op_parse_def(ops, filepath, source) != 0)
+        goto parse_failed;
+
+    mfile_unmap(&mf);
+    return 0;
+
+parse_failed:
+    mfile_unmap(&mf);
+open_file_failed:
+    return -1;
+}
+
+/* -------------------------------------------------------------------------- */
+int math_pipeline_init(struct math_pipeline* pl)
+{
+    csfg_expr_op_init(&pl->expr_ops);
+    if (load_expr_ops(&pl->expr_ops) != 0)
+        goto load_expr_ops_failed;
+
     csfg_graph_init(&pl->graph);
     csfg_path_vec_init(&pl->paths);
     csfg_path_vec_init(&pl->loops);
@@ -35,6 +63,12 @@ void math_pipeline_init(struct math_pipeline* pl)
     csfg_pfd_poly_init(&pl->pfd_impulse);
     csfg_pfd_poly_init(&pl->pfd_step);
     csfg_pfd_poly_init(&pl->pfd_ramp);
+
+    return 0;
+
+load_expr_ops_failed:
+    csfg_expr_op_deinit(&pl->expr_ops);
+    return -1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -54,6 +88,7 @@ void math_pipeline_deinit(struct math_pipeline* pl)
     csfg_path_vec_deinit(pl->loops);
     csfg_path_vec_deinit(pl->paths);
     csfg_graph_deinit(&pl->graph);
+    csfg_expr_op_deinit(&pl->expr_ops);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -123,18 +158,18 @@ static void calc_limits(struct math_pipeline* pipeline)
     {
         // TODO: Make this optimization pass more generic
         csfg_expr_op_run(
-            &pipeline->lim_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
+            &pipeline->lim_pool, csfg_expr_opt_fold_constants, NULL);
         pipeline->lim_expr =
             csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
-        csfg_expr_op_simplify_sums(&pipeline->lim_pool);
-        csfg_expr_op_run(
+
+        csfg_expr_op_run_def(
             &pipeline->lim_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            NULL);
+            &pipeline->lim_expr,
+            &pipeline->expr_ops,
+            "simplify");
+
+        csfg_expr_op_run(
+            &pipeline->lim_pool, csfg_expr_opt_fold_constants, NULL);
         pipeline->lim_expr =
             csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
     }

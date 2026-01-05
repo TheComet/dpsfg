@@ -2,3 +2,8 @@
 /.cache
 __pycache__
 /compile_commands.json
+
+# sourcetrail
+*.srctrlprj
+*.srctrldb
+*.srctrlbm

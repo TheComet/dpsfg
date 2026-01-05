@@ -2,6 +2,7 @@
 
 #include "csfg/graph/graph.h"
 #include "csfg/numeric/tf.h"
+#include "csfg/symbolic/expr_op.h"
 #include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 
@@ -17,6 +18,8 @@ enum math_pipeline_state
 
 struct math_pipeline
 {
+    struct csfg_expr_op expr_ops;
+
     struct csfg_graph     graph;
     struct csfg_path_vec* paths;
     struct csfg_path_vec* loops;
@@ -36,13 +39,13 @@ struct math_pipeline
 
     struct csfg_var_table parameters;
 
-    struct csfg_tf tf;
+    struct csfg_tf        tf;
     struct csfg_pfd_poly* pfd_impulse;
     struct csfg_pfd_poly* pfd_step;
     struct csfg_pfd_poly* pfd_ramp;
 };
 
-void math_pipeline_init(struct math_pipeline* pl);
+int  math_pipeline_init(struct math_pipeline* pl);
 void math_pipeline_deinit(struct math_pipeline* pl);
 void math_pipeline_update(
     struct math_pipeline* mp, enum math_pipeline_state state);

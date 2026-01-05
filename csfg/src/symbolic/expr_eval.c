@@ -133,6 +133,7 @@ int csfg_expr_to_str(
                     return -1;
             }
             break;
+
         case CSFG_EXPR_VAR: {
             int         var_idx = pool->nodes[expr].value.var_idx;
             const char* var_name = strlist_cstr(pool->var_names, var_idx);
@@ -140,24 +141,27 @@ int csfg_expr_to_str(
                 return -1;
             break;
         }
+
         case CSFG_EXPR_INF:
             if (str_append_cstr(str, "oo") != 0)
                 return -1;
             break;
+
         case CSFG_EXPR_NEG: {
-            int need_parens = has_parent_op_stronger_than_add(pool, expr);
+            /*int need_parens = has_parent_op_stronger_than_add(pool, expr);*/
             if (str_append_char(str, '-') != 0)
                 return -1;
-            if (need_parens)
-                if (str_append_char(str, '(') != 0)
-                    return -1;
+            /*if (need_parens)*/
+            if (str_append_char(str, '(') != 0)
+                return -1;
             if (csfg_expr_to_str(str, pool, left) != 0)
                 return -1;
-            if (need_parens)
-                if (str_append_char(str, ')') != 0)
-                    return -1;
+            /*if (need_parens)*/
+            if (str_append_char(str, ')') != 0)
+                return -1;
             break;
         }
+
         case CSFG_EXPR_ADD: {
             int need_parens = has_parent_op_stronger_than_add(pool, expr);
             if (need_parens)
@@ -174,6 +178,7 @@ int csfg_expr_to_str(
                     return -1;
             break;
         }
+
         case CSFG_EXPR_MUL: {
             if (csfg_expr_to_str(str, pool, left) != 0)
                 return -1;
@@ -183,12 +188,13 @@ int csfg_expr_to_str(
                 return -1;
             break;
         }
+
         case CSFG_EXPR_POW:
             if (str_append_cstr(str, "(") != 0)
                 return -1;
             if (csfg_expr_to_str(str, pool, left) != 0)
                 return -1;
-            if (str_append_cstr(str, "^") != 0)
+            if (str_append_cstr(str, ")^(") != 0)
                 return -1;
             if (csfg_expr_to_str(str, pool, right) != 0)
                 return -1;

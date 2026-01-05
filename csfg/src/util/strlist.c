@@ -219,16 +219,6 @@ void strlist_clear(struct strlist* l)
 }
 
 /* -------------------------------------------------------------------------- */
-static int lexicographically_less(struct strview s1, struct strview s2)
-{
-    int cmp = memcmp(
-        s1.data + s1.off, s2.data + s2.off, s1.len < s2.len ? s1.len : s2.len);
-    if (cmp == 0)
-        return s1.len < s2.len;
-    return cmp < 0;
-}
-
-/* -------------------------------------------------------------------------- */
 int strlist_lower_bound(const struct strlist* l, struct strview str)
 {
     int half, middle, found, len;
@@ -240,7 +230,7 @@ int strlist_lower_bound(const struct strlist* l, struct strview str)
     {
         half = len / 2;
         middle = found + half;
-        if (lexicographically_less(strlist_view(l, middle), str))
+        if (strview_lexicographically_less(strlist_view(l, middle), str))
         {
             found = middle;
             ++found;
@@ -265,7 +255,7 @@ int strlist_upper_bound(const struct strlist* l, struct strview str)
     {
         half = len / 2;
         middle = found + half;
-        if (lexicographically_less(str, strlist_view(l, middle)))
+        if (strview_lexicographically_less(str, strlist_view(l, middle)))
             len = half;
         else
         {

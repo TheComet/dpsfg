@@ -79,3 +79,12 @@ struct strview strview_remove_file_ext(struct strview str)
         }
     return str;
 }
+
+int strview_lexicographically_less(struct strview s1, struct strview s2)
+{
+    int cmp = memcmp(
+        s1.data + s1.off, s2.data + s2.off, s1.len < s2.len ? s1.len : s2.len);
+    if (cmp == 0)
+        return s1.len < s2.len;
+    return cmp < 0;
+}

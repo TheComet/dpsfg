@@ -15,6 +15,7 @@
 #define KEYWORD_LIST                                                           \
     X(EXTERN, "extern")                                                        \
     X(CONST, "const")                                                          \
+    X(IGNORE, "ignore")                                                        \
     X(TRANSLATES_TO, "-->")
 
 enum token
@@ -71,6 +72,27 @@ static int parser_error(const struct parser* p, const char* fmt, ...)
     log_excerpt(p->data, loc);
 
     return -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static struct csfg_expr_op_group*
+add_group(struct csfg_expr_op_group_vec** groups, int* group_idx)
+{
+    struct csfg_expr_op_group* group;
+
+    *group_idx = vec_count(*groups);
+    group = csfg_expr_op_group_vec_emplace(groups);
+    if (group == NULL)
+        return NULL;
+
+    group->expr_from = -1;
+    group->expr_to = -1;
+    group->extern_pass = NULL;
+    group->next = -1;
+    group->child = -1;
+    group->ignore = 0;
+
+    return group;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -161,7 +183,7 @@ enum token scan_next(struct parser* p)
 }
 
 /* -------------------------------------------------------------------------- */
-static int parse_qualifiers(struct parser* p)
+static int parse_qualifiers(struct parser* p, struct csfg_expr_op_group* group)
 {
     enum token tok;
     while (1)
@@ -189,7 +211,17 @@ static int parse_qualifiers(struct parser* p)
                 break;
             }
 
-            default: return tok;
+            case TOK_IGNORE: {
+                group->ignore = 1;
+                tok = scan_next(p);
+                if (tok != ',')
+                    goto reswitch_next;
+                break;
+            }
+
+            case ']': return tok;
+
+            default: return parser_error(p, "Unknown qualifier\n");
         }
     }
 }
@@ -215,8 +247,7 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
             case '{': {
                 int other_pseudo_idx;
                 if (parse_pseudo_block(p, op, &other_pseudo_idx) != '}')
-                    return parser_error(
-                        p, "Missing closing '}' of operation block\n");
+                    return parser_error(p, "Missing closing '}'\n");
                 if (current_group_idx > -1)
                     vec_get(op->groups, current_group_idx)->next =
                         other_pseudo_idx;
@@ -227,16 +258,13 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
             }
 
             case TOK_STRING: {
-                int next_group_idx = vec_count(op->groups);
-                struct csfg_expr_op_group* group =
-                    csfg_expr_op_group_vec_emplace(&op->groups);
+                int                        next_group_idx;
+                struct csfg_expr_op_group* group;
+
+                group = add_group(&op->groups, &next_group_idx);
                 if (group == NULL)
                     return -1;
-                group->expr_from = -1;
-                group->expr_to = -1;
-                group->extern_pass = NULL;
-                group->next = -1;
-                group->child = -1;
+
                 if (current_group_idx > -1)
                     vec_get(op->groups, current_group_idx)->next =
                         next_group_idx;
@@ -260,7 +288,10 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
                 tok = scan_next(p);
                 if (tok != '[')
                     goto reswitch_tok;
-                if (parse_qualifiers(p) != ']')
+                tok = parse_qualifiers(p, group);
+                if (tok <= 0)
+                    return tok;
+                if (tok != ']')
                     return parser_error(p, "Missing closing ']'\n");
                 break;
             }
@@ -274,15 +305,11 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
                 if (pseudo_group_idx == NULL)
                     return parser_error(p, "Group name not found\n");
 
-                next_group_idx = vec_count(op->groups);
-                group = csfg_expr_op_group_vec_emplace(&op->groups);
+                group = add_group(&op->groups, &next_group_idx);
                 if (group == NULL)
                     return -1;
-                group->expr_from = -1;
-                group->expr_to = -1;
-                group->extern_pass = NULL;
-                group->next = -1;
                 group->child = *pseudo_group_idx;
+
                 if (current_group_idx > -1)
                     vec_get(op->groups, current_group_idx)->next =
                         next_group_idx;
@@ -290,6 +317,14 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
                     *group_idx = next_group_idx;
                 current_group_idx = next_group_idx;
 
+                tok = scan_next(p);
+                if (tok != '[')
+                    goto reswitch_tok;
+                tok = parse_qualifiers(p, group);
+                if (tok <= 0)
+                    return tok;
+                if (tok != ']')
+                    return parser_error(p, "Missing closing ']'\n");
                 break;
             }
 
@@ -305,15 +340,10 @@ parse_pseudo_block(struct parser* p, struct csfg_expr_op* op, int* pseudo_idx)
     enum token                 tok;
     int                        group_idx;
     struct csfg_expr_op_group* group;
-    *pseudo_idx = vec_count(op->groups);
-    group = csfg_expr_op_group_vec_emplace(&op->groups);
+
+    group = add_group(&op->groups, pseudo_idx);
     if (group == NULL)
         return -1;
-    group->expr_from = -1;
-    group->expr_to = -1;
-    group->extern_pass = NULL;
-    group->next = -1;
-    group->child = -1;
 
     tok = parse_block(p, op, &group_idx);
     vec_get(op->groups, *pseudo_idx)->child = group_idx;
@@ -367,9 +397,10 @@ static int parse(struct parser* p, struct csfg_expr_op* op)
                     return parser_error(
                         p, "Missing opening '{' after operation identifier\n");
                 tok = parse_pseudo_block(p, op, group_idx);
+                if (tok <= 0)
+                    return tok;
                 if (tok != '}')
-                    return parser_error(
-                        p, "Missing closing '}' of operation block\n");
+                    return parser_error(p, "Missing closing '}'\n");
                 break;
             }
 

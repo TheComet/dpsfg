@@ -46,20 +46,69 @@ TEST_F(NAME, pattern_match1)
     ASSERT_GE(expected, 0);
 
     ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
-    actual = csfg_expr_gc(pool, actual);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, pattern_match2)
 {
-    int actual = csfg_expr_parse(&pool, cstr_view("(b+c)*a/a"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("(b+c)"));
+    int actual = csfg_expr_parse(&pool, cstr_view("(x+y)*s/(x+y)"));
+    int expected = csfg_expr_parse(&expected_pool, cstr_view("a"));
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
     ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
-    actual = csfg_expr_gc(pool, actual);
+
+    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+}
+
+TEST_F(NAME, pattern_match3)
+{
+    int actual = csfg_expr_parse(&pool, cstr_view("a*(b+c)+b*(b+c)"));
+    int expected = csfg_expr_parse(&expected_pool, cstr_view("(b+c)*(a+b)"));
+    ASSERT_GE(actual, 0);
+    ASSERT_GE(expected, 0);
+
+    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "factor"), 1);
+
+    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+}
+
+TEST_F(NAME, pattern_match4)
+{
+    int actual = csfg_expr_parse(
+        &pool, cstr_view("-G1*(C*s+G1+G2)/(C*s*(C*s+G1+G2) + G2*(C*s+G1+G2))"));
+    int expected = csfg_expr_parse(
+        &expected_pool, cstr_view("-G1*(C*s+G1+G2)/((C*s+G2)*(C*s+G1+G2))"));
+    ASSERT_GE(actual, 0);
+    ASSERT_GE(expected, 0);
+
+    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
+
+    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+}
+
+TEST_F(NAME, pattern_match5)
+{
+    int actual = csfg_expr_parse(&pool, cstr_view("a*b/(b+c) + a*c/(b+c)"));
+    int expected =
+        csfg_expr_parse(&expected_pool, cstr_view("a*(b/(b+c) + c/(b+c))"));
+    ASSERT_GE(actual, 0);
+    ASSERT_GE(expected, 0);
+
+    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "factor"), 1);
+
+    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+}
+
+TEST_F(NAME, no_simplification1)
+{
+    int actual = csfg_expr_parse(&pool, cstr_view("a*(b+c)/(b+d)"));
+    int expected = csfg_expr_parse(&expected_pool, cstr_view("a*(b+c)/(b+d)"));
+    ASSERT_GE(actual, 0);
+    ASSERT_GE(expected, 0);
+
+    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 0);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -72,13 +121,12 @@ TEST_F(NAME, case1)
      * (G2+s*C)*(s*C+G2)
      */
     int actual = csfg_expr_parse(
-        &pool, cstr_view("-1*(G1*(G2+s*C))/(1*((G2+s*C)*(G2+s*C)))"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("-G1/(G2+s*C)"));
+        &pool, cstr_view("-1*(G1*(G2+s*C))/(1*((s*C+G2)*(G2+C*s)))"));
+    int expected = csfg_expr_parse(&expected_pool, cstr_view("-(G1/(s*C+G2))"));
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
     ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
-    actual = csfg_expr_gc(pool, actual);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -92,13 +140,28 @@ TEST_F(NAME, case2)
      */
     int actual = csfg_expr_parse(
         &pool,
-        cstr_view("-G1*(C*s+G1+G2) / (C*s*(C*s+G1+G2) + G2*(C*s+G1+G2))"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("-G1/(G2+s*C)"));
+        cstr_view("-G1*(C*s+G1+G2) / (C*s*(C*s+G2+G1) + G2*(G2+s*C+G1))"));
+    int expected = csfg_expr_parse(&expected_pool, cstr_view("-(G1/(C*s+G2))"));
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
     ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
-    actual = csfg_expr_gc(pool, actual);
+
+    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+}
+
+TEST_F(NAME, case3)
+{
+    int actual = csfg_expr_parse(
+        &pool,
+        cstr_view(
+            "G1*(s*C+G2+G1)*(s*C+G2+G1)/"
+            "((s*C+G2+G1)*(s*C+G2+G1)*(s*C+G2))"));
+    int expected = csfg_expr_parse(&expected_pool, cstr_view("-(G1/(C*s+G2))"));
+    ASSERT_GE(actual, 0);
+    ASSERT_GE(expected, 0);
+
+    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }

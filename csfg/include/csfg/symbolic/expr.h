@@ -74,6 +74,8 @@ double csfg_expr_eval(
 int csfg_expr_to_str(
     struct str** str, const struct csfg_expr_pool* pool, int expr);
 
+void csfg_expr_canonicalize(struct csfg_expr_pool* pool, int expr);
+
 /*! Main function used to allocate a new node */
 int csfg_expr_new(
     struct csfg_expr_pool** pool,
@@ -102,9 +104,9 @@ int csfg_expr_lit(struct csfg_expr_pool** pool, double value);
 int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name);
 int csfg_expr_inf(struct csfg_expr_pool** pool);
 
-int csfg_expr_set_lit(struct csfg_expr_pool** pool, int n, double value);
-int csfg_expr_set_var(struct csfg_expr_pool** pool, int n, struct strview name);
-int csfg_expr_set_inf(struct csfg_expr_pool** pool, int n);
+int csfg_expr_set_lit(struct csfg_expr_pool* pool, int n, double value);
+int csfg_expr_set_var(struct csfg_expr_pool* pool, int n, struct strview name);
+int csfg_expr_set_inf(struct csfg_expr_pool* pool, int n);
 
 /* Unary operators */
 int csfg_expr_neg(struct csfg_expr_pool** pool, int child);
@@ -123,14 +125,14 @@ int csfg_expr_div(struct csfg_expr_pool** pool, int left, int right);
 int csfg_expr_pow(struct csfg_expr_pool** pool, int base, int exp);
 
 int csfg_expr_set_binop(
-    struct csfg_expr_pool** pool,
-    int                     n,
-    enum csfg_expr_type     type,
-    int                     left,
-    int                     right);
-int csfg_expr_set_add(struct csfg_expr_pool** pool, int n, int left, int right);
-int csfg_expr_set_mul(struct csfg_expr_pool** pool, int n, int left, int right);
-int csfg_expr_set_pow(struct csfg_expr_pool** pool, int n, int base, int exp);
+    struct csfg_expr_pool* pool,
+    int                    n,
+    enum csfg_expr_type    type,
+    int                    left,
+    int                    right);
+int csfg_expr_set_add(struct csfg_expr_pool* pool, int n, int left, int right);
+int csfg_expr_set_mul(struct csfg_expr_pool* pool, int n, int left, int right);
+int csfg_expr_set_pow(struct csfg_expr_pool* pool, int n, int base, int exp);
 
 /* Recursively duplicate a subtree */
 int csfg_expr_dup_recurse_from(
@@ -172,7 +174,7 @@ int csfg_expr_equal(
     const struct csfg_expr_pool* pool2,
     int                          expr2);
 
-int csfg_expr_structurally_mathematically_equivalent(
+int csfg_expr_mathematically_equivalent(
     const struct csfg_expr_pool* pool1,
     int                          expr1,
     const struct csfg_expr_pool* pool2,
