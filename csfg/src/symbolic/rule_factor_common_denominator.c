@@ -1,5 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 
 /* -------------------------------------------------------------------------- */
 static int find_power_with_negative_constant_exponent(
@@ -111,7 +112,7 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_op_factor_common_denominator(struct csfg_expr_pool** pool)
+int csfg_rule_factor_common_denominator(struct csfg_expr_pool** pool)
 {
-    return csfg_expr_op_run_pass(pool, factor_common_denominator);
+    return csfg_rule_run(pool, factor_common_denominator);
 }

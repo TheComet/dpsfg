@@ -2,11 +2,10 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 }
 
-#define NAME test_expr_op_lower_negations
+#define NAME test_rule_expand_exponent_sums
 
 using namespace testing;
 
@@ -27,23 +26,22 @@ struct NAME : public Test
     struct csfg_expr_pool* p2;
 };
 
-TEST_F(NAME, product)
+TEST_F(NAME, expand_simple)
 {
-    int r1 = csfg_expr_parse(&p1, cstr_view("-(a*b)"));
-    int r2 = csfg_expr_parse(&p2, cstr_view("-a*b"));
+    int r1 = csfg_expr_parse(&p1, cstr_view("s^(a+b)"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("s^a*s^b"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_lower_negates(&p1), 0);
+    ASSERT_GT(csfg_rule_expand_exponent_sums(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
-TEST_F(NAME, power)
+TEST_F(NAME, expand_nested)
 {
-    int r1 = csfg_expr_parse(&p1, cstr_view("-s^a"));
-    int r2 = csfg_expr_parse(&p2, cstr_view("(-1)*s^a"));
+    int r1 = csfg_expr_parse(&p1, cstr_view("(a+b)^((c*d)+(e*f)+(g*h)))"));
+    int r2 = csfg_expr_parse(
+        &p2, cstr_view("(a+b)^(c*d) * (a+b)^(e*f) * (a+b)^(g*h)"));
     ASSERT_GE(r1, 0);
-    ASSERT_GE(r2, 0);
-    csfg_expr_opt_fold_constants(&p2);
-    ASSERT_GT(csfg_expr_op_lower_negates(&p1), 0);
+    ASSERT_GT(csfg_rule_expand_exponent_sums(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }

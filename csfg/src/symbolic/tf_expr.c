@@ -1,6 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 #include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 #include <math.h>
@@ -424,7 +424,7 @@ static int run(struct csfg_expr_pool** num, struct csfg_expr_pool** den, ...)
     int     result, modified = 0;
 
     va_start(ap, den);
-    result = csfg_expr_op_runv(num, ap);
+    result = csfg_rules_runv(num, ap);
     va_end(ap);
     if (result == -1)
         return -1;
@@ -432,7 +432,7 @@ static int run(struct csfg_expr_pool** num, struct csfg_expr_pool** den, ...)
         modified = 1;
 
     va_start(ap, den);
-    result = csfg_expr_op_runv(den, ap);
+    result = csfg_rules_runv(den, ap);
     va_end(ap);
     if (result == -1)
         return -1;
@@ -463,7 +463,7 @@ int csfg_expr_to_standard_tf(
 
         if (run(num_pool,
                 den_pool,
-                csfg_expr_op_factor_common_denominator,
+                csfg_rule_factor_common_denominator,
                 NULL) == -1)
         {
             return -1;
@@ -473,10 +473,10 @@ int csfg_expr_to_standard_tf(
 
         if (run(num_pool,
                 den_pool,
-                csfg_expr_op_expand_constant_exponents,
-                csfg_expr_op_expand_exponent_sums,
-                csfg_expr_op_expand_exponent_products,
-                csfg_expr_op_distribute_products,
+                csfg_rule_expand_constant_exponents,
+                csfg_rule_expand_exponent_sums,
+                csfg_rule_expand_exponent_products,
+                csfg_rule_distribute_products,
                 NULL) == -1)
         {
             return -1;
@@ -484,8 +484,8 @@ int csfg_expr_to_standard_tf(
 
         if (run(num_pool,
                 den_pool,
-                csfg_expr_opt_fold_constants,
-                csfg_expr_opt_remove_useless_ops,
+                csfg_rule_fold_constants,
+                csfg_rule_remove_useless_ops,
                 NULL) == -1)
         {
             return -1;
@@ -494,7 +494,7 @@ int csfg_expr_to_standard_tf(
         *den_root = csfg_expr_gc(*den_pool, *den_root);
 
         /* rebalance fraction requires this pass */
-        if (run(num_pool, den_pool, csfg_expr_op_lower_negates, NULL) == -1)
+        if (run(num_pool, den_pool, csfg_rule_lower_negates, NULL) == -1)
             return -1;
         *num_root = csfg_expr_gc(*num_pool, *num_root);
         *den_root = csfg_expr_gc(*den_pool, *den_root);
@@ -515,18 +515,18 @@ int csfg_expr_to_standard_tf(
 
     if (run(num_pool,
             den_pool,
-            csfg_expr_op_expand_constant_exponents,
-            csfg_expr_op_expand_exponent_sums,
-            csfg_expr_op_expand_exponent_products,
-            csfg_expr_op_distribute_products,
+            csfg_rule_expand_constant_exponents,
+            csfg_rule_expand_exponent_sums,
+            csfg_rule_expand_exponent_products,
+            csfg_rule_distribute_products,
             NULL) == -1)
         return -1;
     if (run(num_pool,
             den_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
-            csfg_expr_op_simplify_products,
-            csfg_expr_op_simplify_sums,
+            csfg_rule_fold_constants,
+            csfg_rule_remove_useless_ops,
+            csfg_rule_simplify_products,
+            csfg_rule_simplify_sums,
             NULL) == -1)
         return -1;
     *num_root = csfg_expr_gc(*num_pool, *num_root);

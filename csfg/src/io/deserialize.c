@@ -82,7 +82,7 @@ const char* deserialize_cstr(struct deserializer* des)
     const char* cstr = des->data + des->read_offset;
     while (des->data[des->read_offset++] != '\0')
         if (des->read_offset >= des->size)
-            return "";
+            return des->err = 1, "";
     return cstr;
 }
 

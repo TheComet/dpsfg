@@ -30,7 +30,26 @@ static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
 {
     pole_zero_plot_set_tf(ctx->pole_zero_plot, tf);
 }
-static struct dpsfg_numeric_interface numeric = {on_tf_changed};
+static void on_impulse_response_changed(
+    struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
+{
+    (void)ctx, (void)pfd_terms;
+}
+static void on_step_response_changed(
+    struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
+{
+    (void)ctx, (void)pfd_terms;
+}
+static void on_ramp_response_changed(
+    struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
+{
+    (void)ctx, (void)pfd_terms;
+}
+static struct dpsfg_numeric_interface numeric = {
+    on_tf_changed,
+    on_impulse_response_changed,
+    on_step_response_changed,
+    on_ramp_response_changed};
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(

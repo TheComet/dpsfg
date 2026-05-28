@@ -2,10 +2,10 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rules.h"
 }
 
-#define NAME test_expr_op_distribute_products
+#define NAME test_rule_distribute_products
 
 using namespace testing;
 
@@ -32,7 +32,7 @@ TEST_F(NAME, distribute_simple1)
     int r2 = csfg_expr_parse(&p2, cstr_view("s*a + s*b"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_distribute_products(&p1), 0);
+    ASSERT_GT(csfg_rule_distribute_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -42,7 +42,7 @@ TEST_F(NAME, expand_simple2)
     int r2 = csfg_expr_parse(&p2, cstr_view("s*a + s*b"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_distribute_products(&p1), 0);
+    ASSERT_GT(csfg_rule_distribute_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -52,7 +52,7 @@ TEST_F(NAME, binomial_expansion)
     int r2 = csfg_expr_parse(&p2, cstr_view("(a*c + a*d) + (b*c + b*d)"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_distribute_products(&p1), 0);
+    ASSERT_GT(csfg_rule_distribute_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -64,6 +64,6 @@ TEST_F(NAME, distribute_nested)
         cstr_view(
             "a*(c*d) + a*(e*f) + a*(g*h) + ((b*(c*d) + b*(e*f)) + b*(g*h))"));
     ASSERT_GE(r1, 0);
-    ASSERT_GT(csfg_expr_op_distribute_products(&p1), 0);
+    ASSERT_GT(csfg_rule_distribute_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }

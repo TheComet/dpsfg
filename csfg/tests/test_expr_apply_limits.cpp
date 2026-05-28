@@ -4,7 +4,6 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_opt.h"
 #include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 }

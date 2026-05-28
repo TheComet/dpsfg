@@ -1,5 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 
 /* -------------------------------------------------------------------------- */
 static int distribute_products(struct csfg_expr_pool** pool)
@@ -42,7 +43,7 @@ static int distribute_products(struct csfg_expr_pool** pool)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_op_distribute_products(struct csfg_expr_pool** pool)
+int csfg_rule_distribute_products(struct csfg_expr_pool** pool)
 {
-    return csfg_expr_op_run_pass(pool, distribute_products);
+    return csfg_rule_run(pool, distribute_products);
 }

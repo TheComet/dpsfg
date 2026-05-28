@@ -2,11 +2,10 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 }
 
-#define NAME test_expr_op_simplify_products
+#define NAME test_rule_simplify_products
 
 using namespace testing;
 
@@ -33,7 +32,7 @@ TEST_F(NAME, one_product)
     int r2 = csfg_expr_parse(&p2, cstr_view("(a+2)^2"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_simplify_products(&p1), 0);
+    ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -43,7 +42,7 @@ TEST_F(NAME, product_with_exponent_1)
     int r2 = csfg_expr_parse(&p2, cstr_view("(a+2)^(2+1)"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_simplify_products(&p1), 0);
+    ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -53,7 +52,7 @@ TEST_F(NAME, product_with_exponent_2)
     int r2 = csfg_expr_parse(&p2, cstr_view("(a+2)^(2+1)"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_simplify_products(&p1), 0);
+    ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -64,7 +63,7 @@ TEST_F(NAME, parity)
     int r2 = csfg_expr_parse(&p2, cstr_view("(a+2)^2"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_simplify_products(&p1), 0);
+    ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -74,7 +73,7 @@ TEST_F(NAME, multiple_products)
     int r2 = csfg_expr_parse(&p2, cstr_view("a*(s^(2+1))"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_simplify_products(&p1), 0);
+    ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -84,9 +83,9 @@ TEST_F(NAME, products_of_exponents)
     int r2 = csfg_expr_parse(&p2, cstr_view("s^-3*a"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    csfg_expr_opt_fold_constants(&p1);
-    csfg_expr_opt_fold_constants(&p2);
-    ASSERT_GT(csfg_expr_op_simplify_products(&p1), 0);
-    csfg_expr_opt_fold_constants(&p1);
+    csfg_rule_fold_constants(&p1);
+    csfg_rule_fold_constants(&p2);
+    ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
+    csfg_rule_fold_constants(&p1);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }

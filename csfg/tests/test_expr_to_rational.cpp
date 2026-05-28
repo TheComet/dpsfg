@@ -4,7 +4,7 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 #include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 }
@@ -41,7 +41,7 @@ TEST_F(NAME, simple)
 {
     int expr = csfg_expr_parse(&in_pool, cstr_view("(s+3)^-2"));
     ASSERT_GE(expr, 0);
-    csfg_expr_opt_fold_constants(&in_pool);
+    csfg_rule_fold_constants(&in_pool);
 
     ASSERT_EQ(
         csfg_expr_to_rational(in_pool, expr, cstr_view("s"), &out_pool, &tf),
@@ -82,7 +82,7 @@ TEST_F(NAME, multilevel_fraction)
      */
     int expr = csfg_expr_parse(&in_pool, cstr_view("1/(1/s - 1/a)"));
     ASSERT_GE(expr, 0);
-    csfg_expr_opt_remove_useless_ops(&in_pool);
+    csfg_rule_remove_useless_ops(&in_pool);
     expr = csfg_expr_gc(in_pool, expr);
 
     ASSERT_EQ(

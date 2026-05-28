@@ -3,11 +3,12 @@
 extern "C" {
 #include "csfg/platform/mfile.h"
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 #include "csfg/symbolic/var_table.h"
 }
 
-#define NAME test_expr_op_simplify
+#define NAME test_rule_simplify
 
 using namespace testing;
 
@@ -15,25 +16,25 @@ struct NAME : public Test
 {
     void SetUp() override
     {
-        csfg_expr_op_init(&op);
+        csfg_rulebook_init(&book);
         csfg_expr_pool_init(&pool);
         csfg_expr_pool_init(&expected_pool);
         ASSERT_EQ(mfile_map_read(&mf, filename, 1), 0);
         source = strview((const char*)mf.address, 0, mf.size);
-        ASSERT_EQ(csfg_expr_op_parse_def(&op, filename, source), 0);
+        ASSERT_EQ(csfg_rulebook_parse(&book, filename, source), 0);
     }
     void TearDown() override
     {
         csfg_expr_pool_deinit(expected_pool);
         csfg_expr_pool_deinit(pool);
-        csfg_expr_op_deinit(&op);
+        csfg_rulebook_deinit(&book);
         mfile_unmap(&mf);
     }
 
-    const char*            filename = "../../csfg/src/symbolic/ops.def";
+    const char*            filename = "../../csfg/src/symbolic/rulebook.txt";
     struct mfile           mf;
     struct strview         source;
-    struct csfg_expr_op    op;
+    struct csfg_rulebook   book;
     struct csfg_expr_pool* pool;
     struct csfg_expr_pool* expected_pool;
 };
@@ -45,7 +46,7 @@ TEST_F(NAME, pattern_match1)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
+    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -57,7 +58,7 @@ TEST_F(NAME, pattern_match2)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
+    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -69,7 +70,7 @@ TEST_F(NAME, pattern_match3)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "factor"), 1);
+    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -83,7 +84,7 @@ TEST_F(NAME, pattern_match4)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
+    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -96,7 +97,7 @@ TEST_F(NAME, pattern_match5)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "factor"), 1);
+    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -108,7 +109,7 @@ TEST_F(NAME, no_simplification1)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 0);
+    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 0);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -126,7 +127,7 @@ TEST_F(NAME, case1)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
+    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -145,7 +146,7 @@ TEST_F(NAME, case2)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
+    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }
@@ -161,7 +162,7 @@ TEST_F(NAME, case3)
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_expr_op_run_def(&pool, &actual, &op, "simplify"), 1);
+    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
     ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
 }

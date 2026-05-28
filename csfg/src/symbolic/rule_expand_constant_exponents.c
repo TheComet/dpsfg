@@ -1,5 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 #include <math.h>
 
 /* -------------------------------------------------------------------------- */
@@ -55,7 +56,7 @@ static int expand_constant_exponents(struct csfg_expr_pool** pool)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_op_expand_constant_exponents(struct csfg_expr_pool** pool)
+int csfg_rule_expand_constant_exponents(struct csfg_expr_pool** pool)
 {
-    return csfg_expr_op_run_pass(pool, expand_constant_exponents);
+    return csfg_rule_run(pool, expand_constant_exponents);
 }

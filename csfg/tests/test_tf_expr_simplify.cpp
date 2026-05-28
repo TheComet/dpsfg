@@ -4,8 +4,7 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 #include "csfg/symbolic/tf_expr.h"
 }
 
@@ -43,10 +42,10 @@ TEST_F(NAME, case1)
     int expr = csfg_expr_parse(
         &pool1, cstr_view("-1*(G1*(G2+s*C))/(1*((G2+s*C)*(s*C+G2)))"));
     ASSERT_GE(expr, 0);
-    csfg_expr_opt_fold_constants(&pool1);
+    csfg_rule_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
 
-    ASSERT_EQ(csfg_expr_opt_remove_useless_ops(&pool1), 1);
+    ASSERT_EQ(csfg_rule_remove_useless_ops(&pool1), 1);
 
     /*
      *         -G2*G1 - (G1*C)*s
@@ -74,9 +73,9 @@ TEST_F(NAME, case2)
         &pool1,
         cstr_view("-G1*(C*s+G1+G2) / (C*s*(C*s+G1+G2) + G2*(C*s+G1+G2))"));
     ASSERT_GE(expr, 0);
-    csfg_expr_opt_fold_constants(&pool1);
+    csfg_rule_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
-    csfg_expr_opt_remove_useless_ops(&pool1);
+    csfg_rule_remove_useless_ops(&pool1);
 
     ASSERT_EQ(
         csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);

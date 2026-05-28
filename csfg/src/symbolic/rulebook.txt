@@ -1,0 +1,127 @@
+// Some notes on how this works:
+//
+// A rule is defined as follows:
+//
+//      "1*a" --> "a"
+//
+// This will search the expression tree for the pattern "1*a". That is, it will
+// try to find a subtree matching:
+//
+//        *
+//       / \
+//      1   a
+//
+// where "a" matches anything, including subexpressions. The rule will thus
+// also match the expression "1*(x+y)" where "a=(x+y)".
+//
+// Once a match is found, the rule's subtitution expression is inserted. In
+// this case, "1*a" is replaced with just "a". Any nodes that become orphans
+// will be destroyed in this process.
+//
+// Rules can be grouped together, and groups can be referenced within other
+// groups. On the C side of things, groups can be executed by referencing their
+// name by string.
+//
+// Execution ends when no more rules cause changes to the expression, however,
+// sometimes rules from one group might cause circular dependencies with rules
+// from another groups and execution will never end. Debug builds have a
+// mechanism to detect this, but generally, one has to be careful to avoid this
+// situation. A tool that can be used sometimes is to mark a group with
+// [ignore]:
+//
+//     my_group {
+//        another_group [ignore]
+//        rules_I_care_about
+//     }
+//
+// This has the effect of executing all rules in "another_group", but
+// modifications are not tracked. This way, if "rules_I_care_about" didn't
+// modify the expression, even if "another_group" did, execution will still
+// end.
+
+//extern fold_constants
+
+simplify_negates {
+    "-a*b" --> "-(a*b)"
+    "-a/b" --> "-(a/b)"
+
+    "a*-b" --> "-(a*b)"
+    "a/-b" --> "-(a/b)"
+
+    "-a*-b" --> "a*b"
+    "-a/-b" --> "a/b"
+}
+
+simplify_divisions {
+    "a*b/b" --> "a"
+    "b*a/b" --> "a"
+    "-(a*b)/b" --> "-a"
+    "-(b*a)/b" --> "-a"
+
+    "a*b/(c*b)" --> "a/c"
+    "a*b/(b*c)" --> "a/c"
+    "b*a/(c*b)" --> "a/c"
+    "b*a/(b*c)" --> "a/c"
+
+    "-(a*b)/(c*b)" --> "-(a/c)"
+    "-(a*b)/(b*c)" --> "-(a/c)"
+    "-(b*a)/(c*b)" --> "-(a/c)"
+    "-(b*a)/(b*c)" --> "-(a/c)"
+}
+
+remove_useless_ops {
+    //fold_constants
+    simplify_negates
+    simplify_divisions
+
+    "-(-a)" --> "a"
+    "0+a" --> "a"
+    "1*a" --> "a"
+    "a*1" --> "a"
+    "-1*a" --> "a"
+    "a*-1" --> "a"
+    "-(1*a)" --> "-a"
+    "-(a*1)" --> "-a"
+    "a^1" --> "a"
+    "a^0" --> "1"
+    "a*a^-1" --> "1"
+    "a^-1^-1" --> "a"
+}
+
+//extern expand_constant_exponents
+
+factor {
+    "s*a + s*b" --> "s*(a+b)"
+    "s*a + b*s" --> "s*(a+b)"
+    "a*s + s*b" --> "s*(a+b)"
+    "a*s + b*s" --> "s*(a+b)"
+
+    "-(s*a) + -(s*b)" --> "-(s*(a+b))"
+    "-(s*a) + -(b*s)" --> "-(s*(a+b))"
+    "-(a*s) + -(s*b)" --> "-(s*(a+b))"
+    "-(a*s) + -(b*s)" --> "-(s*(a+b))"
+
+    //"a + s^-c" --> "s^-c * (a*s^c + 1)"
+    //"a + b*s^-c" --> "s^-c * (a*s^c + b)"
+
+    //"s*s" --> "s^2"
+    //"s*s^c" --> "s^(c+1)" [c=const]
+    //"s^a * s^b" --> "s^(a+b)"
+
+    //"s+s" --> "2*s"
+    //"s+c*s" --> "(c+1)*s" [c=const]
+}
+
+expand {
+    //    expand_constant_exponents
+    "s^(a+b)" --> "s^a * s^b"
+    "s*(a+b)" --> "s*a + s*b"
+}
+
+simplify {
+    "a*1" --> "a"
+    //expand [ignore]
+    //remove_useless_ops
+    //factor [ignore]
+    //remove_useless_ops
+}

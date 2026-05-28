@@ -3,8 +3,7 @@
 extern "C" {
 #include "csfg/graph/graph.h"
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 #include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 }
@@ -77,8 +76,8 @@ TEST_F(NAME, light)
      */
     int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/(s-1)-1/(a+4))"));
     ASSERT_GE(expr, 0);
-    csfg_expr_opt_remove_useless_ops(&pool1);
-    csfg_expr_opt_fold_constants(&pool1);
+    csfg_rule_remove_useless_ops(&pool1);
+    csfg_rule_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
     ASSERT_EQ(
         csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
@@ -99,8 +98,8 @@ TEST_F(NAME, medium)
      */
     int expr = csfg_expr_parse(&pool1, cstr_view("1/(1/(s-1)^2-1/(a+4))"));
     ASSERT_GE(expr, 0);
-    csfg_expr_opt_remove_useless_ops(&pool1);
-    csfg_expr_opt_fold_constants(&pool1);
+    csfg_rule_remove_useless_ops(&pool1);
+    csfg_rule_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
     ASSERT_EQ(
         csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
@@ -134,8 +133,8 @@ TEST_F(NAME, harder)
      * --->  -------------------------------------------------------------
      *       (-8)s^5 + (-16)s^4 + (-4a-24)s^3 + (a+4)s^2 + (2a+8)s + (a+4)
      */
-    csfg_expr_opt_remove_useless_ops(&pool1);
-    csfg_expr_opt_fold_constants(&pool1);
+    csfg_rule_remove_useless_ops(&pool1);
+    csfg_rule_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
     ASSERT_EQ(
         csfg_expr_to_rational(pool1, expr, cstr_view("s"), &pool2, &tf), 0);
@@ -290,8 +289,8 @@ TEST_F(NAME, inverting_amplifier)
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
     ASSERT_EQ(csfg_expr_insert_substitutions(&pool1, expr, &vt), 0);
-    csfg_expr_opt_remove_useless_ops(&pool1);
-    csfg_expr_opt_fold_constants(&pool1);
+    csfg_rule_remove_useless_ops(&pool1);
+    csfg_rule_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
 
     /*
@@ -355,8 +354,8 @@ TEST_F(NAME, integrator)
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
     ASSERT_EQ(csfg_expr_insert_substitutions(&pool1, expr, &vt), 0);
-    csfg_expr_opt_remove_useless_ops(&pool1);
-    csfg_expr_opt_fold_constants(&pool1);
+    csfg_rule_remove_useless_ops(&pool1);
+    csfg_rule_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
 
     ASSERT_GE(expr, 0);
@@ -440,8 +439,8 @@ TEST_F(NAME, active_lowpass_filter)
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("s*C + G2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
     ASSERT_EQ(csfg_expr_insert_substitutions(&pool1, expr, &vt), 0);
-    csfg_expr_opt_remove_useless_ops(&pool1);
-    csfg_expr_opt_fold_constants(&pool1);
+    csfg_rule_remove_useless_ops(&pool1);
+    csfg_rule_fold_constants(&pool1);
     expr = csfg_expr_gc(pool1, expr);
 
     /*

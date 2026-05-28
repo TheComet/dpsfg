@@ -1,5 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 
 /* -------------------------------------------------------------------------- */
 static int move_reciprocs(

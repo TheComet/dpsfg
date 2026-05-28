@@ -2,11 +2,11 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 #include "csfg/symbolic/tf_expr.h"
 }
 
-#define NAME test_expr_op_rebalance_fraction
+#define NAME test_rule_rebalance_fraction
 
 using namespace testing;
 
@@ -43,7 +43,7 @@ TEST_F(NAME, distribute_single)
     ASSERT_GE(nr2, 0);
     ASSERT_GE(dr1, 0);
     ASSERT_GE(dr2, 0);
-    csfg_expr_opt_fold_constants(&n1);
+    csfg_rule_fold_constants(&n1);
     ASSERT_GT(csfg_expr_rebalance_fraction(&n1, nr1, &d1, dr1), 0);
     ASSERT_TRUE(csfg_expr_equal(n1, nr1, n2, nr2));
     ASSERT_TRUE(csfg_expr_equal(d1, dr1, d2, dr2));
@@ -59,7 +59,7 @@ TEST_F(NAME, distribute_multiple_products)
     ASSERT_GE(nr2, 0);
     ASSERT_GE(dr1, 0);
     ASSERT_GE(dr2, 0);
-    csfg_expr_opt_fold_constants(&n1);
+    csfg_rule_fold_constants(&n1);
     ASSERT_GT(csfg_expr_rebalance_fraction(&n1, nr1, &d1, dr1), 0);
     ASSERT_TRUE(csfg_expr_equal(n1, nr1, n2, nr2));
     ASSERT_TRUE(csfg_expr_equal(d1, dr1, d2, dr2));
@@ -75,8 +75,8 @@ TEST_F(NAME, dont_distribute_if_top_is_not_mul)
     ASSERT_GE(nr2, 0);
     ASSERT_GE(dr1, 0);
     ASSERT_GE(dr2, 0);
-    csfg_expr_opt_fold_constants(&n1);
-    csfg_expr_opt_fold_constants(&n2);
+    csfg_rule_fold_constants(&n1);
+    csfg_rule_fold_constants(&n2);
     ASSERT_EQ(csfg_expr_rebalance_fraction(&n1, nr1, &d1, dr1), 0);
     ASSERT_TRUE(csfg_expr_equal(n1, nr1, n2, nr2));
     ASSERT_TRUE(csfg_expr_equal(d1, dr1, d2, dr2));
@@ -92,8 +92,8 @@ TEST_F(NAME, distribute_num_and_den)
     ASSERT_GE(nr2, 0);
     ASSERT_GE(dr1, 0);
     ASSERT_GE(dr2, 0);
-    csfg_expr_opt_fold_constants(&n1);
-    csfg_expr_opt_fold_constants(&d1);
+    csfg_rule_fold_constants(&n1);
+    csfg_rule_fold_constants(&d1);
     ASSERT_GT(csfg_expr_rebalance_fraction(&n1, nr1, &d1, dr1), 0);
     ASSERT_TRUE(csfg_expr_equal(n1, nr1, n2, nr2));
     ASSERT_TRUE(csfg_expr_equal(d1, dr1, d2, dr2));

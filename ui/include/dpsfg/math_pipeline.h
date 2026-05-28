@@ -2,7 +2,7 @@
 
 #include "csfg/graph/graph.h"
 #include "csfg/numeric/tf.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
 #include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 
@@ -18,7 +18,7 @@ enum math_pipeline_state
 
 struct math_pipeline
 {
-    struct csfg_expr_op expr_ops;
+    struct csfg_rulebook rulebook;
 
     struct csfg_graph     graph;
     struct csfg_path_vec* paths;

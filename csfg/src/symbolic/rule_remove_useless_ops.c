@@ -1,6 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 #include <math.h>
 
 /* -------------------------------------------------------------------------- */
@@ -280,9 +280,9 @@ static int cancel_products(struct csfg_expr_pool** pool)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_opt_remove_useless_ops(struct csfg_expr_pool** pool)
+int csfg_rule_remove_useless_ops(struct csfg_expr_pool** pool)
 {
-    return csfg_expr_op_run(
+    return csfg_rules_run(
         pool,
         remove_chained_negates,
         remove_negated_products,

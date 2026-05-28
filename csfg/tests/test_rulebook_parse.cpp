@@ -3,11 +3,11 @@
 extern "C" {
 #include "csfg/platform/mfile.h"
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
 #include "csfg/symbolic/var_table.h"
 }
 
-#define NAME test_expr_op_parse
+#define NAME test_rulebook_parse
 
 using namespace testing;
 
@@ -17,22 +17,29 @@ struct NAME : public Test
     {
         ASSERT_EQ(mfile_map_read(&mf, filename, 1), 0);
         source = strview((const char*)mf.address, 0, mf.size);
-        csfg_expr_op_init(&op);
+        csfg_rulebook_init(&book);
         csfg_expr_pool_init(&pool);
     }
     void TearDown() override
     {
         csfg_expr_pool_deinit(pool);
-        csfg_expr_op_deinit(&op);
+        csfg_rulebook_deinit(&book);
         mfile_unmap(&mf);
     }
 
-    const char*            filename = "../../csfg/src/symbolic/ops.def";
+    const char*            filename = "../../csfg/src/symbolic/rulebook.txt";
     struct mfile           mf;
     struct strview         source;
-    struct csfg_expr_op    op;
+    struct csfg_rulebook   book;
     struct csfg_expr_pool* pool;
 };
+
+TEST_F(NAME, parse_missing_closing_parenthesis)
+{
+    struct strview src = cstr_view("simplify {");
+
+    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", src), -1);
+}
 
 TEST_F(NAME, parse_nested_groups_correctly)
 {
@@ -75,7 +82,7 @@ TEST_F(NAME, parse_nested_groups_correctly)
         "    }\n"
         "}\n");
 
-    ASSERT_EQ(csfg_expr_op_parse_def(&op, "<stdin>", src), 0);
+    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", src), 0);
 }
 
 TEST_F(NAME, insert_named_substitutions_into_groups)
@@ -93,5 +100,5 @@ TEST_F(NAME, insert_named_substitutions_into_groups)
         "    factor_common_denominator\n"
         "}\n");
 
-    ASSERT_EQ(csfg_expr_op_parse_def(&op, "<stdin>", src), 0);
+    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", src), 0);
 }

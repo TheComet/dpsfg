@@ -2,25 +2,24 @@
 #include "csfg/numeric/tf.h"
 #include "csfg/platform/mfile.h"
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 #include "csfg/symbolic/tf_expr.h"
 #include "csfg/symbolic/var_table.h"
 #include "dpsfg/math_pipeline.h"
 #include "dpsfg/plugin.h"
 
 /* -------------------------------------------------------------------------- */
-static int load_expr_ops(struct csfg_expr_op* ops)
+static int load_expr_ops(struct csfg_rulebook* ops)
 {
     struct mfile   mf;
     struct strview source;
-    const char*    filepath = "../../csfg/src/symbolic/ops.def";
+    const char*    filepath = "../../csfg/src/symbolic/rulebook.txt";
 
     if (mfile_map_read(&mf, filepath, 1) != 0)
         goto open_file_failed;
 
     source = strview(mf.address, 0, mf.size);
-    if (csfg_expr_op_parse_def(ops, filepath, source) != 0)
+    if (csfg_rulebook_parse(ops, filepath, source) != 0)
         goto parse_failed;
 
     mfile_unmap(&mf);
@@ -35,8 +34,8 @@ open_file_failed:
 /* -------------------------------------------------------------------------- */
 int math_pipeline_init(struct math_pipeline* pl)
 {
-    csfg_expr_op_init(&pl->expr_ops);
-    if (load_expr_ops(&pl->expr_ops) != 0)
+    csfg_rulebook_init(&pl->rulebook);
+    if (load_expr_ops(&pl->rulebook) != 0)
         goto load_expr_ops_failed;
 
     csfg_graph_init(&pl->graph);
@@ -67,7 +66,7 @@ int math_pipeline_init(struct math_pipeline* pl)
     return 0;
 
 load_expr_ops_failed:
-    csfg_expr_op_deinit(&pl->expr_ops);
+    csfg_rulebook_deinit(&pl->rulebook);
     return -1;
 }
 
@@ -88,7 +87,7 @@ void math_pipeline_deinit(struct math_pipeline* pl)
     csfg_path_vec_deinit(pl->loops);
     csfg_path_vec_deinit(pl->paths);
     csfg_graph_deinit(&pl->graph);
-    csfg_expr_op_deinit(&pl->expr_ops);
+    csfg_rulebook_deinit(&pl->rulebook);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -109,10 +108,10 @@ static void calc_graph_expression(struct math_pipeline* pipeline)
         pipeline->loops);
     if (pipeline->graph_expr > -1)
     {
-        csfg_expr_op_run(
+        csfg_rules_run(
             &pipeline->graph_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
+            csfg_rule_fold_constants,
+            csfg_rule_remove_useless_ops,
             NULL);
         pipeline->graph_expr =
             csfg_expr_gc(pipeline->graph_pool, pipeline->graph_expr);
@@ -135,10 +134,10 @@ static void calc_substitutions(struct math_pipeline* pipeline)
         }
     if (pipeline->subs_expr > -1)
     {
-        csfg_expr_op_run(
+        csfg_rules_run(
             &pipeline->subs_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
+            csfg_rule_fold_constants,
+            csfg_rule_remove_useless_ops,
             NULL);
         pipeline->subs_expr =
             csfg_expr_gc(pipeline->subs_pool, pipeline->subs_expr);
@@ -157,19 +156,17 @@ static void calc_limits(struct math_pipeline* pipeline)
     if (pipeline->lim_expr > -1)
     {
         // TODO: Make this optimization pass more generic
-        csfg_expr_op_run(
-            &pipeline->lim_pool, csfg_expr_opt_fold_constants, NULL);
+        csfg_rules_run(&pipeline->lim_pool, csfg_rule_fold_constants, NULL);
         pipeline->lim_expr =
             csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
 
-        csfg_expr_op_run_def(
+        csfg_rulebook_run(
+            &pipeline->rulebook,
+            "simplify",
             &pipeline->lim_pool,
-            &pipeline->lim_expr,
-            &pipeline->expr_ops,
-            "simplify");
+            &pipeline->lim_expr);
 
-        csfg_expr_op_run(
-            &pipeline->lim_pool, csfg_expr_opt_fold_constants, NULL);
+        csfg_rules_run(&pipeline->lim_pool, csfg_rule_fold_constants, NULL);
         pipeline->lim_expr =
             csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
     }
@@ -191,10 +188,10 @@ static void calc_symbolic_tf(struct math_pipeline* pipeline)
         }
     if (csfg_expr_pool_count(pipeline->tf_pool) > 0)
     {
-        csfg_expr_op_run(
+        csfg_rules_run(
             &pipeline->tf_pool,
-            csfg_expr_opt_fold_constants,
-            csfg_expr_opt_remove_useless_ops,
+            csfg_rule_fold_constants,
+            csfg_rule_remove_useless_ops,
             NULL);
     }
 }

@@ -2,10 +2,10 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rules.h"
 }
 
-#define NAME test_expr_op_expand_exponent_sums
+#define NAME test_rule_expand_exponent_products
 
 using namespace testing;
 
@@ -28,20 +28,20 @@ struct NAME : public Test
 
 TEST_F(NAME, expand_simple)
 {
-    int r1 = csfg_expr_parse(&p1, cstr_view("s^(a+b)"));
-    int r2 = csfg_expr_parse(&p2, cstr_view("s^a*s^b"));
+    int r1 = csfg_expr_parse(&p1, cstr_view("(a*b)^s"));
+    int r2 = csfg_expr_parse(&p2, cstr_view("a^s*b^s"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_expand_exponent_sums(&p1), 0);
+    ASSERT_GT(csfg_rule_expand_exponent_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, expand_nested)
 {
-    int r1 = csfg_expr_parse(&p1, cstr_view("(a+b)^((c*d)+(e*f)+(g*h)))"));
+    int r1 = csfg_expr_parse(&p1, cstr_view("((c+d)*(e+f)*(g+h))^(a+b)"));
     int r2 = csfg_expr_parse(
-        &p2, cstr_view("(a+b)^(c*d) * (a+b)^(e*f) * (a+b)^(g*h)"));
+        &p2, cstr_view("(c+d)^(a+b) * (e+f)^(a+b) * (g+h)^(a+b)"));
     ASSERT_GE(r1, 0);
-    ASSERT_GT(csfg_expr_op_expand_exponent_sums(&p1), 0);
+    ASSERT_GT(csfg_rule_expand_exponent_products(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }

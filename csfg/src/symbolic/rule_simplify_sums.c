@@ -1,5 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 
 /* -------------------------------------------------------------------------- */
 /* Searches the subtree "n" recursively until it matches the node "search". The
@@ -115,9 +116,9 @@ static int simplify_sums(struct csfg_expr_pool** pool)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_op_simplify_sums(struct csfg_expr_pool** pool)
+int csfg_rule_simplify_sums(struct csfg_expr_pool** pool)
 {
-    return csfg_expr_op_run_pass(pool, simplify_sums);
+    return csfg_rule_run(pool, simplify_sums);
 }
 
 #if 0

@@ -2,11 +2,10 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 }
 
-#define NAME test_expr_op_remove_useless_ops
+#define NAME test_rule_remove_useless_ops
 
 using namespace testing;
 
@@ -33,7 +32,7 @@ TEST_F(NAME, remove_chained_negates)
     int r2 = csfg_expr_parse(&p2, cstr_view("a"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -43,7 +42,7 @@ TEST_F(NAME, two_negated_products)
     int r2 = csfg_expr_parse(&p2, cstr_view("a*b"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -53,7 +52,7 @@ TEST_F(NAME, remove_zero_summands)
     int r2 = csfg_expr_parse(&p2, cstr_view("a"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -63,7 +62,7 @@ TEST_F(NAME, remove_one_products)
     int r2 = csfg_expr_parse(&p2, cstr_view("a"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -73,8 +72,8 @@ TEST_F(NAME, remove_negative_one_products_left)
     int r2 = csfg_expr_parse(&p2, cstr_view("-a"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    csfg_expr_opt_fold_constants(&p1);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    csfg_rule_fold_constants(&p1);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -84,8 +83,8 @@ TEST_F(NAME, remove_negative_one_products_right)
     int r2 = csfg_expr_parse(&p2, cstr_view("-a"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    csfg_expr_opt_fold_constants(&p1);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    csfg_rule_fold_constants(&p1);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -95,8 +94,8 @@ TEST_F(NAME, remove_one_exponents)
     int r2 = csfg_expr_parse(&p2, cstr_view("a"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    csfg_expr_opt_fold_constants(&p1);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    csfg_rule_fold_constants(&p1);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -106,8 +105,8 @@ TEST_F(NAME, remove_zero_exponents)
     int r2 = csfg_expr_parse(&p2, cstr_view("1"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    csfg_expr_opt_fold_constants(&p1);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    csfg_rule_fold_constants(&p1);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -123,8 +122,8 @@ TEST_F(NAME, cancel_products_1)
     int r2 = csfg_expr_parse(&p2, cstr_view("-G1/(s*C+G2)"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    csfg_expr_opt_fold_constants(&p1);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    csfg_rule_fold_constants(&p1);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -139,6 +138,6 @@ TEST_F(NAME, cancel_products_2)
     int r2 = csfg_expr_parse(&p2, cstr_view("-1/G2"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_opt_remove_useless_ops(&p1), 0);
+    ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }

@@ -47,8 +47,8 @@ function (dpsfg_add_plugin NAME)
         target_compile_options (${TARGET_NAME}
             PRIVATE
                 $<$<C_COMPILER_ID:MSVC>:/W4 /wd4706 /wd4305 /wd4244 /wd4505>
-                $<$<C_COMPILER_ID:GNU>:-W -Wall -Wextra -pedantic -Wno-unused-function>
-                $<$<C_COMPILER_ID:Clang>:-W -Wall -Wextra -pedantic -Wno-unused-function>)
+                $<$<C_COMPILER_ID:GNU>:-W -Wall -Wextra -Wno-unused-function>
+                $<$<C_COMPILER_ID:Clang>:-W -Wall -Wextra -Wno-unused-function>)
         target_link_libraries (${TARGET_NAME}
             PRIVATE
                 ${${PLUGIN_NAME}_LIBS})

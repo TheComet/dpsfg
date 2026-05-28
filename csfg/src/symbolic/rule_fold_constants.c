@@ -1,6 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 
 /* -------------------------------------------------------------------------- */
 static int eval_subtrees(struct csfg_expr_pool** pool)
@@ -118,7 +118,7 @@ static int combine_constants(struct csfg_expr_pool** pool)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_opt_fold_constants(struct csfg_expr_pool** pool)
+int csfg_rule_fold_constants(struct csfg_expr_pool** pool)
 {
-    return csfg_expr_op_run(pool, eval_subtrees, combine_constants, NULL);
+    return csfg_rules_run(pool, eval_subtrees, combine_constants, NULL);
 }

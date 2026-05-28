@@ -1,5 +1,5 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
 
 /* -------------------------------------------------------------------------- */
 static int expand_exponent_products(struct csfg_expr_pool** pool)
@@ -37,7 +37,7 @@ static int expand_exponent_products(struct csfg_expr_pool** pool)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_op_expand_exponent_products(struct csfg_expr_pool** pool)
+int csfg_rule_expand_exponent_products(struct csfg_expr_pool** pool)
 {
-    return csfg_expr_op_run_pass(pool, expand_exponent_products);
+    return csfg_rule_run(pool, expand_exponent_products);
 }

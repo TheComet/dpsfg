@@ -2,11 +2,10 @@
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
-#include "csfg/symbolic/expr_opt.h"
+#include "csfg/symbolic/rules.h"
 }
 
-#define NAME test_expr_op_expand_constant_exponents
+#define NAME test_rule_expand_constant_exponents
 
 using namespace testing;
 
@@ -33,7 +32,7 @@ TEST_F(NAME, expand_positive)
     int r2 = csfg_expr_parse(&p2, cstr_view("(a*a*a*a*a)^1"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
-    ASSERT_GT(csfg_expr_op_expand_constant_exponents(&p1), 0);
+    ASSERT_GT(csfg_rule_expand_constant_exponents(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }
 
@@ -44,8 +43,8 @@ TEST_F(NAME, expand_negative)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     // neg(5) are 2 separate nodes, but the pass expects literal negative values
-    csfg_expr_opt_fold_constants(&p1);
-    csfg_expr_opt_fold_constants(&p2);
-    ASSERT_GT(csfg_expr_op_expand_constant_exponents(&p1), 0);
+    csfg_rule_fold_constants(&p1);
+    csfg_rule_fold_constants(&p2);
+    ASSERT_GT(csfg_rule_expand_constant_exponents(&p1), 0);
     ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
 }

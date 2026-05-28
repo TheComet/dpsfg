@@ -1,14 +1,13 @@
 #include "csfg/config.h"
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
 #include <assert.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #define DEBUG_PRINTF 1
 
-VEC_DEFINE(csfg_expr_op_group_vec, struct csfg_expr_op_group, 16)
-HMAP_DEFINE_STR(extern, csfg_expr_op_hmap, int, 16)
+VEC_DEFINE(csfg_ruleset_vec, struct csfg_ruleset, 16)
+HMAP_DEFINE_STR(extern, csfg_ruleset_hmap, int, 16)
 
 VEC_DECLARE(node_idx_vec, int, 16)
 VEC_DEFINE(node_idx_vec, int, 16)
@@ -22,88 +21,6 @@ struct match_info
 
 VEC_DECLARE(match_info_vec, struct match_info, 8)
 VEC_DEFINE(match_info_vec, struct match_info, 8)
-
-/* -------------------------------------------------------------------------- */
-int csfg_expr_op_run_pass(
-    struct csfg_expr_pool** pool, csfg_expr_pass_func pass)
-{
-    int modified = 0;
-again:
-    switch (pass(pool))
-    {
-        case -1: return -1;
-        case 0: break;
-        case 1:
-            modified = 1;
-            CSFG_DEBUG_ASSERT(
-                csfg_expr_integrity_check_allow_islands(*pool) == 0);
-            goto again;
-    }
-    return modified;
-}
-
-/* -------------------------------------------------------------------------- */
-int csfg_expr_op_runv(struct csfg_expr_pool** pool, va_list ap)
-{
-    csfg_expr_pass_func pass;
-    int                 pass_modified, modified;
-    va_list             copy;
-
-    modified = 0;
-again:
-    pass_modified = 0;
-    va_copy(copy, ap);
-    while (1)
-    {
-        pass = va_arg(copy, csfg_expr_pass_func);
-        if (pass == NULL)
-            break;
-        switch (pass(pool))
-        {
-            case -1: return -1;
-            case 0: break;
-            case 1:
-                pass_modified = 1;
-                modified = 1;
-                CSFG_DEBUG_ASSERT(
-                    csfg_expr_integrity_check_allow_islands(*pool) == 0);
-                break;
-        }
-    }
-    va_end(copy);
-
-    if (pass_modified)
-        goto again;
-
-    return modified;
-}
-
-/* -------------------------------------------------------------------------- */
-int csfg_expr_op_run(struct csfg_expr_pool** pool, ...)
-{
-    int     result;
-    va_list ap;
-    va_start(ap, pool);
-    result = csfg_expr_op_runv(pool, ap);
-    va_end(ap);
-    return result;
-}
-
-/* -------------------------------------------------------------------------- */
-void csfg_expr_op_init(struct csfg_expr_op* op)
-{
-    csfg_expr_op_hmap_init(&op->group_map);
-    csfg_expr_pool_init(&op->pool);
-    csfg_expr_op_group_vec_init(&op->groups);
-}
-
-/* -------------------------------------------------------------------------- */
-void csfg_expr_op_deinit(struct csfg_expr_op* op)
-{
-    csfg_expr_op_group_vec_deinit(op->groups);
-    csfg_expr_pool_deinit(op->pool);
-    csfg_expr_op_hmap_deinit(op->group_map);
-}
 
 /* -------------------------------------------------------------------------- */
 static int find_all_commutative_operands(
@@ -493,17 +410,18 @@ static int replace_subtree(
 
 /* -------------------------------------------------------------------------- */
 #if DEBUG_PRINTF == 1
+#    include <stdio.h>
 /* clang-format off */
 static int  debug_depth = 0;
 static void debug_depth_inc(void)   { debug_depth += 1;}
 static void debug_depth_dec(void)   { debug_depth -= 1;}
 static void debug_depth_reset(void) { debug_depth  = 0;}
 /* clang-format on */
-static void debug_print_run_group(
-    const struct csfg_expr_pool*     pool,
-    const struct csfg_expr_op_group* group,
-    int                              group_idx,
-    int                              is_rerun)
+static void debug_print_run_ruleset(
+    const struct csfg_expr_pool* pool,
+    const struct csfg_ruleset*   ruleset,
+    int                          ruleset_idx,
+    int                          is_rerun)
 {
     struct str* str;
 
@@ -511,9 +429,9 @@ static void debug_print_run_group(
     while (i--)
         fprintf(stderr, " ");
 
-    if (group->expr_from < 0 || group->expr_to < 0)
+    if (ruleset->expr_from < 0 || ruleset->expr_to < 0)
     {
-        fprintf(stderr, "%03d: Pseudo-group", group_idx);
+        fprintf(stderr, "%03d: Ruleset", ruleset_idx);
         if (is_rerun)
             fprintf(stderr, " (Re-run)");
         fprintf(stderr, "\n");
@@ -521,10 +439,10 @@ static void debug_print_run_group(
     }
 
     str_init(&str);
-    csfg_expr_to_str(&str, pool, group->expr_from);
-    fprintf(stderr, "%03d: Trying \"%s\" --> ", group_idx, str_cstr(str));
+    csfg_expr_to_str(&str, pool, ruleset->expr_from);
+    fprintf(stderr, "%03d: Trying \"%s\" --> ", ruleset_idx, str_cstr(str));
     str_clear(str);
-    csfg_expr_to_str(&str, pool, group->expr_to);
+    csfg_expr_to_str(&str, pool, ruleset->expr_to);
     fprintf(stderr, "\"%s\"", str_cstr(str));
     if (is_rerun)
         fprintf(stderr, " (Re-run)");
@@ -563,25 +481,25 @@ debug_print_replace_subtree_after(const struct csfg_expr_pool* pool, int n)
 #    define debug_depth_inc()
 #    define debug_depth_dec()
 #    define debug_depth_reset()
-#    define debug_print_run_group(pool, group, group_idx, is_rerun)
+#    define debug_print_run_ruleset(pool, group, group_idx, is_rerun)
 #    define debug_print_expr(pool, n)
 #    define debug_print_replace_subtree_before(pool, n)
 #    define debug_print_replace_subtree_after(pool, n)
 #endif
 
 /* -------------------------------------------------------------------------- */
-static int run_group(
-    struct csfg_expr_pool**          pool,
-    int*                             expr,
-    struct match_info_vec**          matched_nodes,
-    const struct csfg_expr_pool*     pattern_pool,
-    const struct csfg_expr_op_group* group)
+static int run_ruleset(
+    struct csfg_expr_pool**      pool,
+    int*                         expr,
+    struct match_info_vec**      matched_nodes,
+    const struct csfg_expr_pool* pattern_pool,
+    const struct csfg_ruleset*   ruleset)
 {
     int modified = 0;
 
-    if (group->extern_pass != NULL)
+    if (ruleset->extern_run != NULL)
     {
-        switch (group->extern_pass(pool))
+        switch (ruleset->extern_run(pool))
         {
             case -1: return -1;
             case 0: break;
@@ -589,14 +507,14 @@ static int run_group(
         }
         *expr = csfg_expr_gc(*pool, *expr);
     }
-    else if (group->expr_from > -1 && group->expr_to > -1)
+    else if (ruleset->expr_from > -1 && ruleset->expr_to > -1)
     {
         int n;
         for (n = 0; n < vec_count(*pool); ++n)
         {
             match_info_vec_clear(*matched_nodes);
             switch (match_subtree(
-                matched_nodes, *pool, n, pattern_pool, group->expr_from))
+                matched_nodes, *pool, n, pattern_pool, ruleset->expr_from))
             {
                 case -1: return -1;
                 case 0: continue;
@@ -604,7 +522,8 @@ static int run_group(
             }
             debug_print_replace_subtree_before(*pool, *expr);
             if (replace_subtree(
-                    pool, n, pattern_pool, group->expr_to, *matched_nodes) != 0)
+                    pool, n, pattern_pool, ruleset->expr_to, *matched_nodes) !=
+                0)
                 return -1;
             *expr = csfg_expr_gc(*pool, *expr);
             debug_print_replace_subtree_after(*pool, *expr);
@@ -612,54 +531,55 @@ static int run_group(
         }
     }
 
-    return group->ignore ? 0 : modified;
+    return ruleset->ignore ? 0 : modified;
 }
 
 /* -------------------------------------------------------------------------- */
-static int process_group_recurse(
-    struct csfg_expr_pool**    pool,
-    int*                       expr,
-    struct match_info_vec**    matched_nodes,
-    const struct csfg_expr_op* op,
-    int                        group_idx)
+static int process_ruleset_recurse(
+    struct csfg_expr_pool**     pool,
+    int*                        expr,
+    struct match_info_vec**     matched_nodes,
+    const struct csfg_rulebook* book,
+    int                         ruleset_idx)
 {
-    const struct csfg_expr_op_group* group;
-    int                              modified = 0;
+    const struct csfg_ruleset* ruleset;
+    int                        modified = 0;
 
     debug_depth_inc();
 
-    for (; group_idx != -1; group_idx = group->next)
+    for (; ruleset_idx != -1; ruleset_idx = ruleset->next)
     {
-        group = vec_get(op->groups, group_idx);
+        ruleset = vec_get(book->rulesets, ruleset_idx);
 
-        debug_print_run_group(op->pool, group, group_idx, 0);
-        switch (run_group(pool, expr, matched_nodes, op->pool, group))
+        debug_print_run_ruleset(book->pool, ruleset, ruleset_idx, 0);
+        switch (run_ruleset(pool, expr, matched_nodes, book->pool, ruleset))
         {
             case -1: return -1;
             case 0: break;
             case 1:
-                if (!group->ignore)
+                if (!ruleset->ignore)
                     modified = 1;
                 break;
         }
 
         while (1)
         {
-            switch (process_group_recurse(
-                pool, expr, matched_nodes, op, group->child))
+            switch (process_ruleset_recurse(
+                pool, expr, matched_nodes, book, ruleset->child))
             {
                 case -1: return -1;
                 case 0: break;
                 case 1:
-                    if (!group->ignore)
+                    if (!ruleset->ignore)
                         modified = 1;
 
                     /* Don't need to re-run group if there is only one child,
                      * because the child will have already re-run itself  */
-                    if (vec_get(op->groups, group->child)->next == -1)
+                    if (vec_get(book->rulesets, ruleset->child)->next == -1)
                         break;
 
-                    debug_print_run_group(op->pool, group, group_idx, 1);
+                    debug_print_run_ruleset(
+                        book->pool, ruleset, ruleset_idx, 1);
                     continue;
             }
             break;
@@ -672,21 +592,21 @@ static int process_group_recurse(
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_op_run_def(
-    struct csfg_expr_pool**    pool,
-    int*                       expr,
-    const struct csfg_expr_op* op,
-    const char*                name)
+int csfg_rulebook_run(
+    const struct csfg_rulebook* book,
+    const char*                 name,
+    struct csfg_expr_pool**     pool,
+    int*                        expr)
 {
     struct match_info_vec* matched_nodes;
-    int*                   group;
+    int*                   ruleset_idx;
     int                    modified;
 
     match_info_vec_init(&matched_nodes);
     debug_depth_reset();
 
-    group = csfg_expr_op_hmap_find(op->group_map, cstr_view(name));
-    if (group == NULL)
+    ruleset_idx = csfg_ruleset_hmap_find(book->ruleset_map, cstr_view(name));
+    if (ruleset_idx == NULL)
         goto fail;
 
     modified = 0;
@@ -697,7 +617,8 @@ int csfg_expr_op_run_def(
         debug_print_expr(*pool, *expr);
         fprintf(stderr, "\n");
 #endif
-        switch (process_group_recurse(pool, expr, &matched_nodes, op, *group))
+        switch (process_ruleset_recurse(
+            pool, expr, &matched_nodes, book, *ruleset_idx))
         {
             case -1: goto fail;
             case 0: break;

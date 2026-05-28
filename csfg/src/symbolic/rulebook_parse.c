@@ -1,5 +1,5 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/expr_op.h"
+#include "csfg/symbolic/rulebook.h"
 #include "csfg/util/log.h"
 #include "csfg/util/strview.h"
 #include <ctype.h>
@@ -75,24 +75,24 @@ static int parser_error(const struct parser* p, const char* fmt, ...)
 }
 
 /* -------------------------------------------------------------------------- */
-static struct csfg_expr_op_group*
-add_group(struct csfg_expr_op_group_vec** groups, int* group_idx)
+static struct csfg_ruleset*
+add_ruleset(struct csfg_ruleset_vec** rulesets, int* ruleset_idx)
 {
-    struct csfg_expr_op_group* group;
+    struct csfg_ruleset* ruleset;
 
-    *group_idx = vec_count(*groups);
-    group = csfg_expr_op_group_vec_emplace(groups);
-    if (group == NULL)
+    *ruleset_idx = vec_count(*rulesets);
+    ruleset = csfg_ruleset_vec_emplace(rulesets);
+    if (ruleset == NULL)
         return NULL;
 
-    group->expr_from = -1;
-    group->expr_to = -1;
-    group->extern_pass = NULL;
-    group->next = -1;
-    group->child = -1;
-    group->ignore = 0;
+    ruleset->expr_from = -1;
+    ruleset->expr_to = -1;
+    ruleset->extern_run = NULL;
+    ruleset->next = -1;
+    ruleset->child = -1;
+    ruleset->ignore = 0;
 
-    return group;
+    return ruleset;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -183,7 +183,7 @@ enum token scan_next(struct parser* p)
 }
 
 /* -------------------------------------------------------------------------- */
-static int parse_qualifiers(struct parser* p, struct csfg_expr_op_group* group)
+static int parse_qualifiers(struct parser* p, struct csfg_ruleset* ruleset)
 {
     enum token tok;
     while (1)
@@ -212,7 +212,7 @@ static int parse_qualifiers(struct parser* p, struct csfg_expr_op_group* group)
             }
 
             case TOK_IGNORE: {
-                group->ignore = 1;
+                ruleset->ignore = 1;
                 tok = scan_next(p);
                 if (tok != ',')
                     goto reswitch_next;
@@ -227,14 +227,14 @@ static int parse_qualifiers(struct parser* p, struct csfg_expr_op_group* group)
 }
 
 /* -------------------------------------------------------------------------- */
+static int parse_ruleset_block(
+    struct parser* p, struct csfg_rulebook* book, int* ruleset_idx);
 static int
-parse_pseudo_block(struct parser* p, struct csfg_expr_op* op, int* pseudo_idx);
-static int
-parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
+parse_block(struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
 {
     enum token tok;
-    int        current_group_idx = -1;
-    *group_idx = -1;
+    int        current_ruleset_idx = -1;
+    *ruleset_idx = -1;
     while (1)
     {
         tok = scan_next(p);
@@ -245,35 +245,35 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
             case TOK_END: return 0;
 
             case '{': {
-                int other_pseudo_idx;
-                if (parse_pseudo_block(p, op, &other_pseudo_idx) != '}')
+                int other_ruleset_idx;
+                if (parse_ruleset_block(p, book, &other_ruleset_idx) != '}')
                     return parser_error(p, "Missing closing '}'\n");
-                if (current_group_idx > -1)
-                    vec_get(op->groups, current_group_idx)->next =
-                        other_pseudo_idx;
+                if (current_ruleset_idx > -1)
+                    vec_get(book->rulesets, current_ruleset_idx)->next =
+                        other_ruleset_idx;
                 else
-                    *group_idx = other_pseudo_idx;
-                current_group_idx = other_pseudo_idx;
+                    *ruleset_idx = other_ruleset_idx;
+                current_ruleset_idx = other_ruleset_idx;
                 break;
             }
 
             case TOK_STRING: {
-                int                        next_group_idx;
-                struct csfg_expr_op_group* group;
+                int                  next_rulest_idx;
+                struct csfg_ruleset* ruleset;
 
-                group = add_group(&op->groups, &next_group_idx);
-                if (group == NULL)
+                ruleset = add_ruleset(&book->rulesets, &next_rulest_idx);
+                if (ruleset == NULL)
                     return -1;
 
-                if (current_group_idx > -1)
-                    vec_get(op->groups, current_group_idx)->next =
-                        next_group_idx;
+                if (current_ruleset_idx > -1)
+                    vec_get(book->rulesets, current_ruleset_idx)->next =
+                        next_rulest_idx;
                 else
-                    *group_idx = next_group_idx;
-                current_group_idx = next_group_idx;
+                    *ruleset_idx = next_rulest_idx;
+                current_ruleset_idx = next_rulest_idx;
 
-                group->expr_from = csfg_expr_parse(&op->pool, p->value.str);
-                if (group->expr_from < 0)
+                ruleset->expr_from = csfg_expr_parse(&book->pool, p->value.str);
+                if (ruleset->expr_from < 0)
                     return parser_error(p, "Failed to parse expression\n");
 
                 if (scan_next(p) != TOK_TRANSLATES_TO)
@@ -281,14 +281,14 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
 
                 if (scan_next(p) != TOK_STRING)
                     return parser_error(p, "Expected expression\n");
-                group->expr_to = csfg_expr_parse(&op->pool, p->value.str);
-                if (group->expr_to < 0)
+                ruleset->expr_to = csfg_expr_parse(&book->pool, p->value.str);
+                if (ruleset->expr_to < 0)
                     return parser_error(p, "Failed to parse expression\n");
 
                 tok = scan_next(p);
                 if (tok != '[')
                     goto reswitch_tok;
-                tok = parse_qualifiers(p, group);
+                tok = parse_qualifiers(p, ruleset);
                 if (tok <= 0)
                     return tok;
                 if (tok != ']')
@@ -297,30 +297,30 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
             }
 
             case TOK_IDENTIFIER: {
-                int *                      pseudo_group_idx, next_group_idx;
-                struct csfg_expr_op_group* group;
+                int *                child_ruleset_idx, next_ruleset_idx;
+                struct csfg_ruleset* ruleset;
 
-                pseudo_group_idx =
-                    csfg_expr_op_hmap_find(op->group_map, p->value.str);
-                if (pseudo_group_idx == NULL)
-                    return parser_error(p, "Group name not found\n");
+                child_ruleset_idx =
+                    csfg_ruleset_hmap_find(book->ruleset_map, p->value.str);
+                if (child_ruleset_idx == NULL)
+                    return parser_error(p, "Ruleset name not found\n");
 
-                group = add_group(&op->groups, &next_group_idx);
-                if (group == NULL)
+                ruleset = add_ruleset(&book->rulesets, &next_ruleset_idx);
+                if (ruleset == NULL)
                     return -1;
-                group->child = *pseudo_group_idx;
+                ruleset->child = *child_ruleset_idx;
 
-                if (current_group_idx > -1)
-                    vec_get(op->groups, current_group_idx)->next =
-                        next_group_idx;
+                if (current_ruleset_idx > -1)
+                    vec_get(book->rulesets, current_ruleset_idx)->next =
+                        next_ruleset_idx;
                 else
-                    *group_idx = next_group_idx;
-                current_group_idx = next_group_idx;
+                    *ruleset_idx = next_ruleset_idx;
+                current_ruleset_idx = next_ruleset_idx;
 
                 tok = scan_next(p);
                 if (tok != '[')
                     goto reswitch_tok;
-                tok = parse_qualifiers(p, group);
+                tok = parse_qualifiers(p, ruleset);
                 if (tok <= 0)
                     return tok;
                 if (tok != ']')
@@ -334,25 +334,25 @@ parse_block(struct parser* p, struct csfg_expr_op* op, int* group_idx)
 }
 
 /* -------------------------------------------------------------------------- */
-static int
-parse_pseudo_block(struct parser* p, struct csfg_expr_op* op, int* pseudo_idx)
+static int parse_ruleset_block(
+    struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
 {
-    enum token                 tok;
-    int                        group_idx;
-    struct csfg_expr_op_group* group;
+    enum token           tok;
+    int                  child_ruleset_idx;
+    struct csfg_ruleset* ruleset;
 
-    group = add_group(&op->groups, pseudo_idx);
-    if (group == NULL)
+    ruleset = add_ruleset(&book->rulesets, ruleset_idx);
+    if (ruleset == NULL)
         return -1;
 
-    tok = parse_block(p, op, &group_idx);
-    vec_get(op->groups, *pseudo_idx)->child = group_idx;
+    tok = parse_block(p, book, &child_ruleset_idx);
+    vec_get(book->rulesets, *ruleset_idx)->child = child_ruleset_idx;
 
     return tok;
 }
 
 /* -------------------------------------------------------------------------- */
-static int parse(struct parser* p, struct csfg_expr_op* op)
+static int parse(struct parser* p, struct csfg_rulebook* book)
 {
     enum token tok;
     while (1)
@@ -380,24 +380,24 @@ static int parse(struct parser* p, struct csfg_expr_op* op)
             }
 
             case TOK_IDENTIFIER: {
-                struct strview group_name;
-                int*           group_idx;
+                struct strview ruleset_name;
+                int*           ruleset_idx;
 
-                group_name = p->value.str;
-                switch (csfg_expr_op_hmap_emplace_or_get(
-                    &op->group_map, group_name, &group_idx))
+                ruleset_name = p->value.str;
+                switch (csfg_ruleset_hmap_emplace_or_get(
+                    &book->ruleset_map, ruleset_name, &ruleset_idx))
                 {
                     case HMAP_OOM: return -1;
                     case HMAP_EXISTS:
-                        return parser_error(p, "Duplicate group name\n");
+                        return parser_error(p, "Duplicate ruleset name\n");
                     case HMAP_NEW: break;
                 }
 
                 if (scan_next(p) != '{')
                     return parser_error(
-                        p, "Missing opening '{' after operation identifier\n");
-                tok = parse_pseudo_block(p, op, group_idx);
-                if (tok <= 0)
+                        p, "Missing opening '{' after ruleset identifier\n");
+                tok = parse_ruleset_block(p, book, ruleset_idx);
+                if (tok < 0)
                     return tok;
                 if (tok != '}')
                     return parser_error(p, "Missing closing '}'\n");
@@ -410,12 +410,12 @@ static int parse(struct parser* p, struct csfg_expr_op* op)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_op_parse_def(
-    struct csfg_expr_op* op, const char* filename, struct strview text)
+int csfg_rulebook_parse(
+    struct csfg_rulebook* book, const char* filename, struct strview text)
 {
     struct parser p;
     parser_init(&p, filename, text);
-    if (parse(&p, op) != 0)
+    if (parse(&p, book) != 0)
         return -1;
     return 0;
 }

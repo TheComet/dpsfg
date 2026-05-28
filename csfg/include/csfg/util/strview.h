@@ -32,6 +32,7 @@ int            strview_eq_cstr(struct strview str, const char* cstr);
 int            strview_eq(struct strview s1, struct strview s2);
 struct strview strview_remove_file_ext(struct strview s);
 int strview_lexicographically_less(struct strview s1, struct strview s2);
+int strview_lexicographic_compare(struct strview s1, struct strview s2);
 
 static const char* strview_cstr(struct strview str)
 {
