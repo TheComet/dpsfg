@@ -8,14 +8,14 @@ struct str;
 struct csfg_coeff_expr
 {
     double factor;
-    int    expr;
+    int expr;
 };
 
 static struct csfg_coeff_expr csfg_coeff_expr(double factor, int expr)
 {
     struct csfg_coeff_expr c;
     c.factor = factor;
-    c.expr = expr;
+    c.expr   = expr;
     return c;
 }
 
@@ -29,8 +29,8 @@ int csfg_poly_expr_copy(
  * Calculates the sum of two polynomials. "out" must be empty before calling.
  */
 int csfg_poly_expr_add(
-    struct csfg_expr_pool**      pool,
-    struct csfg_poly_expr**      out,
+    struct csfg_expr_pool** pool,
+    struct csfg_poly_expr** out,
     const struct csfg_poly_expr* p1,
     const struct csfg_poly_expr* p2);
 
@@ -39,12 +39,25 @@ int csfg_poly_expr_add(
  * calling.
  */
 int csfg_poly_expr_mul(
-    struct csfg_expr_pool**      pool,
-    struct csfg_poly_expr**      out,
+    struct csfg_expr_pool** pool,
+    struct csfg_poly_expr** out,
+    const struct csfg_poly_expr* p1,
+    const struct csfg_poly_expr* p2);
+
+/*!
+ * Performs long division on two polynomials p1 and p2. The result is written to
+ * "out" and any remainder is written to "remainder"
+ */
+int csfg_poly_expr_div(
+    struct csfg_expr_pool** pool,
+    struct csfg_poly_expr** out,
+    struct csfg_poly_expr** remainder,
     const struct csfg_poly_expr* p1,
     const struct csfg_poly_expr* p2);
 
 int csfg_poly_expr_to_str(
-    struct str**                 str,
+    struct str** str,
     const struct csfg_expr_pool* pool,
     const struct csfg_poly_expr* poly);
+
+#define csfg_poly_expr_degree(p) (vec_count(p) - 1)

@@ -22,22 +22,19 @@ struct csfg_expr_node
     union
     {
         float lit;
-        int   var_idx;
+        int var_idx;
     } value;
 
     int child[2];
-
     enum csfg_expr_type type;
-    unsigned            visited : 1;
+    unsigned visited : 1;
 };
 
 struct csfg_expr_pool
 {
     struct strlist* var_names;
-
     int count;
     int capacity;
-
     struct csfg_expr_node nodes[1];
 };
 
@@ -79,9 +76,9 @@ void csfg_expr_canonicalize(struct csfg_expr_pool* pool, int expr);
 /*! Main function used to allocate a new node */
 int csfg_expr_new(
     struct csfg_expr_pool** pool,
-    enum csfg_expr_type     type,
-    int                     left,
-    int                     right);
+    enum csfg_expr_type type,
+    int left,
+    int right);
 
 /*!
  * @brief Tries to resolve as many variable names as possible in the
@@ -95,9 +92,9 @@ int csfg_expr_insert_substitutions(
     struct csfg_expr_pool** pool, int expr, const struct csfg_var_table* vt);
 int csfg_expr_apply_limits(
     const struct csfg_expr_pool* in_pool,
-    int                          in_expr,
+    int in_expr,
     const struct csfg_var_table* vt,
-    struct csfg_expr_pool**      out_pool);
+    struct csfg_expr_pool** out_pool);
 
 /* Leaf nodes */
 int csfg_expr_lit(struct csfg_expr_pool** pool, double value);
@@ -115,9 +112,9 @@ int csfg_expr_set_neg(struct csfg_expr_pool** pool, int n, int child);
 /* Binary operators */
 int csfg_expr_binop(
     struct csfg_expr_pool** pool,
-    enum csfg_expr_type     type,
-    int                     left,
-    int                     right);
+    enum csfg_expr_type type,
+    int left,
+    int right);
 int csfg_expr_add(struct csfg_expr_pool** pool, int left, int right);
 int csfg_expr_sub(struct csfg_expr_pool** pool, int left, int right);
 int csfg_expr_mul(struct csfg_expr_pool** pool, int left, int right);
@@ -126,10 +123,10 @@ int csfg_expr_pow(struct csfg_expr_pool** pool, int base, int exp);
 
 int csfg_expr_set_binop(
     struct csfg_expr_pool* pool,
-    int                    n,
-    enum csfg_expr_type    type,
-    int                    left,
-    int                    right);
+    int n,
+    enum csfg_expr_type type,
+    int left,
+    int right);
 int csfg_expr_set_add(struct csfg_expr_pool* pool, int n, int left, int right);
 int csfg_expr_set_mul(struct csfg_expr_pool* pool, int n, int left, int right);
 int csfg_expr_set_pow(struct csfg_expr_pool* pool, int n, int base, int exp);
@@ -149,15 +146,15 @@ int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n);
  * node is returned. These functions cannot fail. */
 void csfg_expr_mark_deleted(struct csfg_expr_pool* pool, int n);
 void csfg_expr_mark_deleted_recursive(struct csfg_expr_pool* pool, int n);
-int  csfg_expr_gc(struct csfg_expr_pool* pool, int root);
+int csfg_expr_gc(struct csfg_expr_pool* pool, int root);
 
 /* Overwrite the parent node with the child, and mark the sibling tree as
  * deleted. Make sure to call csfg_expr_gc() to clean up. */
 void csfg_expr_collapse_into_parent(
     struct csfg_expr_pool* pool, int child, int parent);
 void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n);
-int  csfg_expr_collapse_sibling_into_parent_steal_orphan(
-     struct csfg_expr_pool* pool, int n);
+int csfg_expr_collapse_sibling_into_parent_steal_orphan(
+    struct csfg_expr_pool* pool, int n);
 
 /* Returns the parent node if it exists, or -1. Ignores nodes marked for GC */
 int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n);
@@ -170,15 +167,15 @@ int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n);
  * Returns true or false. */
 int csfg_expr_equal(
     const struct csfg_expr_pool* pool1,
-    int                          expr1,
+    int expr1,
     const struct csfg_expr_pool* pool2,
-    int                          expr2);
+    int expr2);
 
 int csfg_expr_mathematically_equivalent(
     const struct csfg_expr_pool* pool1,
-    int                          expr1,
+    int expr1,
     const struct csfg_expr_pool* pool2,
-    int                          expr2);
+    int expr2);
 
 int csfg_expr_integrity_check_allow_islands(struct csfg_expr_pool* pool);
 int csfg_expr_integrity_check(struct csfg_expr_pool* pool, int expr);

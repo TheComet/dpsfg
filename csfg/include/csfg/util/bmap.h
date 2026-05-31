@@ -10,9 +10,9 @@
 
 enum bmap_status
 {
-    BMAP_OOM = -1,
+    BMAP_OOM    = -1,
     BMAP_EXISTS = 0,
-    BMAP_NEW = 1
+    BMAP_NEW    = 1
 };
 
 enum
@@ -39,8 +39,8 @@ enum
     struct prefix                                                              \
     {                                                                          \
         int##bits##_t count, capacity;                                         \
-        K*            keys;                                                    \
-        V             values[1];                                               \
+        K* keys;                                                               \
+        V values[1];                                                           \
     };                                                                         \
     BMAP_DECLARE_FULL(prefix, K, V, bits)
 
@@ -109,7 +109,7 @@ enum
     static enum bmap_status prefix##_insert_new(                               \
         struct prefix** bmap, K key, V value)                                  \
     {                                                                          \
-        V*               ins_value;                                            \
+        V* ins_value;                                                          \
         enum bmap_status status = prefix##_emplace_new(bmap, key, &ins_value); \
         if (status == BMAP_NEW)                                                \
             *ins_value = value;                                                \
@@ -127,7 +127,7 @@ enum
     static enum bmap_status prefix##_insert_update(                            \
         struct prefix** bmap, K key, V value)                                  \
     {                                                                          \
-        V*               ins_value;                                            \
+        V* ins_value;                                                          \
         enum bmap_status status =                                              \
             prefix##_emplace_or_get(bmap, key, &ins_value);                    \
         if (status != BMAP_OOM)                                                \
@@ -142,7 +142,7 @@ enum
      * @return If the key exists, returns 1. If the key does not exist,        \
      * returns 0.                                                              \
      */                                                                        \
-    int  prefix##_erase(struct prefix* bmap, K key);                           \
+    int prefix##_erase(struct prefix* bmap, K key);                            \
     void prefix##_erase_index(struct prefix* bmap, int##bits##_t idx);         \
                                                                                \
     /*!                                                                        \
@@ -169,8 +169,8 @@ enum
                                                                                \
     int prefix##_retain_range(                                                 \
         struct prefix* v,                                                      \
-        int##bits##_t  lower_bound,                                            \
-        int##bits##_t  upper_bound,                                            \
+        int##bits##_t lower_bound,                                             \
+        int##bits##_t upper_bound,                                             \
         int (*on_element)(K key, V * value, void* user),                       \
         void* user);                                                           \
                                                                                \
@@ -197,9 +197,9 @@ enum
     static int prefix##_kvs_realloc(                                           \
         struct prefix** bmap, int##bits##_t new_capacity)                      \
     {                                                                          \
-        int            header, data;                                           \
+        int header, data;                                                      \
         struct prefix* new_bmap;                                               \
-        K*             new_keys;                                               \
+        K* new_keys;                                                           \
                                                                                \
         if (new_capacity == 0)                                                 \
         {                                                                      \
@@ -214,15 +214,15 @@ enum
         if (new_capacity >= (1 << (bits - 2)))                                 \
             BMAP_CAPACITY_WARNING();                                           \
                                                                                \
-        header = offsetof(struct prefix, values);                              \
-        data = sizeof(V) * new_capacity;                                       \
+        header   = offsetof(struct prefix, values);                            \
+        data     = sizeof(V) * new_capacity;                                   \
         new_bmap = (struct prefix*)mem_realloc(*bmap, header + data);          \
         if (new_bmap == NULL)                                                  \
             return log_oom(header + data, "bmap_bmap_emplace()");              \
         if (*bmap == NULL)                                                     \
         {                                                                      \
             new_bmap->count = 0;                                               \
-            new_bmap->keys = NULL;                                             \
+            new_bmap->keys  = NULL;                                            \
         }                                                                      \
         new_bmap->capacity = new_capacity;                                     \
                                                                                \
@@ -231,7 +231,7 @@ enum
             return log_oom(sizeof(K) * new_capacity, "bmap_bmap_emplace()");   \
                                                                                \
         new_bmap->keys = new_keys;                                             \
-        *bmap = new_bmap;                                                      \
+        *bmap          = new_bmap;                                             \
         return 0;                                                              \
     }                                                                          \
     static V* prefix##_kvs_emplace(                                            \
@@ -315,10 +315,6 @@ enum
     kvs_get_value)                                                             \
                                                                                \
     /*                                                                         \
-     * algorithm based on GNU GCC stdlibc++'s lower_bound function, line 2121  \
-     * in stl_algo.h                                                           \
-     * gcc.gnu.org/onlinedocs/libstdc++/libstdc++-html-USERS-4.3/a02014.html   \
-     *                                                                         \
      * 1) If the key exists, then the index of that key is returned.           \
      * 2) If the key does not exist, then the index of the first valid key     \
      *    who's value is less than the key being searched for is returned.     \
@@ -327,38 +323,30 @@ enum
      */                                                                        \
     int##bits##_t prefix##_lower_bound(const struct prefix* bmap, K key)       \
     {                                                                          \
-        int##bits##_t len, half, middle, found;                                \
-                                                                               \
-        found = 0; /* Begin search at start of array */                        \
-        len = bmap_count(bmap);                                                \
-                                                                               \
-        while (len > 0)                                                        \
+        int##bits##_t left  = -1;                                              \
+        int##bits##_t right = bmap_count(bmap);                                \
+        while (right - left > 1)                                               \
         {                                                                      \
-            half = len >> 1;                                                   \
-            middle = found + half;                                             \
-            if (kvs_less_than(kvs_get_key(bmap, middle), key))                 \
-            {                                                                  \
-                found = middle;                                                \
-                ++found;                                                       \
-                len = len - half - 1;                                          \
-            }                                                                  \
+            int##bits##_t mid = left + (right - left) / 2;                     \
+            if (kvs_less_than(kvs_get_key(bmap, mid), key))                    \
+                left = mid;                                                    \
             else                                                               \
-                len = half;                                                    \
+                right = mid;                                                   \
         }                                                                      \
-        return found;                                                          \
+        return right;                                                          \
     }                                                                          \
                                                                                \
     void prefix##_deinit(struct prefix* bmap)                                  \
     {                                                                          \
         /* These don't do anything, except act as a poor-man's type-check for  \
          * the various key-value storage functions. */                         \
-        void (*deinit)(struct prefix*) = kvs_deinit;                           \
-        V* (*emplace)(struct prefix**, int##bits##_t, K) = kvs_emplace;        \
-        void (*erase)(struct prefix*, int##bits##_t) = kvs_erase;              \
-        int (*less_than)(K, K) = kvs_less_than;                                \
-        int (*equal)(K, K) = kvs_equal;                                        \
+        void (*deinit)(struct prefix*)                    = kvs_deinit;        \
+        V* (*emplace)(struct prefix**, int##bits##_t, K)  = kvs_emplace;       \
+        void (*erase)(struct prefix*, int##bits##_t)      = kvs_erase;         \
+        int (*less_than)(K, K)                            = kvs_less_than;     \
+        int (*equal)(K, K)                                = kvs_equal;         \
         K (*get_key)(const struct prefix*, int##bits##_t) = kvs_get_key;       \
-        V* (*get_value)(struct prefix*, int##bits##_t) = kvs_get_value;        \
+        V* (*get_value)(struct prefix*, int##bits##_t)    = kvs_get_value;     \
         (void)deinit;                                                          \
         (void)emplace;                                                         \
         (void)erase;                                                           \
@@ -392,7 +380,7 @@ enum
     enum bmap_status prefix##_emplace_or_get(                                  \
         struct prefix** bmap, K key, V** value)                                \
     {                                                                          \
-        V*            emplaced;                                                \
+        V* emplaced;                                                           \
         int##bits##_t idx = prefix##_lower_bound(*bmap, key);                  \
         if (idx < bmap_count(*bmap) &&                                         \
             kvs_equal(key, kvs_get_key(*bmap, idx)))                           \
@@ -435,13 +423,13 @@ enum
                                                                                \
     int prefix##_retain_range(                                                 \
         struct prefix* bmap,                                                   \
-        int##bits##_t  lower_bound,                                            \
-        int##bits##_t  upper_bound,                                            \
+        int##bits##_t lower_bound,                                             \
+        int##bits##_t upper_bound,                                             \
         int (*on_element)(K key, V * value, void* user),                       \
         void* user)                                                            \
     {                                                                          \
         int##bits##_t i;                                                       \
-        int           erased = 0;                                              \
+        int erased = 0;                                                        \
         CSFG_DEBUG_ASSERT(lower_bound <= upper_bound);                         \
         CSFG_DEBUG_ASSERT(upper_bound <= bmap_count(bmap));                    \
         for (i = lower_bound; i != upper_bound; ++i)                           \

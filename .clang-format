@@ -1,12 +1,21 @@
 ﻿---
 AlignAfterOpenBracket: AlwaysBreak
-AlignConsecutiveDeclarations: true
+AlignArrayOfStructures: Right
+AlignConsecutiveDeclarations: false
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveBitFields: Consecutive
 AlignConsecutiveMacros: true
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AlignCaseColons: true
+#AlignConsecutiveShortCaseStatements: Consecutive
 AlignEscapedNewlines: Right
-AlignOperands: true
+AlignOperands: AlignAfterOperator
 AlignTrailingComments: true
-AllowShortBlocksOnASingleLine: Never
+
+AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: InlineOnly
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLambdasOnASingleLine: Inline
@@ -33,11 +42,10 @@ BraceWrapping:
   BeforeElse: true
   BeforeLambdaBody: true
 BreakConstructorInitializers: BeforeComma
-BreakStringLiterals: true
+BreakStringLiterals: false
 ColumnLimit: 80
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ForEachMacros: [
-    cmd_queue_for_each,
     bmap_for_each,
     bmap_for_each_range,
     bmap_for_each_full,
@@ -48,15 +56,10 @@ ForEachMacros: [
     hmap_for_each_full,
     hset_for_each,
     hset_for_each_full,
-    if_input,
-    net_addr_hmap_for_each,
     rb_for_each,
     rb_for_each_r,
-    server_client_hmap_for_each,
     strlist_for_each,
     strlist_for_each_cstr,
-    ui_for_each,
-    ui_for_each_active,
     vec_for_each,
     vec_for_each_r,
     vec_for_each_range,

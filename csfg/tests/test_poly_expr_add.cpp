@@ -7,7 +7,7 @@ extern "C" {
 #include "csfg/symbolic/poly_expr.h"
 }
 
-#define NAME test_poly_add_permutations
+#define NAME test_poly_expr_add
 
 using namespace testing;
 

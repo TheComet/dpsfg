@@ -32,10 +32,10 @@ static void csfg_tf_expr_clear(struct csfg_tf_expr* r)
 
 int csfg_expr_to_rational(
     const struct csfg_expr_pool* in_pool,
-    int                          in_expr,
-    struct strview               main_var,
-    struct csfg_expr_pool**      tf_pool,
-    struct csfg_tf_expr*         tf);
+    int in_expr,
+    struct strview main_var,
+    struct csfg_expr_pool** tf_pool,
+    struct csfg_tf_expr* tf);
 
 /*!
  * @brief Calculates lim_{variable->oo} of an expression and returns it as a
@@ -59,21 +59,21 @@ int csfg_expr_to_rational(
  */
 int csfg_expr_to_rational_limit(
     const struct csfg_expr_pool* in_pool,
-    int                          in_expr,
-    struct strview               variable,
-    struct csfg_expr_pool**      tf_pool,
-    struct csfg_tf_expr*         tf);
+    int in_expr,
+    struct strview variable,
+    struct csfg_expr_pool** tf_pool,
+    struct csfg_tf_expr* tf);
 int csfg_expr_to_rational_limits(
     const struct csfg_expr_pool* in_pool,
-    int                          in_expr,
+    int in_expr,
     const struct csfg_var_table* vt,
-    struct csfg_expr_pool**      tf_pool,
-    struct csfg_tf_expr*         tf);
+    struct csfg_expr_pool** tf_pool,
+    struct csfg_tf_expr* tf);
 
 int csfg_rational_to_expr(
-    const struct csfg_tf_expr*   tf,
+    const struct csfg_tf_expr* tf,
     const struct csfg_expr_pool* tf_pool,
-    struct csfg_expr_pool**      expr_pool);
+    struct csfg_expr_pool** expr_pool);
 
 VEC_DECLARE(csfg_expr_vec, int, 8)
 
@@ -124,9 +124,9 @@ struct csfg_expr_vec;
  */
 int csfg_expr_to_standard_tf(
     struct csfg_expr_pool** num_pool,
-    int*                    num_root,
+    int* num_root,
     struct csfg_expr_pool** den_pool,
-    int*                    den_root);
+    int* den_root);
 
 /*!
  * Moves all common reciprocs from numerator to denominator or vice-versa, such
@@ -135,6 +135,6 @@ int csfg_expr_to_standard_tf(
  */
 int csfg_expr_rebalance_fraction(
     struct csfg_expr_pool** num_pool,
-    int                     num_root,
+    int num_root,
     struct csfg_expr_pool** den_pool,
-    int                     den_root);
+    int den_root);

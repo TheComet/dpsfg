@@ -37,7 +37,7 @@
     struct prefix                                                              \
     {                                                                          \
         int##bits##_t count, capacity;                                         \
-        T             data[1];                                                 \
+        T data[1];                                                             \
     };                                                                         \
                                                                                \
     /*!                                                                        \
@@ -215,14 +215,14 @@
     static void prefix##_swap(struct prefix** a, struct prefix** b)            \
     {                                                                          \
         struct prefix* tmp = *a;                                               \
-        *a = *b;                                                               \
-        *b = tmp;                                                              \
+        *a                 = *b;                                               \
+        *b                 = tmp;                                              \
     }                                                                          \
                                                                                \
     static void prefix##_swap_values(                                          \
         struct prefix* v, int##bits##_t a, int##bits##_t b)                    \
     {                                                                          \
-        T tmp = v->data[a];                                                    \
+        T tmp      = v->data[a];                                               \
         v->data[a] = v->data[b];                                               \
         v->data[b] = tmp;                                                      \
     }                                                                          \
@@ -256,14 +256,18 @@
      * @param[in] end The index of the last element to reverse (exclusive).    \
      */                                                                        \
     void prefix##_reverse_range(                                               \
-        struct prefix* v, int##bits##_t start, int##bits##_t end);
+        struct prefix* v, int##bits##_t start, int##bits##_t end);             \
+    static void prefix##_reverse(struct prefix* v)                             \
+    {                                                                          \
+        prefix##_reverse_range(v, 0, vec_count(v));                            \
+    }
 
 #define VEC_DEFINE(prefix, T, bits) VEC_DEFINE_FULL(prefix, T, bits, 32, 2)
 
 #define VEC_DEFINE_FULL(prefix, T, bits, MIN_CAPACITY, EXPAND_FACTOR)          \
     int prefix##_realloc(struct prefix** v, int##bits##_t elems)               \
     {                                                                          \
-        int            header, data;                                           \
+        int header, data;                                                      \
         struct prefix* new_v;                                                  \
                                                                                \
         if (elems == 0)                                                        \
@@ -280,8 +284,8 @@
             VEC_CAPACITY_WARNING(#prefix, elems, (1 << (bits - 1)));           \
                                                                                \
         header = offsetof(struct prefix, data);                                \
-        data = sizeof(T) * elems;                                              \
-        new_v = (struct prefix*)mem_realloc(*v, header + data);                \
+        data   = sizeof(T) * elems;                                            \
+        new_v  = (struct prefix*)mem_realloc(*v, header + data);               \
         if (new_v == NULL)                                                     \
             return log_oom(header + data, "vec_realloc()");                    \
                                                                                \
@@ -388,7 +392,7 @@
  * @return A pointer to the last element. See warning and use with caution.
  * Vector must not be empty.
  */
-#define vec_first(v) (&(v)->data[0])
+#define vec_first(v) (CSFG_DEBUG_ASSERT(vec_count(v) > 0), &(v)->data[0])
 
 /*!
  * @brief Returns the first element of the vector.
@@ -399,7 +403,8 @@
  * @return A pointer to the last element. See warning and use with caution.
  * Vector must not be empty.
  */
-#define vec_last(v) (&(v)->data[(v)->count - 1])
+#define vec_last(v)                                                            \
+    (CSFG_DEBUG_ASSERT(vec_count(v) > 0), &(v)->data[(v)->count - 1])
 
 /*!
  * @brief Returns the nth element of the vector, starting at 0.
@@ -411,7 +416,8 @@
  * @return A pointer to the element. See warning and use with caution.
  * Vector must not be empty.
  */
-#define vec_get(v, i) ((v)->data + (i))
+#define vec_get(v, i)                                                          \
+    (CSFG_DEBUG_ASSERT((i) >= 0 && (i) < vec_count(v)), (v)->data + (i))
 
 /*!
  * @brief Returns the nth last element of the vector, starting at count - 1.
@@ -423,7 +429,9 @@
  * @return A pointer to the element. See warning and use with caution.
  * Vector must not be empty.
  */
-#define vec_rget(v, i) (&(v)->data[(v)->count - (i) - 1])
+#define vec_rget(v, i)                                                         \
+    (CSFG_DEBUG_ASSERT((i) >= 0 && (i) < vec_count(v)),                        \
+     &(v)->data[(v)->count - (i) - 1])
 
 /*!
  * @brief Iterates over the elements in a vector.
@@ -438,9 +446,10 @@
 #define vec_for_each_r(v, var)                                                 \
     for (var = vec_begin_r(v); var != vec_end_r(v); var--)
 #define vec_for_each_range(v, var, start_idx, end_idx)                         \
-    for (CSFG_DEBUG_ASSERT(start_idx <= end_idx),                              \
-         var = vec_begin(v) + start_idx;                                       \
-         var != vec_begin(v) + end_idx;                                        \
+    for (CSFG_DEBUG_ASSERT((start_idx) >= 0 && (end_idx) <= vec_count(v)),     \
+         CSFG_DEBUG_ASSERT((start_idx) <= (end_idx)),                          \
+         var = vec_begin(v) + (start_idx);                                     \
+         var != vec_begin(v) + (end_idx);                                      \
          var++)
 
 #define vec_enumerate(v, i, var)                                               \
@@ -448,6 +457,13 @@
 #define vec_enumerate_r(v, i, var)                                             \
     for (i = (v) ? (v)->count - 1 : -1; i >= 0 && ((var = &(v)->data[i]), 1);  \
          --i)
+#define vec_enumerate_range(v, i, var, start_idx, end_idx)                     \
+    for (CSFG_DEBUG_ASSERT(start_idx >= 0),                                    \
+         CSFG_DEBUG_ASSERT(end_idx <= vec_count(v)),                           \
+         CSFG_DEBUG_ASSERT(start_idx <= end_idx),                              \
+         i = (start_idx);                                                      \
+         i != (end_idx) && ((var = &(v)->data[i]), 1);                         \
+         ++i)
 
 #if defined(CSFG_MEM_DEBUGGING)
 #    define mem_own_vec(prefix, v)                                             \

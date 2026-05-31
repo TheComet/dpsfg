@@ -269,7 +269,7 @@ TEST_F(NAME, push_with_expand_has_correct_values)
     ASSERT_EQ(obj_vec_push(&obj_vec, obj{42, 42, 42, 42}), 0);
 
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        EXPECT_THAT(vec_get(obj_vec, i), Pointee(obj{i, i, i, i}));
+        EXPECT_THAT(vec_get(obj_vec, (int)i), Pointee(obj{i, i, i, i}));
     EXPECT_THAT(vec_get(obj_vec, MIN_CAPACITY), Pointee(obj{42, 42, 42, 42}));
 }
 TEST_F(NAME, emplace_with_expand_has_correct_values)
@@ -279,7 +279,7 @@ TEST_F(NAME, emplace_with_expand_has_correct_values)
     *obj_vec_emplace(&obj_vec) = obj{42, 42, 42, 42};
 
     for (uint64_t i = 0; i != MIN_CAPACITY; ++i)
-        EXPECT_THAT(vec_get(obj_vec, i), Pointee(obj{i, i, i, i}));
+        EXPECT_THAT(vec_get(obj_vec, (int)i), Pointee(obj{i, i, i, i}));
     EXPECT_THAT(vec_get(obj_vec, MIN_CAPACITY), Pointee(obj{42, 42, 42, 42}));
 }
 TEST_F(NAME, insert_with_expand_has_correct_values)
@@ -290,7 +290,7 @@ TEST_F(NAME, insert_with_expand_has_correct_values)
 
     for (uint64_t i = 0; i != 3; ++i)
         EXPECT_THAT(
-            vec_get(obj_vec, i),
+            vec_get(obj_vec, (int)i),
             Pointee(
                 obj{MIN_CAPACITY - i - 1,
                     MIN_CAPACITY - i - 1,
@@ -299,7 +299,7 @@ TEST_F(NAME, insert_with_expand_has_correct_values)
     EXPECT_THAT(vec_get(obj_vec, 3), Pointee(obj{42, 42, 42, 42}));
     for (uint64_t i = 4; i != MIN_CAPACITY + 1; ++i)
         EXPECT_THAT(
-            vec_get(obj_vec, i),
+            vec_get(obj_vec, (int)i),
             Pointee(
                 obj{MIN_CAPACITY - i,
                     MIN_CAPACITY - i,
@@ -314,7 +314,7 @@ TEST_F(NAME, insert_emplace_with_expand_has_correct_values)
 
     for (uint64_t i = 0; i != 3; ++i)
         EXPECT_THAT(
-            vec_get(obj_vec, i),
+            vec_get(obj_vec, (int)i),
             Pointee(
                 obj{MIN_CAPACITY - i - 1,
                     MIN_CAPACITY - i - 1,
@@ -323,7 +323,7 @@ TEST_F(NAME, insert_emplace_with_expand_has_correct_values)
     EXPECT_THAT(vec_get(obj_vec, 3), Pointee(obj{42, 42, 42, 42}));
     for (uint64_t i = 4; i != MIN_CAPACITY + 1; ++i)
         EXPECT_THAT(
-            vec_get(obj_vec, i),
+            vec_get(obj_vec, (int)i),
             Pointee(
                 obj{MIN_CAPACITY - i,
                     MIN_CAPACITY - i,
@@ -679,7 +679,7 @@ TEST_F(NAME, erasing_by_index_preserves_existing_elements)
 TEST_F(NAME, for_each_zero_elements)
 {
     obj* value;
-    int  counter = 0;
+    int counter = 0;
     vec_for_each (obj_vec, value)
         counter++;
 
@@ -690,7 +690,7 @@ TEST_F(NAME, for_each_one_element)
 {
     obj_vec_push(&obj_vec, obj{1, 1, 1, 1});
 
-    int  counter = 0;
+    int counter = 0;
     obj* value;
     vec_for_each (obj_vec, value)
     {
@@ -708,7 +708,7 @@ TEST_F(NAME, for_each_three_elements)
     obj_vec_push(&obj_vec, obj{3, 3, 3, 3});
 
     uint64_t counter = 0;
-    obj*     value;
+    obj* value;
     vec_for_each (obj_vec, value)
     {
         counter++;
