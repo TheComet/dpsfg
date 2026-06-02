@@ -20,7 +20,7 @@ serialize_expr_pool(struct serializer** ser, const struct csfg_expr_pool* pool)
         err += serialize_li16(ser, pool->nodes[n].child[0]);
         err += serialize_li16(ser, pool->nodes[n].child[1]);
 
-        switch (pool->nodes[n].type)
+        switch ((enum csfg_expr_type)pool->nodes[n].type)
         {
             case CSFG_EXPR_GC: CSFG_DEBUG_ASSERT(0); return -1;
             case CSFG_EXPR_LIT:
@@ -74,8 +74,8 @@ static int deserialize_expr(
     for (n = 0; n != node_count; ++n)
     {
         enum csfg_expr_type type = deserialize_u8(des);
-        int                 left = deserialize_li16(des);
-        int                 right = deserialize_li16(des);
+        int left                 = deserialize_li16(des);
+        int right                = deserialize_li16(des);
 
         switch (type)
         {
@@ -140,8 +140,8 @@ static int deserialize_expr(
 static int
 serialize_var_table(struct serializer** ser, const struct csfg_var_table* vt)
 {
-    int16_t                      slot;
-    struct str*                  name;
+    int16_t slot;
+    struct str* name;
     struct csfg_var_table_entry* entry;
 
     int err = 0;
@@ -168,8 +168,8 @@ deserialize_var_table(struct deserializer* des, struct csfg_var_table* vt)
     while (entry_count-- > 0)
     {
         struct csfg_expr_pool* pool;
-        int                    expr;
-        const char*            name;
+        int expr;
+        const char* name;
 
         csfg_expr_pool_init(&pool);
 
@@ -191,19 +191,19 @@ deserialize_var_table(struct deserializer* des, struct csfg_var_table* vt)
 
 /* -------------------------------------------------------------------------- */
 static int save(
-    struct serializer**          ser,
+    struct serializer** ser,
     const struct csfg_var_table* substitutions,
     const struct csfg_var_table* parameters,
-    const struct csfg_graph*     graph,
-    int                          node_in,
-    int                          node_out)
+    const struct csfg_graph* graph,
+    int node_in,
+    int node_out)
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
 
-    const char     magic[4] = {'C', 'S', 'F', 'G'};
+    const char magic[4]    = {'C', 'S', 'F', 'G'};
     const uint16_t version = 0x0000;
-    int            err = 0;
+    int err                = 0;
 
     err += serialize_data(ser, magic, 4);
     err += serialize_lu16(ser, version);
@@ -237,16 +237,16 @@ static int save(
 
 /* -------------------------------------------------------------------------- */
 static int load_0_0(
-    struct deserializer*   des,
+    struct deserializer* des,
     struct csfg_var_table* substitutions,
     struct csfg_var_table* parameters,
-    struct csfg_graph*     graph,
-    int*                   node_in,
-    int*                   node_out)
+    struct csfg_graph* graph,
+    int* node_in,
+    int* node_out)
 {
     int i, node_count, edge_count;
 
-    *node_in = deserialize_li16(des);
+    *node_in  = deserialize_li16(des);
     *node_out = deserialize_li16(des);
 
     node_count = deserialize_li16(des);
@@ -255,11 +255,11 @@ static int load_0_0(
     for (i = 0; i != node_count; ++i)
     {
         const char* name;
-        int         n_idx, x, y;
+        int n_idx, x, y;
 
         name = deserialize_cstr(des);
-        x = deserialize_li16(des);
-        y = deserialize_li16(des);
+        x    = deserialize_li16(des);
+        y    = deserialize_li16(des);
 
         n_idx = csfg_graph_add_node(graph, name);
         if (n_idx < 0)
@@ -274,14 +274,14 @@ static int load_0_0(
     for (i = 0; i != edge_count; ++i)
     {
         struct csfg_expr_pool* pool;
-        int                    expr, e_idx, n_idx_from, n_idx_to, x, y;
+        int expr, e_idx, n_idx_from, n_idx_to, x, y;
 
         csfg_expr_pool_init(&pool);
 
         n_idx_from = deserialize_li16(des);
-        n_idx_to = deserialize_li16(des);
-        x = deserialize_li16(des);
-        y = deserialize_li16(des);
+        n_idx_to   = deserialize_li16(des);
+        x          = deserialize_li16(des);
+        y          = deserialize_li16(des);
 
         if (deserialize_expr(des, &pool, &expr) != 0)
             goto fail;
@@ -309,16 +309,16 @@ static int load_0_0(
 
 /* -------------------------------------------------------------------------- */
 static int load(
-    struct deserializer*   des,
+    struct deserializer* des,
     struct csfg_var_table* substitutions,
     struct csfg_var_table* parameters,
-    struct csfg_graph*     graph,
-    int*                   node_in,
-    int*                   node_out)
+    struct csfg_graph* graph,
+    int* node_in,
+    int* node_out)
 {
-    char     magic[4];
+    char magic[4];
     uint16_t version;
-    int      result;
+    int result;
 
     deserialize_data(des, magic, 4);
     if (deserializer_err(des) || memcmp(magic, "CSFG", 4) != 0)
@@ -354,7 +354,7 @@ static int load(
         csfg_var_table_clear(substitutions);
         csfg_var_table_clear(parameters);
         csfg_graph_clear(graph);
-        *node_in = -1;
+        *node_in  = -1;
         *node_out = -1;
     }
 

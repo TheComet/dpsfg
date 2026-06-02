@@ -163,7 +163,9 @@ if (CSFG_TESTS)
         "tests/test_expr_to_rational_limit.cpp"
         "tests/test_expr_to_rational_limits.cpp"
         "tests/test_poly_expr_add.cpp"
+        "tests/test_poly_expr_mul.cpp"
         "tests/test_poly_expr_div.cpp"
+        "tests/test_poly_expr_gcd.cpp"
         "tests/test_tf_expr.cpp"
         "tests/test_tf_expr_simplify.cpp"
 

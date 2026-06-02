@@ -8,15 +8,15 @@
 /* -------------------------------------------------------------------------- */
 int csfg_expr_to_rational(
     const struct csfg_expr_pool* in_pool,
-    int                          in_expr,
-    struct strview               main_var,
-    struct csfg_expr_pool**      tf_pool,
-    struct csfg_tf_expr*         r)
+    int in_expr,
+    struct strview main_var,
+    struct csfg_expr_pool** tf_pool,
+    struct csfg_tf_expr* r)
 {
-    int                     left, right, k;
-    struct strview          var;
+    int left, right, k;
+    struct strview var;
     struct csfg_coeff_expr* coeff;
-    double                  value;
+    double value;
 
     struct csfg_tf_expr r1, r2;
     csfg_tf_expr_init(&r1);
@@ -25,12 +25,12 @@ int csfg_expr_to_rational(
     CSFG_DEBUG_ASSERT(vec_count(r->num) == 0);
     CSFG_DEBUG_ASSERT(vec_count(r->den) == 0);
 
-    left = in_pool->nodes[in_expr].child[0];
+    left  = in_pool->nodes[in_expr].child[0];
     right = in_pool->nodes[in_expr].child[1];
 
-    switch (in_pool->nodes[in_expr].type)
+    switch ((enum csfg_expr_type)in_pool->nodes[in_expr].type)
     {
-        case CSFG_EXPR_GC: assert(0); break;
+        case CSFG_EXPR_GC : assert(0); break;
         case CSFG_EXPR_LIT: {
             double value = in_pool->nodes[in_expr].value.lit;
             if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(value, -1)) != 0)
@@ -53,7 +53,7 @@ int csfg_expr_to_rational(
 
         case CSFG_EXPR_VAR: {
             int var_idx = in_pool->nodes[in_expr].value.var_idx;
-            var = strlist_view(in_pool->var_names, var_idx);
+            var         = strlist_view(in_pool->var_names, var_idx);
             if (strview_eq(var, main_var))
             {
                 /* 0 + 1*s */
@@ -71,14 +71,13 @@ int csfg_expr_to_rational(
                 if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(1.0, n)) != 0)
                     return -1;
             }
-            csfg_poly_expr_push(&r->den, csfg_coeff_expr(1.0, -1));
+            if (csfg_poly_expr_push(&r->den, csfg_coeff_expr(1.0, -1)) != 0)
+                return -1;
             break;
         }
 
         case CSFG_EXPR_NEG: {
-            int result =
-                csfg_expr_to_rational(in_pool, left, main_var, tf_pool, r);
-            if (result != 0)
+            if (csfg_expr_to_rational(in_pool, left, main_var, tf_pool, r) != 0)
                 return -1;
             vec_for_each (r->num, coeff)
                 coeff->factor *= -1;
@@ -170,7 +169,7 @@ int csfg_expr_to_rational(
                 return -1;
 
             value = in_pool->nodes[right].value.lit;
-            k = (int)round(value);
+            k     = (int)round(value);
             if (fabs(value - (double)k) >= 0.0000001)
                 return -1;
 
@@ -246,12 +245,12 @@ int csfg_expr_to_rational(
 /* -------------------------------------------------------------------------- */
 int csfg_expr_to_rational_limit(
     const struct csfg_expr_pool* in_pool,
-    int                          in_expr,
-    struct strview               variable,
-    struct csfg_expr_pool**      tf_pool,
-    struct csfg_tf_expr*         tf)
+    int in_expr,
+    struct strview variable,
+    struct csfg_expr_pool** tf_pool,
+    struct csfg_tf_expr* tf)
 {
-    int                           rc, num_idx, den_idx;
+    int rc, num_idx, den_idx;
     const struct csfg_coeff_expr* c;
 
     CSFG_DEBUG_ASSERT(vec_count(tf->num) == 0);
@@ -272,40 +271,50 @@ int csfg_expr_to_rational_limit(
     if (den_idx < 0 && num_idx < 0) /* 0/0 */
     {
         csfg_tf_expr_clear(tf);
-        csfg_poly_expr_push(&tf->num, csfg_coeff_expr(0.0, -1));
-        csfg_poly_expr_push(&tf->den, csfg_coeff_expr(0.0, -1));
+        if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(0.0, -1)) != 0)
+            return -1;
+        if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(0.0, -1)) != 0)
+            return -1;
     }
     else if (den_idx < 0) /* Denominator has factor 0 */
     {
         double factor = vec_get(tf->num, num_idx)->factor < 0.0 ? -1.0 : 1.0;
-        int    inf = csfg_expr_inf(tf_pool);
+        int inf       = csfg_expr_inf(tf_pool);
         if (inf < 0)
             return -1;
         csfg_tf_expr_clear(tf);
-        csfg_poly_expr_push(&tf->num, csfg_coeff_expr(factor, inf));
-        csfg_poly_expr_push(&tf->den, csfg_coeff_expr(0.0, -1));
+        if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(factor, inf)) != 0)
+            return -1;
+        if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(0.0, -1)) != 0)
+            return -1;
     }
     else if (num_idx < 0) /* Numerator has factor 0 */
     {
         csfg_tf_expr_clear(tf);
-        csfg_poly_expr_push(&tf->num, csfg_coeff_expr(0.0, -1));
-        csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1));
+        if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(0.0, -1)) != 0)
+            return -1;
+        if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1)) != 0)
+            return -1;
     }
     else if (num_idx > den_idx) /* Numerator diverges to inf */
     {
         double factor = vec_get(tf->num, num_idx)->factor < 0.0 ? -1.0 : 1.0;
-        int    inf = csfg_expr_inf(tf_pool);
+        int inf       = csfg_expr_inf(tf_pool);
         if (inf < 0)
             return -1;
         csfg_tf_expr_clear(tf);
-        csfg_poly_expr_push(&tf->num, csfg_coeff_expr(factor, inf));
-        csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1));
+        if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(factor, inf)) != 0)
+            return -1;
+        if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1)) != 0)
+            return -1;
     }
     else if (num_idx < den_idx) /* Denominator diverges to inf */
     {
         csfg_tf_expr_clear(tf);
-        csfg_poly_expr_push(&tf->num, csfg_coeff_expr(0.0, -1));
-        csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1));
+        if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(0.0, -1)) != 0)
+            return -1;
+        if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1)) != 0)
+            return -1;
     }
     else /* Convergent */
     {
@@ -321,15 +330,15 @@ int csfg_expr_to_rational_limit(
 /* -------------------------------------------------------------------------- */
 int csfg_expr_to_rational_limits(
     const struct csfg_expr_pool* in_pool,
-    int                          in_expr,
+    int in_expr,
     const struct csfg_var_table* vt,
-    struct csfg_expr_pool**      tf_pool,
-    struct csfg_tf_expr*         tf)
+    struct csfg_expr_pool** tf_pool,
+    struct csfg_tf_expr* tf)
 {
-    int                          slot, tmp_expr;
-    struct str*                  key;
+    int slot, tmp_expr;
+    struct str* key;
     struct csfg_var_table_entry* entry;
-    struct csfg_expr_pool*       tmp_pool;
+    struct csfg_expr_pool* tmp_pool;
 
     CSFG_DEBUG_ASSERT(vec_count(tf->num) == 0);
     CSFG_DEBUG_ASSERT(vec_count(tf->den) == 0);
@@ -373,10 +382,10 @@ fail:
 int csfg_poly_expr_to_expr(
     const struct csfg_poly_expr* poly,
     const struct csfg_expr_pool* coeff_pool,
-    struct csfg_expr_pool**      expr_pool)
+    struct csfg_expr_pool** expr_pool)
 {
     const struct csfg_coeff_expr* c;
-    int                           expr = -1;
+    int expr = -1;
     vec_for_each (poly, c)
     {
         int coeff_expr;
@@ -405,9 +414,9 @@ int csfg_poly_expr_to_expr(
 
 /* -------------------------------------------------------------------------- */
 int csfg_rational_to_expr(
-    const struct csfg_tf_expr*   tf,
+    const struct csfg_tf_expr* tf,
     const struct csfg_expr_pool* tf_pool,
-    struct csfg_expr_pool**      expr_pool)
+    struct csfg_expr_pool** expr_pool)
 {
     return csfg_expr_div(
         expr_pool,
@@ -421,7 +430,7 @@ VEC_DEFINE(csfg_expr_vec, int, 8)
 static int run(struct csfg_expr_pool** num, struct csfg_expr_pool** den, ...)
 {
     va_list ap;
-    int     result, modified = 0;
+    int result, modified = 0;
 
     va_start(ap, den);
     result = csfg_rules_runv(num, ap);
@@ -447,9 +456,9 @@ static int run(struct csfg_expr_pool** num, struct csfg_expr_pool** den, ...)
  * implementation) */
 int csfg_expr_to_standard_tf(
     struct csfg_expr_pool** num_pool,
-    int*                    num_root,
+    int* num_root,
     struct csfg_expr_pool** den_pool,
-    int*                    den_root)
+    int* den_root)
 {
     /* Init the denominator by dividing by 1.0 */
     csfg_expr_pool_clear(*den_pool);
@@ -503,8 +512,8 @@ int csfg_expr_to_standard_tf(
             num_pool, *num_root, den_pool, *den_root))
         {
             case -1: return -1;
-            case 0: done = 1; break;
-            case 1: break;
+            case 0 : done = 1; break;
+            case 1 : break;
         }
         *num_root = csfg_expr_gc(*num_pool, *num_root);
         *den_root = csfg_expr_gc(*den_pool, *den_root);

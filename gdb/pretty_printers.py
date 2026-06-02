@@ -20,7 +20,7 @@ from strlist import strlist_PrettyPrinter
 def factories(val):
     if str(val.type).endswith("_rb *"):
         return rb_PrettyPrinter(val)
-    if str(val.type).endswith("_vec *"):
+    if str(val.type).endswith("_vec *") or str(val.type).endswith("csfg_poly_expr *"):
         return vec_PrettyPrinter(val)
     if str(val.type).endswith("csfg_cpoly *"):
         return cpoly_PrettyPrinter(val)
@@ -49,3 +49,4 @@ def factories(val):
 gdb.pretty_printers.append(factories)
 
 import plot
+import mathprint

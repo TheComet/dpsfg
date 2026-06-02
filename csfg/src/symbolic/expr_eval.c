@@ -10,9 +10,9 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
 {
     double child_result[2];
 
-    switch (pool->nodes[n].type)
+    switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
-        case CSFG_EXPR_GC: break;
+        case CSFG_EXPR_GC : break;
         case CSFG_EXPR_LIT: return pool->nodes[n].value.lit;
         case CSFG_EXPR_VAR: {
             double result;
@@ -20,7 +20,7 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
                 return NAN;
 
             pool->nodes[n].visited = 1;
-            result = csfg_var_table_eval(
+            result                 = csfg_var_table_eval(
                 vt,
                 strlist_view(pool->var_names, pool->nodes[n].value.var_idx));
             pool->nodes[n].visited = 0;
@@ -39,7 +39,7 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
             break;
     }
 
-    switch (pool->nodes[n].type)
+    switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
         case CSFG_EXPR_GC:
         case CSFG_EXPR_LIT:
@@ -79,7 +79,7 @@ static int has_any_op_as_parent(const struct csfg_expr_pool* pool, int n)
     int parent = csfg_expr_find_parent(pool, n);
     if (parent < 0)
         return 0;
-    switch (pool->nodes[parent].type)
+    switch ((enum csfg_expr_type)pool->nodes[parent].type)
     {
         case CSFG_EXPR_GC: assert(0); break;
 
@@ -115,10 +115,10 @@ int csfg_expr_to_str(
     int left, right;
 
     CSFG_DEBUG_ASSERT(expr > -1);
-    left = pool->nodes[expr].child[0];
+    left  = pool->nodes[expr].child[0];
     right = pool->nodes[expr].child[1];
 
-    switch (pool->nodes[expr].type)
+    switch ((enum csfg_expr_type)pool->nodes[expr].type)
     {
         case CSFG_EXPR_GC: break;
         case CSFG_EXPR_LIT:
@@ -135,7 +135,7 @@ int csfg_expr_to_str(
             break;
 
         case CSFG_EXPR_VAR: {
-            int         var_idx = pool->nodes[expr].value.var_idx;
+            int var_idx          = pool->nodes[expr].value.var_idx;
             const char* var_name = strlist_cstr(pool->var_names, var_idx);
             if (str_append_cstr(str, var_name) != 0)
                 return -1;

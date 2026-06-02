@@ -123,7 +123,6 @@ class Plot(gdb.Command):
         super(Plot, self).__init__("plot", gdb.COMMAND_USER)
 
     def invoke(self, arg, from_tty):
-        handle = None
         exprs = arg.split()
         values = (gdb.parse_and_eval(x) for x in exprs)
         it = iter(enumerate(values))

@@ -5,9 +5,9 @@
 /* -------------------------------------------------------------------------- */
 static void rebalance_tree(struct csfg_expr_pool* pool, int n)
 {
-    switch (pool->nodes[n].type)
+    switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
-        case CSFG_EXPR_GC: CSFG_DEBUG_ASSERT(0);
+        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0);
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
         case CSFG_EXPR_INF:
@@ -24,7 +24,7 @@ static void rebalance_tree(struct csfg_expr_pool* pool, int n)
              */
             int a, op, b, c;
 
-            a = pool->nodes[n].child[0];
+            a  = pool->nodes[n].child[0];
             op = pool->nodes[n].child[1];
             while (pool->nodes[op].type == pool->nodes[n].type)
             {
@@ -38,7 +38,7 @@ static void rebalance_tree(struct csfg_expr_pool* pool, int n)
                     csfg_expr_set_binop(pool, op, pool->nodes[n].type, a, c),
                     b);
 
-                a = pool->nodes[n].child[0];
+                a  = pool->nodes[n].child[0];
                 op = pool->nodes[n].child[1];
             }
 
@@ -56,9 +56,9 @@ static void rebalance_tree(struct csfg_expr_pool* pool, int n)
 
 static int rank(const struct csfg_expr_pool* pool, int n)
 {
-    switch (pool->nodes[n].type)
+    switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
-        case CSFG_EXPR_GC: break;
+        case CSFG_EXPR_GC : break;
         case CSFG_EXPR_LIT: return 6;
         case CSFG_EXPR_VAR: return 5;
         case CSFG_EXPR_INF: return 7;
@@ -77,14 +77,14 @@ lexicographical_compare(const struct csfg_expr_pool* pool, int a, int b)
     if (pool->nodes[a].type != pool->nodes[b].type)
         return rank(pool, a) - rank(pool, b);
 
-    switch (pool->nodes[a].type)
+    switch ((enum csfg_expr_type)pool->nodes[a].type)
     {
         case CSFG_EXPR_GC: return 0;
         case CSFG_EXPR_LIT:
             return (int)(pool->nodes[a].value.lit - pool->nodes[b].value.lit);
         case CSFG_EXPR_VAR: {
-            int            idxa = pool->nodes[a].value.var_idx;
-            int            idxb = pool->nodes[b].value.var_idx;
+            int idxa          = pool->nodes[a].value.var_idx;
+            int idxb          = pool->nodes[b].value.var_idx;
             struct strview sa = strlist_view(pool->var_names, idxa);
             struct strview sb = strlist_view(pool->var_names, idxb);
             return -strview_lexicographic_compare(sa, sb);
@@ -118,7 +118,7 @@ static int compare_and_swap(struct csfg_expr_pool* pool, int n)
      *  a   b
      */
     op = pool->nodes[n].child[0];
-    c = pool->nodes[n].child[1];
+    c  = pool->nodes[n].child[1];
     if (pool->nodes[op].type != pool->nodes[n].type)
     {
         if (lexicographical_compare(pool, op, c) > 0)
@@ -143,7 +143,7 @@ static int compare_and_swap(struct csfg_expr_pool* pool, int n)
 }
 static void bubble_sort_chain(struct csfg_expr_pool* pool, int top_of_chain)
 {
-    int                 n, swapped;
+    int n, swapped;
     enum csfg_expr_type type = pool->nodes[top_of_chain].type;
 
     do
@@ -167,9 +167,9 @@ static void bubble_sort_tree(struct csfg_expr_pool* pool, int n)
     if (pool->nodes[n].child[1] > -1)
         bubble_sort_tree(pool, pool->nodes[n].child[1]);
 
-    switch (pool->nodes[n].type)
+    switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
-        case CSFG_EXPR_GC: CSFG_DEBUG_ASSERT(0);
+        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0);
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
         case CSFG_EXPR_INF:

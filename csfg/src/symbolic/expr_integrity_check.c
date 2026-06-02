@@ -25,7 +25,7 @@ int csfg_expr_integrity_check_allow_islands(struct csfg_expr_pool* pool)
             if (pool->nodes[parent].visited)
                 return -1;
             pool->nodes[parent].visited = 1;
-            root = parent;
+            root                        = parent;
         }
     }
 
@@ -44,10 +44,10 @@ int csfg_expr_integrity_check_recurse(struct csfg_expr_pool* pool, int n)
         return -1;
     pool->nodes[n].visited = 1;
 
-    left = pool->nodes[n].child[0];
+    left  = pool->nodes[n].child[0];
     right = pool->nodes[n].child[1];
 
-    switch (pool->nodes[n].type)
+    switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
         case CSFG_EXPR_GC: return -1;
 

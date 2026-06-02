@@ -290,10 +290,7 @@ int csfg_poly_expr_mul(
                 }
 
         if (acc_coeff.factor == 0.0 && acc_coeff.expr > -1)
-        {
-            csfg_expr_mark_deleted_recursive(*pool, acc_coeff.expr);
             acc_coeff.expr = -1;
-        }
 
         /* This can't fail because we realloc'd earlier */
         csfg_poly_expr_push_no_realloc(*out, acc_coeff);
@@ -305,7 +302,7 @@ int csfg_poly_expr_mul(
 /* -------------------------------------------------------------------------- */
 int csfg_poly_expr_div(
     struct csfg_expr_pool** pool,
-    struct csfg_poly_expr** out,
+    struct csfg_poly_expr** quotient,
     struct csfg_poly_expr** remainder,
     const struct csfg_poly_expr* p1,
     const struct csfg_poly_expr* p2)
@@ -313,11 +310,12 @@ int csfg_poly_expr_div(
     int out_degree, remainder_degree, divisor_degree, i, i2;
     struct csfg_coeff_expr coeff, sub_coeff, *c1;
     const struct csfg_coeff_expr *remainder_coeff, *c2, *divisor;
-    CSFG_DEBUG_ASSERT(vec_count(*out) == 0);
+    CSFG_DEBUG_ASSERT(quotient == NULL || vec_count(*quotient) == 0);
 
-    vec_for_each (p1, remainder_coeff)
-        if (csfg_poly_expr_push(remainder, *remainder_coeff) != 0)
-            return -1;
+    if (*remainder != p1)
+        vec_for_each (p1, remainder_coeff)
+            if (csfg_poly_expr_push(remainder, *remainder_coeff) != 0)
+                return -1;
 
     divisor_degree = largest_nonzero_coeff(p2);
     divisor        = vec_get(p2, divisor_degree);
@@ -332,7 +330,7 @@ int csfg_poly_expr_div(
         remainder_coeff = vec_get(*remainder, remainder_degree);
         if (div_coeffs(pool, &coeff, remainder_coeff, divisor) != 0)
             return -1;
-        if (csfg_poly_expr_push(out, coeff) != 0)
+        if (quotient != NULL && csfg_poly_expr_push(quotient, coeff) != 0)
             return -1;
 
         vec_enumerate_range(*remainder, i, c1, 0, remainder_degree)
@@ -351,9 +349,55 @@ int csfg_poly_expr_div(
         csfg_poly_expr_pop(*remainder);
     }
 
-    csfg_poly_expr_reverse(*out);
+    if (quotient != NULL)
+        csfg_poly_expr_reverse(*quotient);
+
+    while (csfg_poly_expr_degree(*remainder) > 0 &&
+           vec_last(*remainder)->factor == 0.0)
+    {
+        csfg_poly_expr_pop(*remainder);
+    }
 
     return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_poly_expr_gcd(
+    struct csfg_expr_pool** pool,
+    struct csfg_poly_expr** gcd,
+    const struct csfg_poly_expr* p1,
+    const struct csfg_poly_expr* p2)
+{
+    const struct csfg_coeff_expr* c;
+    struct csfg_poly_expr *next_gcd, *tmp;
+    csfg_poly_expr_init(&next_gcd);
+    CSFG_DEBUG_ASSERT(vec_count(*gcd) == 0);
+
+    if (csfg_poly_expr_realloc(gcd, vec_count(p2)) != 0 ||
+        csfg_poly_expr_realloc(&next_gcd, vec_count(p1)) != 0)
+        goto realloc_failed;
+
+    vec_for_each (p1, c)
+        csfg_poly_expr_push_no_realloc(next_gcd, *c);
+    vec_for_each (p2, c)
+        csfg_poly_expr_push_no_realloc(*gcd, *c);
+
+    while (1)
+    {
+        csfg_poly_expr_div(pool, NULL, &next_gcd, next_gcd, *gcd);
+        if (csfg_poly_expr_degree(next_gcd) <= 0)
+            break;
+        tmp      = next_gcd;
+        next_gcd = *gcd;
+        *gcd     = tmp;
+    }
+
+    csfg_poly_expr_deinit(next_gcd);
+    return 0;
+
+realloc_failed:
+    csfg_poly_expr_deinit(next_gcd);
+    return -1;
 }
 
 /* -------------------------------------------------------------------------- */

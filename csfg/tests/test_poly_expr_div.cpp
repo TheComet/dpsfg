@@ -37,6 +37,18 @@ struct NAME : public Test, public PolyHelper
     struct csfg_expr_pool* pool;
 };
 
+TEST_F(NAME, div_1_1)
+{
+    csfg_poly_expr_push(&p1, csfg_coeff_expr(1.0, -1));
+    csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
+
+    ASSERT_EQ(csfg_poly_expr_div(&pool, &out, &remainder, p1, p2), 0);
+
+    ASSERT_EQ(csfg_poly_expr_degree(out), 0);
+    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0));
+    ASSERT_EQ(vec_count(remainder), 0);
+}
+
 TEST_F(NAME, example1)
 {
     // 6x^4 + 2x^3 + 5x^2 + 3x + 2
@@ -103,14 +115,31 @@ TEST_F(NAME, example2)
     ASSERT_TRUE(CoeffEq(pool, remainder, 1, 3.0));
 }
 
-TEST_F(NAME, div_1_1)
+TEST_F(NAME, example3)
 {
+    // x^3 - 7x^2 + 14x - 8
+    csfg_poly_expr_push(&p1, csfg_coeff_expr(-8.0, -1));
+    csfg_poly_expr_push(&p1, csfg_coeff_expr(14.0, -1));
+    csfg_poly_expr_push(&p1, csfg_coeff_expr(-7.0, -1));
     csfg_poly_expr_push(&p1, csfg_coeff_expr(1.0, -1));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
+    // 3x^2 - 9x + 6
+    csfg_poly_expr_push(&p2, csfg_coeff_expr(6.0, -1));
+    csfg_poly_expr_push(&p2, csfg_coeff_expr(-9.0, -1));
+    csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
 
+    //                ____________________________  1/3x - 4/3
+    // 3x^2 - 9x + 6 ) x^3 - 7x^2 + 14x - 8
+    //                -x^3 + 3x^2 - 2x
+    //                  r = -4x^2 + 12x - 8
+    //                       4x^3 - 12x + 8
+    //                                r = 0
     ASSERT_EQ(csfg_poly_expr_div(&pool, &out, &remainder, p1, p2), 0);
 
-    ASSERT_EQ(csfg_poly_expr_degree(out), 0);
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0));
-    ASSERT_EQ(vec_count(remainder), 0);
+    // 1/3x + 4/3
+    ASSERT_EQ(csfg_poly_expr_degree(out), 1);
+    ASSERT_TRUE(CoeffEq(pool, out, 0, -4.0 / 3.0));
+    ASSERT_TRUE(CoeffEq(pool, out, 1, 1.0 / 3.0));
+    // 0
+    ASSERT_EQ(csfg_poly_expr_degree(remainder), 0);
+    ASSERT_TRUE(CoeffEq(pool, remainder, 0, 0.0));
 }

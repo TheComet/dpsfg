@@ -402,7 +402,7 @@ int csfg_expr_dup_single_from(
     if (dup == -1)
         return -1;
 
-    switch (src->nodes[n].type)
+    switch ((enum csfg_expr_type)src->nodes[n].type)
     {
         case CSFG_EXPR_GC: break;
         case CSFG_EXPR_LIT:
@@ -583,7 +583,7 @@ int csfg_expr_equal(
     if (pool1->nodes[expr1].type != pool2->nodes[expr2].type)
         return 0;
 
-    switch (pool1->nodes[expr1].type)
+    switch ((enum csfg_expr_type)pool1->nodes[expr1].type)
     {
         case CSFG_EXPR_GC: break;
         case CSFG_EXPR_LIT:
@@ -631,7 +631,7 @@ int csfg_expr_mathematically_equivalent(
     if (pool1->nodes[expr1].type != pool2->nodes[expr2].type)
         return 0;
 
-    switch (pool1->nodes[expr1].type)
+    switch ((enum csfg_expr_type)pool1->nodes[expr1].type)
     {
         case CSFG_EXPR_GC: break;
         case CSFG_EXPR_LIT:

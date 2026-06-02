@@ -24,9 +24,8 @@ struct csfg_expr_node
         float lit;
         int var_idx;
     } value;
-
     int child[2];
-    enum csfg_expr_type type;
+    unsigned type    : 3;
     unsigned visited : 1;
 };
 

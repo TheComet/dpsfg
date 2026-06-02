@@ -45,13 +45,23 @@ int csfg_poly_expr_mul(
     const struct csfg_poly_expr* p2);
 
 /*!
- * Performs long division on two polynomials p1 and p2. The result is written to
- * "out" and any remainder is written to "remainder"
+ * \brief Performs long division on two polynomials.
+ * \note This is an in-place division, meaning, one of the input polynomials is
+ * modified.
+ * \param[out] quotient Result of division is written to this out-param.
+ * \param[inout] remainder Input is the dividend (numerator). Output is the
+ * remainder of the division.
  */
 int csfg_poly_expr_div(
     struct csfg_expr_pool** pool,
-    struct csfg_poly_expr** out,
+    struct csfg_poly_expr** quotient,
     struct csfg_poly_expr** remainder,
+    const struct csfg_poly_expr* p1,
+    const struct csfg_poly_expr* p2);
+
+int csfg_poly_expr_gcd(
+    struct csfg_expr_pool** pool,
+    struct csfg_poly_expr** gcd,
     const struct csfg_poly_expr* p1,
     const struct csfg_poly_expr* p2);
 
