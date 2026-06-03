@@ -71,6 +71,9 @@ int csfg_expr_to_str(
     struct str** str, const struct csfg_expr_pool* pool, int expr);
 
 void csfg_expr_canonicalize(struct csfg_expr_pool* pool, int expr);
+int csfg_expr_is_canonicalized(const struct csfg_expr_pool* pool, int expr);
+
+int csfg_expr_zip_chains(struct csfg_expr_pool** pool, int chain1, int chain2);
 
 /*! Main function used to allocate a new node */
 int csfg_expr_new(
@@ -170,11 +173,8 @@ int csfg_expr_equal(
     const struct csfg_expr_pool* pool2,
     int expr2);
 
-int csfg_expr_mathematically_equivalent(
-    const struct csfg_expr_pool* pool1,
-    int expr1,
-    const struct csfg_expr_pool* pool2,
-    int expr2);
+int csfg_expr_lexicographical_compare(
+    const struct csfg_expr_pool* pool, int a, int b);
 
 int csfg_expr_integrity_check_allow_islands(struct csfg_expr_pool* pool);
 int csfg_expr_integrity_check(struct csfg_expr_pool* pool, int expr);

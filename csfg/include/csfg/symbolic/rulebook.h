@@ -9,19 +9,19 @@ struct csfg_expr_pool;
 
 struct csfg_ruleset
 {
-    csfg_rule_run_func extern_run;         /* Set to NULL if not used */
-    int                next;               /* Index into rulesets[] */
-    int                child;              /* Index into rulesets[] */
-    int                expr_from, expr_to; /* Index into pool[] */
-    unsigned           ignore : 1;
+    csfg_rule_run_func extern_run; /* Set to NULL if not used */
+    int next;                      /* Index into rulesets[] */
+    int child;                     /* Index into rulesets[] */
+    int expr_search, expr_replace; /* Index into pool[] */
+    unsigned ignore : 1;
 };
 VEC_DECLARE(csfg_ruleset_vec, struct csfg_ruleset, 16)
 HMAP_DECLARE_STR(extern, csfg_ruleset_hmap, int, 16)
 
 struct csfg_rulebook
 {
-    struct csfg_expr_pool*    pool;
-    struct csfg_ruleset_vec*  rulesets;
+    struct csfg_expr_pool* pool;
+    struct csfg_ruleset_vec* rulesets;
     struct csfg_ruleset_hmap* ruleset_map; /* Index into rulesets[] */
 };
 
@@ -39,8 +39,12 @@ void csfg_rulebook_deinit(struct csfg_rulebook* book);
 int csfg_rulebook_parse(
     struct csfg_rulebook* book, const char* filename, struct strview text);
 
+/*!
+ * \note All rules assume the expression tree has been canonicalized. Make sure
+ * to call \see csfg_expr_canonicalize() if this is not true first.
+ */
 int csfg_rulebook_run(
     const struct csfg_rulebook* book,
-    const char*                 ruleset_name,
-    struct csfg_expr_pool**     pool,
-    int*                        expr);
+    const char* ruleset_name,
+    struct csfg_expr_pool** pool,
+    int* expr);

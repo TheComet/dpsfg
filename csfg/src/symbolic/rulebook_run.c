@@ -12,401 +12,23 @@ HMAP_DEFINE_STR(extern, csfg_ruleset_hmap, int, 16)
 VEC_DECLARE(node_idx_vec, int, 16)
 VEC_DEFINE(node_idx_vec, int, 16)
 
+enum match_subtree_result
+{
+    MATCH_OOM              = -1,
+    MATCH_NONE             = 0,
+    MATCH_FOUND            = 1,
+    MATCH_NEXT_PERMUTATION = 2
+};
+
 struct match_info
 {
     int var_idx;
-    int pattern_node;
+    int ruleset_node;
     int target_node;
 };
 
 VEC_DECLARE(match_info_vec, struct match_info, 8)
 VEC_DEFINE(match_info_vec, struct match_info, 8)
-
-/* -------------------------------------------------------------------------- */
-static int find_all_commutative_operands(
-    struct node_idx_vec** chain_idxs, const struct csfg_expr_pool* pool, int n)
-{
-    int i;
-    for (i = 0; i != 2; ++i)
-    {
-        int child = pool->nodes[n].child[i];
-        if (pool->nodes[child].type != pool->nodes[n].type)
-        {
-            if (node_idx_vec_push(chain_idxs, child) != 0)
-                return -1;
-            continue;
-        }
-
-        if (find_all_commutative_operands(chain_idxs, pool, child) != 0)
-            return -1;
-    }
-
-    return 0;
-}
-
-/* -------------------------------------------------------------------------- */
-static void undo_match_info_entries(
-    struct match_info_vec* matched_nodes,
-    const struct csfg_expr_pool* pool,
-    int n)
-{
-    switch ((enum csfg_expr_type)pool->nodes[n].type)
-    {
-        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); break;
-        case CSFG_EXPR_LIT: break;
-        case CSFG_EXPR_VAR: {
-            int i;
-            const struct match_info* match_info;
-            vec_enumerate (matched_nodes, i, match_info)
-                if (match_info->pattern_node == n)
-                {
-                    match_info_vec_erase(matched_nodes, i);
-                    break;
-                }
-            break;
-        }
-        case CSFG_EXPR_INF: break;
-        case CSFG_EXPR_NEG:
-            undo_match_info_entries(
-                matched_nodes, pool, pool->nodes[n].child[0]);
-            break;
-        case CSFG_EXPR_ADD:
-        case CSFG_EXPR_MUL:
-        case CSFG_EXPR_POW:
-            undo_match_info_entries(
-                matched_nodes, pool, pool->nodes[n].child[0]);
-            undo_match_info_entries(
-                matched_nodes, pool, pool->nodes[n].child[1]);
-            break;
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-static int match_subtree(
-    struct match_info_vec** matched_nodes,
-    const struct csfg_expr_pool* pool,
-    int n,
-    const struct csfg_expr_pool* pattern_pool,
-    int pattern_n);
-static int match_pattern(
-    struct match_info_vec** matched_nodes,
-    const struct csfg_expr_pool* pool,
-    const struct csfg_expr_pool* pattern_pool,
-    const struct node_idx_vec* pattern_operands,
-    struct node_idx_vec* target_operands,
-    int pattern_operand_idx)
-{
-    int target_operand_idx;
-
-    if (pattern_operand_idx == vec_count(pattern_operands))
-        return 1; /* all pattern elements matched */
-
-    for (target_operand_idx = 0;
-         target_operand_idx != vec_count(target_operands);
-         ++target_operand_idx)
-    {
-        if (*vec_get(target_operands, target_operand_idx) < 0)
-            continue;
-
-        if (match_subtree(
-                matched_nodes,
-                pool,
-                *vec_get(target_operands, target_operand_idx),
-                pattern_pool,
-                *vec_get(pattern_operands, pattern_operand_idx)) == 1)
-        {
-            *vec_get(target_operands, target_operand_idx) =
-                -1 - *vec_get(target_operands, target_operand_idx);
-
-            if (match_pattern(
-                    matched_nodes,
-                    pool,
-                    pattern_pool,
-                    pattern_operands,
-                    target_operands,
-                    pattern_operand_idx + 1) == 1)
-            {
-                return 1;
-            }
-
-            *vec_get(target_operands, target_operand_idx) =
-                -1 - *vec_get(target_operands, target_operand_idx);
-        }
-
-        /* backtrack */
-        undo_match_info_entries(
-            *matched_nodes,
-            pattern_pool,
-            *vec_get(pattern_operands, pattern_operand_idx));
-    }
-
-    return 0;
-}
-
-/* -------------------------------------------------------------------------- */
-static int match_subtree(
-    struct match_info_vec** matched_nodes,
-    const struct csfg_expr_pool* pool,
-    int n,
-    const struct csfg_expr_pool* pattern_pool,
-    int pattern_n)
-{
-    const struct csfg_expr_node* node         = &pool->nodes[n];
-    const struct csfg_expr_node* pattern_node = &pattern_pool->nodes[pattern_n];
-
-    switch ((enum csfg_expr_type)pattern_node->type)
-    {
-        case CSFG_EXPR_GC: CSFG_DEBUG_ASSERT(0); break;
-
-        case CSFG_EXPR_VAR: {
-            int i;
-            struct match_info* match_info;
-
-            /* We can key on var_idx here instead of having to compare strings,
-             * because csfg_expr_pool::var_names guarantees uniqueness. */
-            vec_enumerate (*matched_nodes, i, match_info)
-                if (match_info->var_idx == pattern_node->value.var_idx)
-                    if (csfg_expr_mathematically_equivalent(
-                            pool, n, pool, match_info->target_node))
-                    {
-                        match_info = match_info_vec_emplace(matched_nodes);
-                        if (match_info == NULL)
-                            return -1;
-                        match_info->var_idx      = pattern_node->value.var_idx;
-                        match_info->pattern_node = pattern_n;
-                        match_info->target_node  = n;
-                        return 1;
-                    }
-
-            /* Don't want to match if a different symbol already matched the
-             * current node */
-            vec_enumerate (*matched_nodes, i, match_info)
-                if (csfg_expr_mathematically_equivalent(
-                        pool, n, pool, match_info->target_node))
-                    return 0;
-
-            match_info = match_info_vec_emplace(matched_nodes);
-            if (match_info == NULL)
-                return -1;
-            match_info->var_idx      = pattern_node->value.var_idx;
-            match_info->pattern_node = pattern_n;
-            match_info->target_node  = n;
-
-            return 1;
-        }
-
-        case CSFG_EXPR_LIT: {
-            if (node->type != pattern_node->type ||
-                node->value.lit != pattern_node->value.lit)
-                return 0;
-            return 1;
-        }
-
-        case CSFG_EXPR_INF: {
-            if (pool->nodes[n].type != pattern_pool->nodes[pattern_n].type)
-                return 0;
-            return 1;
-        }
-
-        case CSFG_EXPR_NEG: {
-            if (pool->nodes[n].type != pattern_pool->nodes[pattern_n].type)
-                return 0;
-            return match_subtree(
-                matched_nodes,
-                pool,
-                node->child[0],
-                pattern_pool,
-                pattern_node->child[0]);
-        }
-
-        case CSFG_EXPR_ADD:
-        case CSFG_EXPR_MUL: {
-            struct node_idx_vec* pattern_operands;
-            struct node_idx_vec* target_operands;
-
-            if (pool->nodes[n].type != pattern_pool->nodes[pattern_n].type)
-                return 0;
-
-            node_idx_vec_init(&pattern_operands);
-            node_idx_vec_init(&target_operands);
-
-            if (find_all_commutative_operands(
-                    &pattern_operands, pattern_pool, pattern_n) != 0)
-                goto fail;
-            if (find_all_commutative_operands(&target_operands, pool, n) != 0)
-                goto fail;
-
-            switch (match_pattern(
-                matched_nodes,
-                pool,
-                pattern_pool,
-                pattern_operands,
-                target_operands,
-                0))
-            {
-                case -1: goto fail;
-                case 0 : break;
-                case 1 : goto success;
-            }
-
-            node_idx_vec_deinit(target_operands);
-            node_idx_vec_deinit(pattern_operands);
-            return 0;
-        success:
-            node_idx_vec_deinit(target_operands);
-            node_idx_vec_deinit(pattern_operands);
-            return 1;
-        fail:
-            node_idx_vec_deinit(target_operands);
-            node_idx_vec_deinit(pattern_operands);
-            return -1;
-        }
-
-        case CSFG_EXPR_POW: {
-            int left_result, right_result;
-            if (pool->nodes[n].type != pattern_pool->nodes[pattern_n].type)
-                return 0;
-
-            left_result = match_subtree(
-                matched_nodes,
-                pool,
-                node->child[0],
-                pattern_pool,
-                pattern_node->child[0]);
-            right_result = match_subtree(
-                matched_nodes,
-                pool,
-                node->child[1],
-                pattern_pool,
-                pattern_node->child[1]);
-
-            if (left_result == 1 && right_result == 1)
-                return 1;
-            if (left_result < 0 || right_result < 0)
-                return -1;
-
-            return 0;
-        }
-    }
-
-    return -1;
-}
-
-/* -------------------------------------------------------------------------- */
-static int dup_subtree(
-    struct csfg_expr_pool** pool,
-    const struct csfg_expr_pool* pattern_pool,
-    int pattern_n,
-    const struct match_info_vec* matched_nodes)
-{
-    const struct csfg_expr_node* pattern_node = &pattern_pool->nodes[pattern_n];
-
-    switch ((enum csfg_expr_type)pattern_node->type)
-    {
-        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); break;
-        case CSFG_EXPR_LIT: return csfg_expr_lit(pool, pattern_node->value.lit);
-        case CSFG_EXPR_INF: return csfg_expr_inf(pool);
-        case CSFG_EXPR_NEG:
-            return csfg_expr_neg(
-                pool,
-                dup_subtree(
-                    pool, pattern_pool, pattern_node->child[0], matched_nodes));
-        case CSFG_EXPR_ADD:
-        case CSFG_EXPR_MUL:
-        case CSFG_EXPR_POW:
-            return csfg_expr_binop(
-                pool,
-                pattern_node->type,
-                dup_subtree(
-                    pool, pattern_pool, pattern_node->child[0], matched_nodes),
-                dup_subtree(
-                    pool, pattern_pool, pattern_node->child[1], matched_nodes));
-        case CSFG_EXPR_VAR: {
-            const struct match_info* match_info;
-            vec_for_each (matched_nodes, match_info)
-            {
-                int pattern_var = pattern_node->value.var_idx;
-                int match_var   = match_info->var_idx;
-                if (strview_eq(
-                        strlist_view(pattern_pool->var_names, pattern_var),
-                        strlist_view(pattern_pool->var_names, match_var)))
-                {
-                    return csfg_expr_dup_recurse(pool, match_info->target_node);
-                }
-            }
-            CSFG_DEBUG_ASSERT(0);
-            return -1;
-        }
-    }
-
-    return -1;
-}
-
-/* -------------------------------------------------------------------------- */
-static void collapse_gc_nodes(struct csfg_expr_pool* pool)
-{
-    int n, i;
-again:
-    for (n = 0; n != csfg_expr_pool_count(pool); ++n)
-        for (i = 0; i != 2; ++i)
-        {
-            int child   = pool->nodes[n].child[i];
-            int sibling = pool->nodes[n].child[1 - i];
-            if (child > -1 && pool->nodes[n].type != CSFG_EXPR_GC &&
-                pool->nodes[child].type == CSFG_EXPR_GC)
-            {
-                if (sibling > -1)
-                {
-                    pool->nodes[n] = pool->nodes[sibling];
-                    csfg_expr_mark_deleted(pool, sibling);
-                }
-                else
-                    csfg_expr_mark_deleted(pool, n);
-                goto again;
-            }
-        }
-}
-
-/* -------------------------------------------------------------------------- */
-static int replace_subtree(
-    struct csfg_expr_pool** pool,
-    int n,
-    const struct csfg_expr_pool* pattern_pool,
-    int pattern_n,
-    const struct match_info_vec* matched_nodes)
-{
-    int replace_n;
-    const struct match_info* match_info;
-    enum csfg_expr_type type = (*pool)->nodes[n].type;
-
-    replace_n = dup_subtree(pool, pattern_pool, pattern_n, matched_nodes);
-    if (replace_n < 0)
-        return -1;
-
-    vec_for_each (matched_nodes, match_info)
-        csfg_expr_mark_deleted_recursive(*pool, match_info->target_node);
-
-    switch (type)
-    {
-        case CSFG_EXPR_GC:
-        case CSFG_EXPR_LIT:
-        case CSFG_EXPR_VAR:
-        case CSFG_EXPR_INF: CSFG_DEBUG_ASSERT(0); return -1;
-
-        case CSFG_EXPR_NEG: CSFG_DEBUG_ASSERT(0); return -1;
-
-        case CSFG_EXPR_ADD:
-        case CSFG_EXPR_MUL:
-        case CSFG_EXPR_POW:
-            csfg_expr_set_binop(
-                *pool, n, type, replace_n, csfg_expr_dup_single(pool, n));
-            break;
-    }
-
-    collapse_gc_nodes(*pool);
-
-    return 0;
-}
 
 /* -------------------------------------------------------------------------- */
 #if DEBUG_PRINTF == 1
@@ -429,7 +51,7 @@ static void debug_print_run_ruleset(
     while (i--)
         fprintf(stderr, " ");
 
-    if (ruleset->expr_from < 0 || ruleset->expr_to < 0)
+    if (ruleset->expr_search < 0 || ruleset->expr_replace < 0)
     {
         fprintf(stderr, "%03d: Ruleset", ruleset_idx);
         if (is_rerun)
@@ -439,10 +61,10 @@ static void debug_print_run_ruleset(
     }
 
     str_init(&str);
-    csfg_expr_to_str(&str, pool, ruleset->expr_from);
+    csfg_expr_to_str(&str, pool, ruleset->expr_search);
     fprintf(stderr, "%03d: Trying \"%s\" --> ", ruleset_idx, str_cstr(str));
     str_clear(str);
-    csfg_expr_to_str(&str, pool, ruleset->expr_to);
+    csfg_expr_to_str(&str, pool, ruleset->expr_replace);
     fprintf(stderr, "\"%s\"", str_cstr(str));
     if (is_rerun)
         fprintf(stderr, " (Re-run)");
@@ -488,11 +110,284 @@ debug_print_replace_subtree_after(const struct csfg_expr_pool* pool, int n)
 #endif
 
 /* -------------------------------------------------------------------------- */
+static enum match_subtree_result combine_match_results(
+    enum match_subtree_result r1, enum match_subtree_result r2)
+{
+    if (r1 == MATCH_OOM || r2 == MATCH_OOM)
+        return MATCH_OOM;
+
+    if (r1 == MATCH_NONE || r2 == MATCH_NONE)
+        return MATCH_NONE;
+
+    if (r1 == MATCH_NEXT_PERMUTATION || r2 == MATCH_NEXT_PERMUTATION)
+        return MATCH_NEXT_PERMUTATION;
+
+    return MATCH_FOUND;
+}
+
+/* -------------------------------------------------------------------------- */
+static enum match_subtree_result match_subtree(
+    struct match_info_vec** matched_nodes,
+    const struct csfg_expr_pool* target_pool,
+    int target_expr,
+    const struct csfg_expr_pool* ruleset_pool,
+    int search_expr)
+{
+    const struct csfg_expr_node* target_node = &target_pool->nodes[target_expr];
+    const struct csfg_expr_node* search_node =
+        &ruleset_pool->nodes[search_expr];
+    enum csfg_expr_type search_node_type = search_node->type;
+
+    switch (search_node_type)
+    {
+        case CSFG_EXPR_GC: break;
+
+        case CSFG_EXPR_VAR: {
+            int i;
+            struct match_info* match_info;
+
+            /* We can key on var_idx here instead of having to compare strings,
+             * because csfg_expr_pool::var_names guarantees uniqueness. Both
+             * structs point into the same varnames strlist */
+            vec_enumerate (*matched_nodes, i, match_info)
+                if (match_info->var_idx == search_node->value.var_idx)
+                    if (csfg_expr_equal(
+                            target_pool,
+                            target_expr,
+                            target_pool,
+                            match_info->target_node))
+                    {
+                        match_info = match_info_vec_emplace(matched_nodes);
+                        if (match_info == NULL)
+                            return MATCH_OOM;
+                        match_info->var_idx      = search_node->value.var_idx;
+                        match_info->ruleset_node = search_expr;
+                        match_info->target_node  = target_expr;
+                        return MATCH_FOUND;
+                    }
+
+            /* Don't want to match if a different symbol already matched the
+             * current node */
+            vec_enumerate (*matched_nodes, i, match_info)
+                if (csfg_expr_equal(
+                        target_pool,
+                        target_expr,
+                        target_pool,
+                        match_info->target_node))
+                    return MATCH_NONE;
+
+            match_info = match_info_vec_emplace(matched_nodes);
+            if (match_info == NULL)
+                return MATCH_OOM;
+            match_info->var_idx      = search_node->value.var_idx;
+            match_info->ruleset_node = search_expr;
+            match_info->target_node  = target_expr;
+
+            return MATCH_FOUND;
+        }
+
+        case CSFG_EXPR_LIT: {
+            if (target_node->type != search_node->type ||
+                target_node->value.lit != search_node->value.lit)
+                return MATCH_NONE;
+            return MATCH_FOUND;
+        }
+
+        case CSFG_EXPR_INF: {
+            if (target_pool->nodes[target_expr].type !=
+                ruleset_pool->nodes[search_expr].type)
+                return MATCH_NONE;
+            return MATCH_FOUND;
+        }
+
+        case CSFG_EXPR_NEG: {
+            if (target_pool->nodes[target_expr].type !=
+                ruleset_pool->nodes[search_expr].type)
+                return MATCH_NONE;
+            return match_subtree(
+                matched_nodes,
+                target_pool,
+                target_node->child[0],
+                ruleset_pool,
+                search_node->child[0]);
+        }
+
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+        case CSFG_EXPR_POW: {
+            enum match_subtree_result left_result, right_result;
+
+            if (target_pool->nodes[target_expr].type !=
+                ruleset_pool->nodes[search_expr].type)
+                return MATCH_NONE;
+
+            left_result = match_subtree(
+                matched_nodes,
+                target_pool,
+                target_node->child[0],
+                ruleset_pool,
+                search_node->child[0]);
+            right_result = match_subtree(
+                matched_nodes,
+                target_pool,
+                target_node->child[1],
+                ruleset_pool,
+                search_node->child[1]);
+            return combine_match_results(left_result, right_result);
+        }
+    }
+
+    CSFG_DEBUG_ASSERT(0);
+    return MATCH_NONE;
+}
+
+/* -------------------------------------------------------------------------- */
+static int zip_related_chains(
+    struct csfg_expr_pool** pool, struct match_info_vec** matched_nodes)
+{
+    (void)pool, (void)matched_nodes;
+    return -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static int dup_replace_tree(
+    struct csfg_expr_pool** target_pool,
+    const struct csfg_expr_pool* ruleset_pool,
+    int replace_expr,
+    const struct match_info_vec* matched_nodes)
+{
+    const struct csfg_expr_node* replace_node =
+        &ruleset_pool->nodes[replace_expr];
+
+    switch ((enum csfg_expr_type)replace_node->type)
+    {
+        case CSFG_EXPR_GC: CSFG_DEBUG_ASSERT(0); break;
+        case CSFG_EXPR_LIT:
+            return csfg_expr_lit(target_pool, replace_node->value.lit);
+        case CSFG_EXPR_INF: return csfg_expr_inf(target_pool);
+        case CSFG_EXPR_NEG:
+            return csfg_expr_neg(
+                target_pool,
+                dup_replace_tree(
+                    target_pool,
+                    ruleset_pool,
+                    replace_node->child[0],
+                    matched_nodes));
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+        case CSFG_EXPR_POW:
+            return csfg_expr_binop(
+                target_pool,
+                replace_node->type,
+                dup_replace_tree(
+                    target_pool,
+                    ruleset_pool,
+                    replace_node->child[0],
+                    matched_nodes),
+                dup_replace_tree(
+                    target_pool,
+                    ruleset_pool,
+                    replace_node->child[1],
+                    matched_nodes));
+        case CSFG_EXPR_VAR: {
+            const struct match_info* match_info;
+            vec_for_each (matched_nodes, match_info)
+            {
+                int replace_var = replace_node->value.var_idx;
+                int match_var   = match_info->var_idx;
+                if (strview_eq(
+                        strlist_view(ruleset_pool->var_names, replace_var),
+                        strlist_view(ruleset_pool->var_names, match_var)))
+                {
+                    return csfg_expr_dup_recurse(
+                        target_pool, match_info->target_node);
+                }
+            }
+            CSFG_DEBUG_ASSERT(0);
+            return -1;
+        }
+    }
+
+    return -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void collapse_gc_nodes(struct csfg_expr_pool* pool)
+{
+    int n, i;
+again:
+    for (n = 0; n != csfg_expr_pool_count(pool); ++n)
+        for (i = 0; i != 2; ++i)
+        {
+            int child   = pool->nodes[n].child[i];
+            int sibling = pool->nodes[n].child[1 - i];
+            if (child > -1 && pool->nodes[n].type != CSFG_EXPR_GC &&
+                pool->nodes[child].type == CSFG_EXPR_GC)
+            {
+                if (sibling > -1)
+                {
+                    pool->nodes[n] = pool->nodes[sibling];
+                    csfg_expr_mark_deleted(pool, sibling);
+                }
+                else
+                    csfg_expr_mark_deleted(pool, n);
+                goto again;
+            }
+        }
+}
+
+/* -------------------------------------------------------------------------- */
+static int replace_subtree(
+    struct csfg_expr_pool** target_pool,
+    int target_expr,
+    const struct csfg_expr_pool* replace_pool,
+    int replace_expr,
+    const struct match_info_vec* matched_nodes)
+{
+    int replace_expr_dup;
+    const struct match_info* match_info;
+    enum csfg_expr_type target_node_type =
+        (*target_pool)->nodes[target_expr].type;
+
+    replace_expr_dup = dup_replace_tree(
+        target_pool, replace_pool, replace_expr, matched_nodes);
+    if (replace_expr_dup < 0)
+        return -1;
+
+    vec_for_each (matched_nodes, match_info)
+        csfg_expr_mark_deleted_recursive(*target_pool, match_info->target_node);
+
+    switch (target_node_type)
+    {
+        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); return -1;
+        case CSFG_EXPR_LIT: CSFG_DEBUG_ASSERT(0); return -1;
+        case CSFG_EXPR_VAR: CSFG_DEBUG_ASSERT(0); return -1;
+        case CSFG_EXPR_INF: CSFG_DEBUG_ASSERT(0); return -1;
+        case CSFG_EXPR_NEG: CSFG_DEBUG_ASSERT(0); return -1;
+
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+        case CSFG_EXPR_POW:
+            csfg_expr_set_binop(
+                *target_pool,
+                target_expr,
+                target_node_type,
+                replace_expr_dup,
+                csfg_expr_dup_single(target_pool, target_expr));
+            break;
+    }
+
+    collapse_gc_nodes(*target_pool);
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
 static int run_ruleset(
     struct csfg_expr_pool** pool,
     int* expr,
     struct match_info_vec** matched_nodes,
-    const struct csfg_expr_pool* pattern_pool,
+    const struct csfg_expr_pool* ruleset_pool,
     const struct csfg_ruleset* ruleset)
 {
     int modified = 0;
@@ -507,23 +402,33 @@ static int run_ruleset(
         }
         *expr = csfg_expr_gc(*pool, *expr);
     }
-    else if (ruleset->expr_from > -1 && ruleset->expr_to > -1)
+    /* rulesets can be empty containers for child rulesets */
+    else if (ruleset->expr_search > -1 && ruleset->expr_replace > -1)
     {
         int n;
         for (n = 0; n < vec_count(*pool); ++n)
         {
+        next_permutation:
             match_info_vec_clear(*matched_nodes);
             switch (match_subtree(
-                matched_nodes, *pool, n, pattern_pool, ruleset->expr_from))
+                matched_nodes, *pool, n, ruleset_pool, ruleset->expr_search))
             {
-                case -1: return -1;
-                case 0 : continue;
-                case 1 : break;
+                case MATCH_OOM  : return -1;
+                case MATCH_NONE : continue;
+                case MATCH_FOUND: break;
+                case MATCH_NEXT_PERMUTATION:
+                    if (zip_related_chains(pool, matched_nodes) != 0)
+                        return -1;
+                    goto next_permutation;
             }
+
             debug_print_replace_subtree_before(*pool, *expr);
             if (replace_subtree(
-                    pool, n, pattern_pool, ruleset->expr_to, *matched_nodes) !=
-                0)
+                    pool,
+                    n,
+                    ruleset_pool,
+                    ruleset->expr_replace,
+                    *matched_nodes) != 0)
                 return -1;
             *expr = csfg_expr_gc(*pool, *expr);
             debug_print_replace_subtree_after(*pool, *expr);
@@ -601,6 +506,9 @@ int csfg_rulebook_run(
     struct match_info_vec* matched_nodes;
     int* ruleset_idx;
     int modified;
+
+    CSFG_DEBUG_ASSERT(expr != NULL);
+    CSFG_DEBUG_ASSERT(csfg_expr_is_canonicalized(*pool, *expr));
 
     match_info_vec_init(&matched_nodes);
     debug_depth_reset();

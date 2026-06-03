@@ -1,11 +1,5 @@
-#include "csfg/config.h"
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/rulebook.h"
-#include <assert.h>
-#include <stddef.h>
-#include <stdio.h>
-
-#define DEBUG_PRINTF 1
 
 /* -------------------------------------------------------------------------- */
 void csfg_rulebook_init(struct csfg_rulebook* book)

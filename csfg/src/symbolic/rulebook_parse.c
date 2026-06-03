@@ -21,7 +21,7 @@
 enum token
 {
     TOK_ERROR = -1,
-    TOK_END = 0,
+    TOK_END   = 0,
 #define X(name, char) TOK_##name = char,
     CHAR_TOKEN_LIST
 #undef X
@@ -37,13 +37,13 @@ struct parser
     union
     {
         struct strview str;
-        int            integer;
+        int integer;
     } value;
     const char* filename;
     const char* data;
-    int         tail;
-    int         head;
-    int         end;
+    int tail;
+    int head;
+    int end;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -51,16 +51,16 @@ static void
 parser_init(struct parser* p, const char* filename, struct strview text)
 {
     p->filename = filename;
-    p->data = text.data + text.off;
-    p->end = text.len - text.off;
-    p->head = 0;
-    p->tail = 0;
+    p->data     = text.data + text.off;
+    p->end      = text.len - text.off;
+    p->head     = 0;
+    p->tail     = 0;
 }
 
 /* -------------------------------------------------------------------------- */
 static int parser_error(const struct parser* p, const char* fmt, ...)
 {
-    va_list        ap;
+    va_list ap;
     struct strspan loc;
 
     loc.off = p->tail;
@@ -81,16 +81,16 @@ add_ruleset(struct csfg_ruleset_vec** rulesets, int* ruleset_idx)
     struct csfg_ruleset* ruleset;
 
     *ruleset_idx = vec_count(*rulesets);
-    ruleset = csfg_ruleset_vec_emplace(rulesets);
+    ruleset      = csfg_ruleset_vec_emplace(rulesets);
     if (ruleset == NULL)
         return NULL;
 
-    ruleset->expr_from = -1;
-    ruleset->expr_to = -1;
-    ruleset->extern_run = NULL;
-    ruleset->next = -1;
-    ruleset->child = -1;
-    ruleset->ignore = 0;
+    ruleset->expr_search  = -1;
+    ruleset->expr_replace = -1;
+    ruleset->extern_run   = NULL;
+    ruleset->next         = -1;
+    ruleset->child        = -1;
+    ruleset->ignore       = 0;
 
     return ruleset;
 }
@@ -130,7 +130,7 @@ enum token scan_next(struct parser* p)
         if (p->data[p->head] == '"')
         {
             p->value.str.data = p->data;
-            p->value.str.off = ++p->head;
+            p->value.str.off  = ++p->head;
             for (; p->head != p->end; ++p->head)
             {
                 if (p->data[p->head] == '"' && p->data[p->head - 1] != '\\')
@@ -166,7 +166,7 @@ enum token scan_next(struct parser* p)
         if (isalpha(p->data[p->head]) || p->data[p->head] == '_')
         {
             p->value.str.data = p->data;
-            p->value.str.off = p->head++;
+            p->value.str.off  = p->head++;
             while (p->head != p->end &&
                    (isalnum(p->data[p->head]) || p->data[p->head] == '_'))
             {
@@ -193,7 +193,7 @@ static int parse_qualifiers(struct parser* p, struct csfg_ruleset* ruleset)
         switch (tok)
         {
             case TOK_ERROR: return -1;
-            case TOK_END: return 0;
+            case TOK_END  : return 0;
 
             case TOK_IDENTIFIER: {
                 if (scan_next(p) != '=')
@@ -213,7 +213,7 @@ static int parse_qualifiers(struct parser* p, struct csfg_ruleset* ruleset)
 
             case TOK_IGNORE: {
                 ruleset->ignore = 1;
-                tok = scan_next(p);
+                tok             = scan_next(p);
                 if (tok != ',')
                     goto reswitch_next;
                 break;
@@ -233,8 +233,8 @@ static int
 parse_block(struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
 {
     enum token tok;
-    int        current_ruleset_idx = -1;
-    *ruleset_idx = -1;
+    int current_ruleset_idx = -1;
+    *ruleset_idx            = -1;
     while (1)
     {
         tok = scan_next(p);
@@ -242,7 +242,7 @@ parse_block(struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
         switch (tok)
         {
             case TOK_ERROR: return -1;
-            case TOK_END: return 0;
+            case TOK_END  : return 0;
 
             case '{': {
                 int other_ruleset_idx;
@@ -258,7 +258,7 @@ parse_block(struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
             }
 
             case TOK_STRING: {
-                int                  next_rulest_idx;
+                int next_rulest_idx;
                 struct csfg_ruleset* ruleset;
 
                 ruleset = add_ruleset(&book->rulesets, &next_rulest_idx);
@@ -272,18 +272,22 @@ parse_block(struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
                     *ruleset_idx = next_rulest_idx;
                 current_ruleset_idx = next_rulest_idx;
 
-                ruleset->expr_from = csfg_expr_parse(&book->pool, p->value.str);
-                if (ruleset->expr_from < 0)
-                    return parser_error(p, "Failed to parse expression\n");
+                ruleset->expr_search =
+                    csfg_expr_parse(&book->pool, p->value.str);
+                if (ruleset->expr_search < 0)
+                    return parser_error(
+                        p, "Failed to parse search expression\n");
 
                 if (scan_next(p) != TOK_TRANSLATES_TO)
                     return parser_error(p, "Expected --> operator\n");
 
                 if (scan_next(p) != TOK_STRING)
                     return parser_error(p, "Expected expression\n");
-                ruleset->expr_to = csfg_expr_parse(&book->pool, p->value.str);
-                if (ruleset->expr_to < 0)
-                    return parser_error(p, "Failed to parse expression\n");
+                ruleset->expr_replace =
+                    csfg_expr_parse(&book->pool, p->value.str);
+                if (ruleset->expr_replace < 0)
+                    return parser_error(
+                        p, "Failed to parse replace expression\n");
 
                 tok = scan_next(p);
                 if (tok != '[')
@@ -297,7 +301,7 @@ parse_block(struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
             }
 
             case TOK_IDENTIFIER: {
-                int *                child_ruleset_idx, next_ruleset_idx;
+                int *child_ruleset_idx, next_ruleset_idx;
                 struct csfg_ruleset* ruleset;
 
                 child_ruleset_idx =
@@ -337,8 +341,8 @@ parse_block(struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
 static int parse_ruleset_block(
     struct parser* p, struct csfg_rulebook* book, int* ruleset_idx)
 {
-    enum token           tok;
-    int                  child_ruleset_idx;
+    enum token tok;
+    int child_ruleset_idx;
     struct csfg_ruleset* ruleset;
 
     ruleset = add_ruleset(&book->rulesets, ruleset_idx);
@@ -361,7 +365,7 @@ static int parse(struct parser* p, struct csfg_rulebook* book)
         switch (tok)
         {
             case TOK_ERROR: return -1;
-            case TOK_END: return 0;
+            case TOK_END  : return 0;
 
             case TOK_EXTERN: {
                 if (scan_next(p) != TOK_IDENTIFIER)
@@ -381,7 +385,7 @@ static int parse(struct parser* p, struct csfg_rulebook* book)
 
             case TOK_IDENTIFIER: {
                 struct strview ruleset_name;
-                int*           ruleset_idx;
+                int* ruleset_idx;
 
                 ruleset_name = p->value.str;
                 switch (csfg_ruleset_hmap_emplace_or_get(

@@ -622,61 +622,55 @@ int csfg_expr_equal(
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_mathematically_equivalent(
-    const struct csfg_expr_pool* pool1,
-    int expr1,
-    const struct csfg_expr_pool* pool2,
-    int expr2)
+static int rank(const struct csfg_expr_pool* pool, int n)
 {
-    if (pool1->nodes[expr1].type != pool2->nodes[expr2].type)
-        return 0;
-
-    switch ((enum csfg_expr_type)pool1->nodes[expr1].type)
+    switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
-        case CSFG_EXPR_GC: break;
+        case CSFG_EXPR_GC : break;
+        case CSFG_EXPR_LIT: return 6;
+        case CSFG_EXPR_VAR: return 5;
+        case CSFG_EXPR_INF: return 7;
+        case CSFG_EXPR_NEG: return 4;
+        case CSFG_EXPR_ADD: return 3;
+        case CSFG_EXPR_MUL: return 2;
+        case CSFG_EXPR_POW: return 1;
+    }
+    return 0;
+}
+int csfg_expr_lexicographical_compare(
+    const struct csfg_expr_pool* pool, int a, int b)
+{
+    CSFG_DEBUG_ASSERT(a > -1);
+    CSFG_DEBUG_ASSERT(b > -1);
+
+    if (pool->nodes[a].type != pool->nodes[b].type)
+        return rank(pool, a) - rank(pool, b);
+
+    switch ((enum csfg_expr_type)pool->nodes[a].type)
+    {
+        case CSFG_EXPR_GC: return 0;
         case CSFG_EXPR_LIT:
-            return pool1->nodes[expr1].value.lit ==
-                   pool2->nodes[expr2].value.lit;
+            return (int)(pool->nodes[a].value.lit - pool->nodes[b].value.lit);
         case CSFG_EXPR_VAR: {
-            return strview_eq(
-                strlist_view(
-                    pool2->var_names, pool2->nodes[expr2].value.var_idx),
-                strlist_view(
-                    pool1->var_names, pool1->nodes[expr1].value.var_idx));
+            int var_idx_a        = pool->nodes[a].value.var_idx;
+            int var_idx_b        = pool->nodes[b].value.var_idx;
+            struct strview var_a = strlist_view(pool->var_names, var_idx_a);
+            struct strview var_b = strlist_view(pool->var_names, var_idx_b);
+            return -strview_lexicographic_compare(var_a, var_b);
         }
-        case CSFG_EXPR_INF: break;
-        case CSFG_EXPR_NEG: {
-            int child1 = pool1->nodes[expr1].child[0];
-            int child2 = pool2->nodes[expr2].child[0];
-            return csfg_expr_mathematically_equivalent(
-                pool1, child1, pool2, child2);
-        }
+        case CSFG_EXPR_INF: return 0;
+        case CSFG_EXPR_NEG:
+            return csfg_expr_lexicographical_compare(
+                pool, pool->nodes[a].child[0], pool->nodes[b].child[0]);
         case CSFG_EXPR_ADD:
-        case CSFG_EXPR_MUL: {
-            int left1  = pool1->nodes[expr1].child[0];
-            int left2  = pool2->nodes[expr2].child[0];
-            int right1 = pool1->nodes[expr1].child[1];
-            int right2 = pool2->nodes[expr2].child[1];
-            int l1l2 =
-                csfg_expr_mathematically_equivalent(pool1, left1, pool2, left2);
-            int r1r2 = csfg_expr_mathematically_equivalent(
-                pool1, right1, pool2, right2);
-            int l1r2 = csfg_expr_mathematically_equivalent(
-                pool1, left1, pool2, right2);
-            int r1l2 = csfg_expr_mathematically_equivalent(
-                pool1, right1, pool2, left2);
-            return (l1l2 && r1r2) || (l1r2 && r1l2);
-        }
+        case CSFG_EXPR_MUL:
         case CSFG_EXPR_POW: {
-            int left1  = pool1->nodes[expr1].child[0];
-            int left2  = pool2->nodes[expr2].child[0];
-            int right1 = pool1->nodes[expr1].child[1];
-            int right2 = pool2->nodes[expr2].child[1];
-            int l1l2 =
-                csfg_expr_mathematically_equivalent(pool1, left1, pool2, left2);
-            int r1r2 = csfg_expr_mathematically_equivalent(
-                pool1, right1, pool2, right2);
-            return l1l2 && r1r2;
+            int compare = csfg_expr_lexicographical_compare(
+                pool, pool->nodes[a].child[0], pool->nodes[b].child[0]);
+            if (compare != 0)
+                return compare;
+            return csfg_expr_lexicographical_compare(
+                pool, pool->nodes[a].child[1], pool->nodes[b].child[1]);
         }
     }
 
