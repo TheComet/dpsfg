@@ -88,6 +88,30 @@ TEST_F(NAME, mul_chain6)
     ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
 }
 
+TEST_F(NAME, mul_chain7)
+{
+    int left_chain  = csfg_expr_parse(&p, cstr_view("a*a*a"));
+    int right_chain = csfg_expr_parse(&p, cstr_view("b*b*b"));
+    int actual      = csfg_expr_add(&p, left_chain, right_chain);
+    int expected    = csfg_expr_parse(&p, cstr_view("a*a*a + b*b*b"));
+
+    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 3);
+
+    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
+}
+
+TEST_F(NAME, mul_chain8)
+{
+    int left_chain  = csfg_expr_parse(&p, cstr_view("a*a*a"));
+    int right_chain = csfg_expr_parse(&p, cstr_view("a*a*a"));
+    int actual      = csfg_expr_add(&p, left_chain, right_chain);
+    int expected    = csfg_expr_parse(&p, cstr_view("a*a*a + a*a*a"));
+
+    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 3);
+
+    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
+}
+
 TEST_F(NAME, mul_chain_equal)
 {
     int left_chain  = csfg_expr_parse(&p, cstr_view("x*y*z"));

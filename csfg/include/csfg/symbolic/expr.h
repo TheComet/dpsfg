@@ -73,7 +73,27 @@ int csfg_expr_to_str(
 void csfg_expr_canonicalize(struct csfg_expr_pool* pool, int expr);
 int csfg_expr_is_canonicalized(const struct csfg_expr_pool* pool, int expr);
 
+/*! Compares (recursively) if two subtrees match. Node indices can be different,
+ * but the structure and the values contained within the nodes must match.
+ * Returns true or false. */
+int csfg_expr_equal(
+    const struct csfg_expr_pool* pool1,
+    int expr1,
+    const struct csfg_expr_pool* pool2,
+    int expr2);
+
+int csfg_expr_lexicographical_compare(
+    const struct csfg_expr_pool* pool, int a, int b);
+
+/*!
+ * \brief Inserts no-ops into the shorter chain until both chains have the same
+ * size. Terms are matched to each other as best as possible \return Returns the
+ * total number of terms in each chain. This can be used to e.g. \see
+ * csfg_expr_rotate_chain() N number of times and reach the initial state again.
+ */
 int csfg_expr_zip_chains(struct csfg_expr_pool** pool, int chain1, int chain2);
+
+void csfg_expr_rotate_chain(struct csfg_expr_pool* pool, int chain);
 
 /*! Main function used to allocate a new node */
 int csfg_expr_new(
@@ -163,18 +183,6 @@ int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n);
 int csfg_expr_find_sibling(const struct csfg_expr_pool* pool, int n);
 /* Returns the top-most parent that has the same type as "n" */
 int csfg_expr_find_top_of_chain(const struct csfg_expr_pool* pool, int n);
-
-/* Compares (recursively) if two subtrees match. Node indices can be different,
- * but the structure and the values contained within the nodes must match.
- * Returns true or false. */
-int csfg_expr_equal(
-    const struct csfg_expr_pool* pool1,
-    int expr1,
-    const struct csfg_expr_pool* pool2,
-    int expr2);
-
-int csfg_expr_lexicographical_compare(
-    const struct csfg_expr_pool* pool, int a, int b);
 
 int csfg_expr_integrity_check_allow_islands(struct csfg_expr_pool* pool);
 int csfg_expr_integrity_check(struct csfg_expr_pool* pool, int expr);

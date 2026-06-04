@@ -242,14 +242,6 @@ static enum match_subtree_result match_subtree(
 }
 
 /* -------------------------------------------------------------------------- */
-static int zip_related_chains(
-    struct csfg_expr_pool** pool, struct match_info_vec** matched_nodes)
-{
-    (void)pool, (void)matched_nodes;
-    return -1;
-}
-
-/* -------------------------------------------------------------------------- */
 static int dup_replace_tree(
     struct csfg_expr_pool** target_pool,
     const struct csfg_expr_pool* ruleset_pool,
@@ -384,7 +376,7 @@ static int replace_subtree(
 
 /* -------------------------------------------------------------------------- */
 static int run_ruleset(
-    struct csfg_expr_pool** pool,
+    struct csfg_expr_pool** target_pool,
     int* expr,
     struct match_info_vec** matched_nodes,
     const struct csfg_expr_pool* ruleset_pool,
@@ -394,44 +386,48 @@ static int run_ruleset(
 
     if (ruleset->extern_run != NULL)
     {
-        switch (ruleset->extern_run(pool))
+        switch (ruleset->extern_run(target_pool))
         {
             case -1: return -1;
             case 0 : break;
             case 1 : modified = 1; break;
         }
-        *expr = csfg_expr_gc(*pool, *expr);
+        *expr = csfg_expr_gc(*target_pool, *expr);
     }
     /* rulesets can be empty containers for child rulesets */
     else if (ruleset->expr_search > -1 && ruleset->expr_replace > -1)
     {
         int n;
-        for (n = 0; n < vec_count(*pool); ++n)
+        for (n = 0; n < vec_count(*target_pool); ++n)
         {
         next_permutation:
             match_info_vec_clear(*matched_nodes);
             switch (match_subtree(
-                matched_nodes, *pool, n, ruleset_pool, ruleset->expr_search))
+                matched_nodes,
+                *target_pool,
+                n,
+                ruleset_pool,
+                ruleset->expr_search))
             {
                 case MATCH_OOM  : return -1;
                 case MATCH_NONE : continue;
                 case MATCH_FOUND: break;
                 case MATCH_NEXT_PERMUTATION:
-                    if (zip_related_chains(pool, matched_nodes) != 0)
+                    if (zip_related_chains(target_pool, matched_nodes) != 0)
                         return -1;
                     goto next_permutation;
             }
 
-            debug_print_replace_subtree_before(*pool, *expr);
+            debug_print_replace_subtree_before(*target_pool, *expr);
             if (replace_subtree(
-                    pool,
+                    target_pool,
                     n,
                     ruleset_pool,
                     ruleset->expr_replace,
                     *matched_nodes) != 0)
                 return -1;
-            *expr = csfg_expr_gc(*pool, *expr);
-            debug_print_replace_subtree_after(*pool, *expr);
+            *expr = csfg_expr_gc(*target_pool, *expr);
+            debug_print_replace_subtree_after(*target_pool, *expr);
             modified = 1;
         }
     }

@@ -138,7 +138,7 @@ static void math_viewer_init(MathViewer* self)
 }
 
 /* -------------------------------------------------------------------------- */
-static void math_viewer_class_init(MathViewerClass* class)
+static void math_viewer_class_init(MathViewerClass* lass)
 {
 }
 
