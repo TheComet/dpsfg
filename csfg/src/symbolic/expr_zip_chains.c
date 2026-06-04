@@ -132,7 +132,11 @@ int csfg_expr_zip_chains(struct csfg_expr_pool** pool, int chain_a, int chain_b)
 {
     CSFG_DEBUG_ASSERT(csfg_expr_is_canonicalized(*pool, chain_a));
     CSFG_DEBUG_ASSERT(csfg_expr_is_canonicalized(*pool, chain_b));
-    CSFG_DEBUG_ASSERT(
-        (*pool)->nodes[chain_a].type == (*pool)->nodes[chain_b].type);
+
+    if (chain_a == chain_b ||
+        (*pool)->nodes[chain_a].type != (*pool)->nodes[chain_b].type ||
+        !is_binop((*pool)->nodes[chain_a].type))
+        return 0;
+
     return zip_chains(pool, chain_a, chain_b, (*pool)->nodes[chain_a].type);
 }

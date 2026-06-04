@@ -108,9 +108,9 @@ TEST_F(NAME, factorize_match_subtrees_permutation_1)
 
 TEST_F(NAME, factorize_multiplication_chains_permutation_1)
 {
-    const char* rule = "factor { \"a*b+a*c\" --> \"a*(b+c)\" }";
+    const char* rule = "factor { \"b*a+c*a\" --> \"a*(b+c)\" }";
     ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", cstr_view(rule)), 0);
-    int actual   = csfg_expr_parse(&pool, cstr_view("q*y*s + x*y*z"));
+    int actual   = csfg_expr_parse(&pool, cstr_view("m*q*s + p*q*z"));
     int expected = csfg_expr_parse(&expected_pool, cstr_view("x*(w*y + w*z)"));
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
