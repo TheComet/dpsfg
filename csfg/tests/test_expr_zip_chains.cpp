@@ -6,204 +6,67 @@ extern "C" {
 
 #define NAME test_expr_zip_chains
 
+namespace {
+
+struct TestParam
+{
+    const char* left_chain;
+    const char* right_chain;
+    const char* expected;
+    int expected_zip_retval;
+    int (*combine_expr)(struct csfg_expr_pool**, int, int);
+};
+
+const struct TestParam TEST_PARAMETERS[] = {
+    {      "a",   "x*y",                 "a*1*1 + 1*x*y", 3, csfg_expr_add},
+    {    "a*b", "x*y*z",         "a*b*1*1*1 + 1*1*x*y*z", 5, csfg_expr_add},
+    {  "a*c*e", "b*d*f",     "a*1*c*1*e*1 + 1*b*1*d*1*f", 6, csfg_expr_add},
+    {"a*b*c*z",   "y*z",         "a*b*c*1*z + 1*1*1*y*z", 5, csfg_expr_add},
+    {  "q*r*s", "r*s*z",             "q*r*s*1 + 1*r*s*z", 4, csfg_expr_add},
+    {  "a*a*a", "b*b*b",     "a*a*a*1*1*1 + 1*1*1*b*b*b", 6, csfg_expr_add},
+    {  "a*a*a", "a*a*a",                 "a*a*a + a*a*a", 3, csfg_expr_add},
+    {  "a*b*c", "a*b*c",                 "a*b*c + a*b*c", 3, csfg_expr_add},
+
+    {      "a",   "x+y",             "(a+0+0) * (0+x+y)", 3, csfg_expr_mul},
+    {    "a+b", "x+y+z",     "(a+b+0+0+0) * (0+0+x+y+z)", 5, csfg_expr_mul},
+    {  "a+c+e", "b+d+f", "(a+0+c+0+e+0) * (0+b+0+d+0+f)", 6, csfg_expr_mul},
+    {"a+b+c+z",   "y+z",     "(a+b+c+0+z) * (0+0+0+y+z)", 5, csfg_expr_mul},
+    {  "q+r+s", "r+s+z",         "(q+r+s+0) * (0+r+s+z)", 4, csfg_expr_mul},
+    {  "a+a+a", "b+b+b", "(a+a+a+0+0+0) * (0+0+0+b+b+b)", 6, csfg_expr_mul},
+    {  "a+a+a", "a+a+a",             "(a+a+a) * (a+a+a)", 3, csfg_expr_mul},
+    {  "a+b+c", "a+b+c",             "(a+b+c) * (a+b+c)", 3, csfg_expr_mul},
+};
+
+std::ostream& operator<<(std::ostream& os, const TestParam& p)
+{
+    os << "{ " << p.left_chain << ", " << p.right_chain << ", " << p.expected
+       << "}";
+    return os;
+}
+
+} // namespace
+
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public TestWithParam<TestParam>
 {
     void SetUp() override { csfg_expr_pool_init(&p); }
     void TearDown() override { csfg_expr_pool_deinit(p); }
-
     struct csfg_expr_pool* p;
 };
 
-TEST_F(NAME, mul_chain1)
+INSTANTIATE_TEST_SUITE_P(, NAME, ValuesIn(TEST_PARAMETERS));
+
+TEST_P(NAME, test)
 {
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a*b"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("w*x*y*z"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("a*b*1*1 + w*x*y*z"));
+    int left_chain  = csfg_expr_parse(&p, cstr_view(GetParam().left_chain));
+    int right_chain = csfg_expr_parse(&p, cstr_view(GetParam().right_chain));
+    int expected    = csfg_expr_parse(&p, cstr_view(GetParam().expected));
+    int actual      = GetParam().combine_expr(&p, left_chain, right_chain);
 
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, mul_chain2)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a*b"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("a*x*y*z"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("a*b*1*1 + a*x*y*z"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, mul_chain3)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a*b*c*d"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("y*z"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("a*b*c*d + 1*1*y*z"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, mul_chain4)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a*b*c*z"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("y*z"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("a*b*c*z + 1*1*y*z"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, mul_chain5)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("q*r*s"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("a*s*z"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("q*r*s*1 + a*1*s*z"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, mul_chain6)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("q*r*s"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("r*s*z"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("q*r*s*1 + 1*r*s*z"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, mul_chain7)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a*a*a"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("b*b*b"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("a*a*a + b*b*b"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 3);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, mul_chain8)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a*a*a"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("a*a*a"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("a*a*a + a*a*a"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 3);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, mul_chain_equal)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("x*y*z"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("x*y*z"));
-    int actual      = csfg_expr_add(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("x*y*z + x*y*z"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 3);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, add_chain1)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a+b"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("w+x+y+z"));
-    int actual      = csfg_expr_mul(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("(a+b+0+0) * (w+x+y+z)"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, add_chain2)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a+b"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("a+x+y+z"));
-    int actual      = csfg_expr_mul(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("(a+b+0+0) * (a+x+y+z)"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, add_chain3)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a+b+c+d"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("y+z"));
-    int actual      = csfg_expr_mul(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("(a+b+c+d) * (0+0+y+z)"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, add_chain4)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("a+b+c+z"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("y+z"));
-    int actual      = csfg_expr_mul(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("(a+b+c+z) * (0+0+y+z)"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, add_chain5)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("q+r+s"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("a+s+z"));
-    int actual      = csfg_expr_mul(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("(q+r+s+0) * (a+0+s+z)"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, add_chain6)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("q+r+s"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("r+s+z"));
-    int actual      = csfg_expr_mul(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("(q+r+s+0) * (0+r+s+z)"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 4);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, add_chain_equal)
-{
-    int left_chain  = csfg_expr_parse(&p, cstr_view("x+y+z"));
-    int right_chain = csfg_expr_parse(&p, cstr_view("x+y+z"));
-    int actual      = csfg_expr_mul(&p, left_chain, right_chain);
-    int expected    = csfg_expr_parse(&p, cstr_view("(x+y+z) * (x+y+z)"));
-
-    ASSERT_EQ(csfg_expr_zip_chains(&p, left_chain, right_chain), 3);
+    ASSERT_EQ(
+        csfg_expr_zip_chains(&p, left_chain, right_chain),
+        GetParam().expected_zip_retval);
 
     ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
 }

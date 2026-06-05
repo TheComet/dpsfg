@@ -41,102 +41,107 @@ static float identity_value_for_type(enum csfg_expr_type type)
 }
 
 /* -------------------------------------------------------------------------- */
-static int insert_identity_into_chain(struct csfg_expr_pool** pool, int expr)
+static int is_identity(
+    const struct csfg_expr_pool* pool, int expr, enum csfg_expr_type op_type)
 {
-    enum csfg_expr_type op_type = (*pool)->nodes[expr].type;
-    int left                    = (*pool)->nodes[expr].child[0];
-    int right                   = (*pool)->nodes[expr].child[1];
+    if (pool->nodes[expr].type != CSFG_EXPR_LIT)
+        return 0;
+    return pool->nodes[expr].value.lit == identity_value_for_type(op_type);
+}
+
+/* -------------------------------------------------------------------------- */
+static int insert_identity(
+    struct csfg_expr_pool** pool, int chain, enum csfg_expr_type op_type)
+{
+    int left  = (*pool)->nodes[chain].child[0];
+    int right = (*pool)->nodes[chain].child[1];
+    if ((*pool)->nodes[chain].type == op_type)
+        return csfg_expr_set_binop(
+            *pool,
+            chain,
+            op_type,
+            csfg_expr_binop(pool, op_type, left, right),
+            csfg_expr_lit(pool, identity_value_for_type(op_type)));
     return csfg_expr_set_binop(
         *pool,
-        expr,
+        chain,
         op_type,
-        csfg_expr_binop(pool, op_type, left, right),
+        csfg_expr_dup_single(pool, chain),
         csfg_expr_lit(pool, identity_value_for_type(op_type)));
 }
 
 /* -------------------------------------------------------------------------- */
-static int insert_identity_left(
-    struct csfg_expr_pool** pool, int expr, enum csfg_expr_type op_type)
+static int append_identity(
+    struct csfg_expr_pool** pool, int chain, enum csfg_expr_type op_type)
 {
-    return csfg_expr_set_binop(
-        *pool,
-        expr,
-        op_type,
-        csfg_expr_lit(pool, identity_value_for_type(op_type)),
-        csfg_expr_dup_recurse(pool, expr));
-}
-static int insert_identity_right(
-    struct csfg_expr_pool** pool, int expr, enum csfg_expr_type op_type)
-{
-    return csfg_expr_set_binop(
-        *pool,
-        expr,
-        op_type,
-        csfg_expr_dup_recurse(pool, expr),
-        csfg_expr_lit(pool, identity_value_for_type(op_type)));
+    if (csfg_expr_set_binop(
+            *pool,
+            chain,
+            op_type,
+            csfg_expr_lit(pool, identity_value_for_type(op_type)),
+            csfg_expr_dup_single(pool, chain)) < 0)
+        return -1;
+    return (*pool)->nodes[chain].child[0];
 }
 
 /* -------------------------------------------------------------------------- */
-static int zip_chains(
-    struct csfg_expr_pool** pool,
-    int chain_a,
-    int chain_b,
-    enum csfg_expr_type op_type)
+static int
+next(const struct csfg_expr_pool* pool, int chain, enum csfg_expr_type op_type)
 {
-    enum csfg_expr_type type_a, type_b;
-    int right_a, right_b, compare, child_count;
-
-    type_a = (*pool)->nodes[chain_a].type;
-    type_b = (*pool)->nodes[chain_b].type;
-    if (type_a == op_type && type_b == op_type)
-    {
-        right_a = (*pool)->nodes[chain_a].child[1];
-        right_b = (*pool)->nodes[chain_b].child[1];
-        compare = csfg_expr_lexicographical_compare(*pool, right_a, right_b);
-        if (compare > 0 && insert_identity_into_chain(pool, chain_a) < 0)
-            return -1;
-        if (compare < 0 && insert_identity_into_chain(pool, chain_b) < 0)
-            return -1;
-    }
-    else if (type_a == op_type && !is_binop(type_b))
-    {
-        right_a = (*pool)->nodes[chain_a].child[1];
-        compare = csfg_expr_lexicographical_compare(*pool, right_a, chain_b);
-        if (compare >= 0 && insert_identity_left(pool, chain_b, op_type) < 0)
-            return -1;
-        if (compare < 0 && insert_identity_right(pool, chain_b, op_type) < 0)
-            return -1;
-    }
-    else if (!is_binop(type_a) && type_b == op_type)
-    {
-        right_b = (*pool)->nodes[chain_b].child[1];
-        compare = csfg_expr_lexicographical_compare(*pool, right_b, chain_a);
-        if (compare >= 0 && insert_identity_left(pool, chain_a, op_type) < 0)
-            return -1;
-        if (compare < 0 && insert_identity_right(pool, chain_a, op_type) < 0)
-            return -1;
-    }
-    else
-        return 1;
-
-    child_count = zip_chains(
-        pool,
-        (*pool)->nodes[chain_a].child[0],
-        (*pool)->nodes[chain_b].child[0],
-        op_type);
-    return child_count + 1;
+    if (pool->nodes[chain].type != op_type)
+        return -1;
+    return pool->nodes[chain].child[0];
 }
 
 /* -------------------------------------------------------------------------- */
 int csfg_expr_zip_chains(struct csfg_expr_pool** pool, int chain_a, int chain_b)
 {
+    int i, val_a, val_b, compare, next_a, next_b;
+    enum csfg_expr_type op_type;
     CSFG_DEBUG_ASSERT(csfg_expr_is_canonicalized(*pool, chain_a));
     CSFG_DEBUG_ASSERT(csfg_expr_is_canonicalized(*pool, chain_b));
 
-    if (chain_a == chain_b ||
-        (*pool)->nodes[chain_a].type != (*pool)->nodes[chain_b].type ||
-        !is_binop((*pool)->nodes[chain_a].type))
-        return 0;
+    if (chain_a == chain_b)
+        return 1;
 
-    return zip_chains(pool, chain_a, chain_b, (*pool)->nodes[chain_a].type);
+    if (is_binop((*pool)->nodes[chain_a].type))
+        op_type = (*pool)->nodes[chain_a].type;
+    else if (is_binop((*pool)->nodes[chain_b].type))
+        op_type = (*pool)->nodes[chain_b].type;
+    else
+        return 1;
+
+    for (i = 0;; i++)
+    {
+        val_a = (*pool)->nodes[chain_a].type == op_type
+                  ? (*pool)->nodes[chain_a].child[1]
+                  : chain_a;
+        val_b = (*pool)->nodes[chain_b].type == op_type
+                  ? (*pool)->nodes[chain_b].child[1]
+                  : chain_b;
+
+        if (!is_identity(*pool, val_a, op_type) &&
+            !is_identity(*pool, val_b, op_type))
+        {
+            compare = csfg_expr_lexicographical_compare(*pool, val_a, val_b);
+            if (compare > 0 && insert_identity(pool, chain_a, op_type) < 0)
+                return -1;
+            if (compare < 0 && insert_identity(pool, chain_b, op_type) < 0)
+                return -1;
+        }
+
+        next_a = next(*pool, chain_a, op_type);
+        next_b = next(*pool, chain_b, op_type);
+        if (next_a < 0 && next_b < 0)
+            break;
+        if (next_a < 0 &&
+            (next_a = append_identity(pool, chain_a, op_type)) < 0)
+            return -1;
+        if (next_b < 0 &&
+            (next_b = append_identity(pool, chain_b, op_type)) < 0)
+            return -1;
+        chain_a = next_a, chain_b = next_b;
+    }
+
+    return i + 1;
 }
