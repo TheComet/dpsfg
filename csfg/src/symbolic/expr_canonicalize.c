@@ -69,7 +69,7 @@ static int compare_and_swap(struct csfg_expr_pool* pool, int n)
     c  = pool->nodes[n].child[1];
     if (pool->nodes[op].type != pool->nodes[n].type)
     {
-        if (csfg_expr_lexicographical_compare(pool, op, c) > 0)
+        if (csfg_expr_lexicographical_compare(pool, op, c) >= 0)
             return 0;
         csfg_expr_set_binop(pool, n, pool->nodes[n].type, c, op);
         return 1;
@@ -77,7 +77,7 @@ static int compare_and_swap(struct csfg_expr_pool* pool, int n)
 
     a = pool->nodes[op].child[0];
     b = pool->nodes[op].child[1];
-    if (csfg_expr_lexicographical_compare(pool, b, c) > 0)
+    if (csfg_expr_lexicographical_compare(pool, b, c) >= 0)
         return 0;
 
     /* Swap b <-> c */
