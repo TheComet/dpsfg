@@ -2,6 +2,7 @@
 #include "csfg/symbolic/expr.h"
 #include "csfg/symbolic/rulebook.h"
 #include <assert.h>
+#include <math.h>
 #include <stddef.h>
 
 #define DEBUG_PRINTF 1
@@ -79,6 +80,15 @@ static void debug_print_expr(const struct csfg_expr_pool* pool, int n)
     fprintf(stderr, "\"%s\"", str_cstr(str));
     str_deinit(str);
 }
+static void debug_print_rotate(const struct csfg_expr_pool* pool, int n)
+{
+    int i = debug_depth;
+    while (i--)
+        fprintf(stderr, " ");
+    fprintf(stderr, "> Rotate : ");
+    debug_print_expr(pool, n);
+    fprintf(stderr, "\n");
+}
 static void
 debug_print_replace_subtree_before(const struct csfg_expr_pool* pool, int n)
 {
@@ -105,9 +115,83 @@ debug_print_replace_subtree_after(const struct csfg_expr_pool* pool, int n)
 #    define debug_depth_reset()
 #    define debug_print_run_ruleset(pool, group, group_idx, is_rerun)
 #    define debug_print_expr(pool, n)
+#    define debug_print_rotate(pool, n)
 #    define debug_print_replace_subtree_before(pool, n)
 #    define debug_print_replace_subtree_after(pool, n)
 #endif
+
+/* -------------------------------------------------------------------------- */
+static int floats_equal(double f1, double f2, double epsilon)
+{
+    return fabs(f1 - f2) < epsilon;
+}
+
+/* -------------------------------------------------------------------------- */
+static int remove_zero_summands(struct csfg_expr_pool** pool)
+{
+    int n, modified = 0;
+    for (n = 0; n != (*pool)->count; ++n)
+    {
+        int left  = (*pool)->nodes[n].child[0];
+        int right = (*pool)->nodes[n].child[1];
+        if ((*pool)->nodes[n].type != CSFG_EXPR_ADD)
+            continue;
+
+        if ((*pool)->nodes[left].type == CSFG_EXPR_LIT &&
+            floats_equal((*pool)->nodes[left].value.lit, 0.0, 0.0000001))
+        {
+            csfg_expr_collapse_into_parent(*pool, right, n);
+            modified = 1;
+        }
+        else if (
+            (*pool)->nodes[right].type == CSFG_EXPR_LIT &&
+            floats_equal((*pool)->nodes[right].value.lit, 0.0, 0.0000001))
+        {
+            csfg_expr_collapse_into_parent(*pool, left, n);
+            modified = 1;
+        }
+    }
+
+    return modified;
+}
+
+/* -------------------------------------------------------------------------- */
+static int remove_one_products(struct csfg_expr_pool** pool)
+{
+    int n, modified = 0;
+    for (n = 0; n != (*pool)->count; ++n)
+    {
+        int c;
+        if ((*pool)->nodes[n].type != CSFG_EXPR_MUL)
+            continue;
+
+        for (c = 0; c != 2; ++c)
+        {
+            double value;
+            int child   = (*pool)->nodes[n].child[c];
+            int sibling = (*pool)->nodes[n].child[1 - c];
+            if ((*pool)->nodes[child].type != CSFG_EXPR_LIT)
+                continue;
+
+            value = (*pool)->nodes[child].value.lit;
+            if (floats_equal(value, 1.0, 0.0000001))
+            {
+                csfg_expr_collapse_into_parent(*pool, sibling, n);
+                modified = 1;
+                break;
+            }
+            else if (floats_equal(value, -1.0, 0.0000001))
+            {
+                csfg_expr_mark_deleted(*pool, child);
+                csfg_expr_set_neg(pool, n, sibling);
+                modified = 1;
+                break;
+            }
+        }
+    }
+
+    return modified;
+}
 
 /* -------------------------------------------------------------------------- */
 static enum match_result
@@ -451,8 +535,13 @@ static int run_ruleset(
                 ruleset_pool,
                 ruleset->expr_search))
             {
-                case MATCH_OOM  : return -1;
-                case MATCH_NONE : continue;
+                case MATCH_OOM: return -1;
+                case MATCH_NONE:
+                    /* This rotates the chains back to their original state, so
+                     * we can preserve ordering for the next match */
+                    while (permutation-- > 0)
+                        rotate_related_chains(*target_pool, *matched_nodes);
+                    continue;
                 case MATCH_FOUND: break;
                 case MATCH_NEXT_PERMUTATION:
                     if (permutation == -1)
@@ -462,9 +551,10 @@ static int run_ruleset(
                         if (permutation < 0)
                             return -1;
                     }
-                    if (--permutation > 0)
+                    if (permutation-- > 0)
                     {
                         rotate_related_chains(*target_pool, *matched_nodes);
+                        debug_print_rotate(*target_pool, *expr);
                         goto next_permutation;
                     }
                     continue;
@@ -478,6 +568,9 @@ static int run_ruleset(
                     ruleset->expr_replace,
                     *matched_nodes) != 0)
                 return -1;
+            csfg_rules_run(
+                target_pool, remove_zero_summands, remove_one_products, NULL);
+            csfg_expr_canonicalize(*target_pool, *expr);
             *expr = csfg_expr_gc(*target_pool, *expr);
             debug_print_replace_subtree_after(*target_pool, *expr);
             modified = 1;
@@ -582,6 +675,10 @@ int csfg_rulebook_run(
         }
         break;
     }
+
+    csfg_rules_run(pool, remove_zero_summands, remove_one_products, NULL);
+    *expr = csfg_expr_gc(*pool, *expr);
+
 #if DEBUG_PRINTF == 1
     fprintf(stderr, "Result: ");
     debug_print_expr(*pool, *expr);

@@ -9,9 +9,52 @@ extern "C" {
 
 #define NAME test_rulebook_run
 
+namespace {
+
+struct TestParam
+{
+    struct
+    {
+        const char* name;
+        const char* ruleset;
+    } rule;
+    const char* input;
+    const char* expected_output;
+};
+
+// NOTE: All rules assume that the expression tree has been sorted! If you are
+// writing a test, make sure to either explicitly call
+// csfg_expr_canonicalize(), or write a sorted expression.
+const struct TestParam TEST_PARAMETERS[] = {
+    /* These test whether the rule is permutated correctly */
+    {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
+     "x*y + x*z",           "x*(y+z)"                },
+    {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
+     "x*y + y*z",           "y*(x+z)"                },
+    {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
+     "x*z + y*z",           "(x+y)*z"                },
+    {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
+     "x*y + w*x",           "(w+y)*x"                },
+
+    {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
+     "(x+(5*w))*y + (x+(5*w))*z", "(x+(5*w)) * (y+z)"},
+
+    {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
+     "m*q*s + p*q*z",     "q*(m*s + p*z)"            },
+};
+
+std::ostream& operator<<(std::ostream& os, const TestParam& p)
+{
+    os << p.rule.name << ", " << p.rule.ruleset << ", " << p.input << ", "
+       << p.expected_output;
+    return os;
+}
+
+} // namespace
+
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public TestWithParam<TestParam>
 {
     void SetUp() override
     {
@@ -31,91 +74,24 @@ struct NAME : public Test
     struct csfg_expr_pool* expected_pool;
 };
 
-// NOTE: All rules assume that the expression tree has been sorted! If you are
-// writing a test, make sure to either explicitly call
-// csfg_expr_canonicalize(), or write a sorted expression.
+INSTANTIATE_TEST_SUITE_P(, NAME, ValuesIn(TEST_PARAMETERS));
 
-TEST_F(NAME, factorize_match_single_vars_permutation_1)
+TEST_P(NAME, test)
 {
-    const char* rule = "factor { \"a*b+a*c\" --> \"a*(b+c)\" }";
-    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", cstr_view(rule)), 0);
-    int actual   = csfg_expr_parse(&pool, cstr_view("x*y + x*z"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("x*(y+z)"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
+    struct strview rule            = cstr_view(GetParam().rule.ruleset);
+    struct strview input           = cstr_view(GetParam().input);
+    struct strview expected_output = cstr_view(GetParam().expected_output);
+    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", rule), 0);
+    int input_expr    = csfg_expr_parse(&pool, input);
+    int expected_expr = csfg_expr_parse(&expected_pool, expected_output);
+    ASSERT_GE(input_expr, 0);
+    ASSERT_GE(expected_expr, 0);
 
-    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
+    int run_result =
+        csfg_rulebook_run(&book, GetParam().rule.name, &pool, &input_expr);
+    ASSERT_EQ(run_result, 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, factorize_match_single_vars_permutation_2)
-{
-    const char* rule = "factor { \"a*b+a*c\" --> \"a*(b+c)\" }";
-    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", cstr_view(rule)), 0);
-    int actual   = csfg_expr_parse(&pool, cstr_view("x*y + z*x"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("x*(y+z)"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
-
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, factorize_match_single_vars_permutation_3)
-{
-    const char* rule = "factor { \"a*b+a*c\" --> \"a*(b+c)\" }";
-    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", cstr_view(rule)), 0);
-    int actual   = csfg_expr_parse(&pool, cstr_view("y*x + x*z"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("x*(y+z)"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
-
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, factorize_match_single_vars_permutation_4)
-{
-    const char* rule = "factor { \"a*b+a*c\" --> \"a*(b+c)\" }";
-    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", cstr_view(rule)), 0);
-    int actual   = csfg_expr_parse(&pool, cstr_view("y*x + z*x"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("x*(y+z)"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
-
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, factorize_match_subtrees_permutation_1)
-{
-    const char* rule = "factor { \"a*b+a*c\" --> \"a*(b+c)\" }";
-    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", cstr_view(rule)), 0);
-    int actual = csfg_expr_parse(&pool, cstr_view("(x+(w*5))*y + (x+(w*5))*z"));
-    int expected =
-        csfg_expr_parse(&expected_pool, cstr_view("(x+(w*5)) * (y+z)"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
-
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, factorize_multiplication_chains_permutation_1)
-{
-    const char* rule = "factor { \"b*a+c*a\" --> \"a*(b+c)\" }";
-    ASSERT_EQ(csfg_rulebook_parse(&book, "<stdin>", cstr_view(rule)), 0);
-    int actual   = csfg_expr_parse(&pool, cstr_view("m*q*s + p*q*z"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("x*(w*y + w*z)"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
-
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    bool is_same =
+        csfg_expr_equal(pool, input_expr, expected_pool, expected_expr);
+    ASSERT_TRUE(is_same);
 }
