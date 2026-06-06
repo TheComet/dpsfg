@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -6,9 +8,31 @@ extern "C" {
 
 #define NAME test_expr_rotate_chain
 
+namespace {
+
+struct TestParam
+{
+    const char* input;
+    const char* expected_output;
+};
+
+const struct TestParam TEST_PARAMETERS[] = {
+    {      "a*b",       "b*a"},
+    {"a*b*c*d*e", "e*a*b*c*d"},
+    {"a*b+c+d+e", "e+a*b+c+d"},
+};
+
+std::ostream& operator<<(std::ostream& os, const struct TestParam& p)
+{
+    os << p.input << " --> " << p.expected_output;
+    return os;
+}
+
+} // namespace
+
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public TestWithParam<TestParam>, public ExprHelper
 {
     void SetUp() override { csfg_expr_pool_init(&p); }
     void TearDown() override { csfg_expr_pool_deinit(p); }
@@ -16,32 +40,14 @@ struct NAME : public Test
     struct csfg_expr_pool* p;
 };
 
-TEST_F(NAME, case1)
+INSTANTIATE_TEST_SUITE_P(, NAME, ValuesIn(TEST_PARAMETERS));
+
+TEST_P(NAME, test)
 {
-    int actual   = csfg_expr_parse(&p, cstr_view("a*b"));
-    int expected = csfg_expr_parse(&p, cstr_view("b*a"));
+    int actual   = csfg_expr_parse(&p, cstr_view(GetParam().input));
+    int expected = csfg_expr_parse(&p, cstr_view(GetParam().expected_output));
 
     csfg_expr_rotate_chain(p, actual);
 
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, case2)
-{
-    int actual   = csfg_expr_parse(&p, cstr_view("a*b*c*d*e"));
-    int expected = csfg_expr_parse(&p, cstr_view("b*c*d*e*a"));
-
-    csfg_expr_rotate_chain(p, actual);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
-}
-
-TEST_F(NAME, case3)
-{
-    int actual   = csfg_expr_parse(&p, cstr_view("a*b+c+d+e"));
-    int expected = csfg_expr_parse(&p, cstr_view("c+d+e+a*b"));
-
-    csfg_expr_rotate_chain(p, actual);
-
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
+    ASSERT_TRUE(ExprEq(p, actual, p, expected));
 }
