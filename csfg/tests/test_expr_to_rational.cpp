@@ -1,4 +1,4 @@
-#include "csfg/tests/PolyHelper.hpp"
+#include "csfg/tests/ExprHelper.hpp"
 
 #include "gtest/gtest.h"
 
@@ -13,7 +13,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test, public PolyHelper
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -33,8 +33,8 @@ struct NAME : public Test, public PolyHelper
 
     struct csfg_expr_pool* in_pool;
     struct csfg_expr_pool* out_pool;
-    struct csfg_tf_expr    tf;
-    struct csfg_var_table  vt;
+    struct csfg_tf_expr tf;
+    struct csfg_var_table vt;
 };
 
 TEST_F(NAME, simple)

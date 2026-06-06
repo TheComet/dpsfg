@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -39,8 +41,8 @@ const struct TestParam TEST_PARAMETERS[] = {
 
 std::ostream& operator<<(std::ostream& os, const TestParam& p)
 {
-    os << "{ " << p.left_chain << ", " << p.right_chain << ", " << p.expected
-       << "}";
+    os << "zip(\"" << p.left_chain << "\", \"" << p.right_chain << "\") --> \""
+       << p.expected << "\"";
     return os;
 }
 
@@ -48,7 +50,7 @@ std::ostream& operator<<(std::ostream& os, const TestParam& p)
 
 using namespace testing;
 
-struct NAME : public TestWithParam<TestParam>
+struct NAME : public TestWithParam<TestParam>, public ExprHelper
 {
     void SetUp() override { csfg_expr_pool_init(&p); }
     void TearDown() override { csfg_expr_pool_deinit(p); }
@@ -68,5 +70,5 @@ TEST_P(NAME, test)
         csfg_expr_zip_chains(&p, left_chain, right_chain),
         GetParam().expected_zip_retval);
 
-    ASSERT_TRUE(csfg_expr_equal(p, actual, p, expected));
+    ASSERT_TRUE(ExprEq(p, actual, p, expected));
 }

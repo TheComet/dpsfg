@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -9,7 +11,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -33,7 +35,7 @@ TEST_F(NAME, one_product)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, product_with_exponent_1)
@@ -43,7 +45,7 @@ TEST_F(NAME, product_with_exponent_1)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, product_with_exponent_2)
@@ -53,7 +55,7 @@ TEST_F(NAME, product_with_exponent_2)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, parity)
@@ -64,7 +66,7 @@ TEST_F(NAME, parity)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, multiple_products)
@@ -74,7 +76,7 @@ TEST_F(NAME, multiple_products)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, products_of_exponents)
@@ -87,5 +89,5 @@ TEST_F(NAME, products_of_exponents)
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_simplify_products(&p1), 0);
     csfg_rule_fold_constants(&p1);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }

@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -9,7 +11,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -35,7 +37,7 @@ TEST_F(NAME, case1)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, case2)
@@ -47,7 +49,7 @@ TEST_F(NAME, case2)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, case1_mirror)
@@ -59,7 +61,7 @@ TEST_F(NAME, case1_mirror)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, case2_mirror)
@@ -71,7 +73,7 @@ TEST_F(NAME, case2_mirror)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, case1_negated)
@@ -84,7 +86,7 @@ TEST_F(NAME, case1_negated)
     csfg_rule_fold_constants(&p2);
     csfg_rule_lower_negates(&p1);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, case2_negated)
@@ -97,7 +99,7 @@ TEST_F(NAME, case2_negated)
     csfg_rule_fold_constants(&p2);
     csfg_rule_lower_negates(&p1);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, multiple_summands1)
@@ -109,7 +111,7 @@ TEST_F(NAME, multiple_summands1)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, multiple_summands2)
@@ -121,7 +123,7 @@ TEST_F(NAME, multiple_summands2)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, multiple_summands1_negated)
@@ -134,7 +136,7 @@ TEST_F(NAME, multiple_summands1_negated)
     csfg_rule_fold_constants(&p2);
     csfg_rule_lower_negates(&p1);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, multiple_summands2_negated)
@@ -147,7 +149,7 @@ TEST_F(NAME, multiple_summands2_negated)
     csfg_rule_fold_constants(&p2);
     csfg_rule_lower_negates(&p1);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, multiple_products1)
@@ -159,7 +161,7 @@ TEST_F(NAME, multiple_products1)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, multiple_products2)
@@ -171,5 +173,5 @@ TEST_F(NAME, multiple_products2)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_factor_common_denominator(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }

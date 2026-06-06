@@ -1,4 +1,4 @@
-#include "csfg/tests/PolyHelper.hpp"
+#include "csfg/tests/ExprHelper.hpp"
 
 #include "gtest/gtest.h"
 
@@ -11,7 +11,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test, public PolyHelper
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {

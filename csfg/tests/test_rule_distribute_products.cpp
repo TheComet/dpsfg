@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -9,7 +11,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -33,7 +35,7 @@ TEST_F(NAME, distribute_simple1)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_distribute_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, expand_simple2)
@@ -43,7 +45,7 @@ TEST_F(NAME, expand_simple2)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_distribute_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, binomial_expansion)
@@ -53,7 +55,7 @@ TEST_F(NAME, binomial_expansion)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_distribute_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, distribute_nested)
@@ -65,5 +67,5 @@ TEST_F(NAME, distribute_nested)
             "a*(c*d) + a*(e*f) + a*(g*h) + ((b*(c*d) + b*(e*f)) + b*(g*h))"));
     ASSERT_GE(r1, 0);
     ASSERT_GT(csfg_rule_distribute_products(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }

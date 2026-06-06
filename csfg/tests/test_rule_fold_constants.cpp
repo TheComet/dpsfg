@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -9,7 +11,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -33,7 +35,7 @@ TEST_F(NAME, simplify_constant_expression)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, simplify_constant_expression_with_negate)
@@ -52,7 +54,7 @@ TEST_F(NAME, simplify_constant_expressions_exponent)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, simplify_constant_expressions_with_variables)
@@ -62,7 +64,7 @@ TEST_F(NAME, simplify_constant_expressions_with_variables)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, constant_add_sub_chain)
@@ -72,7 +74,7 @@ TEST_F(NAME, constant_add_sub_chain)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, constant_mul_div_chain)
@@ -83,7 +85,7 @@ TEST_F(NAME, constant_mul_div_chain)
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
     ASSERT_GT(csfg_rule_fold_constants(&p2), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, constant_chain_of_additions_with_2_variables_in_middle)
@@ -93,7 +95,7 @@ TEST_F(NAME, constant_chain_of_additions_with_2_variables_in_middle)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, constant_blob_additions_with_2_variables_in_middle)
@@ -103,7 +105,7 @@ TEST_F(NAME, constant_blob_additions_with_2_variables_in_middle)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, constant_chain_of_products_with_2_variables_in_middle)
@@ -113,7 +115,7 @@ TEST_F(NAME, constant_chain_of_products_with_2_variables_in_middle)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, constant_blob_of_products_with_2_variables_in_middle)
@@ -123,7 +125,7 @@ TEST_F(NAME, constant_blob_of_products_with_2_variables_in_middle)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, negations)
@@ -133,5 +135,5 @@ TEST_F(NAME, negations)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }

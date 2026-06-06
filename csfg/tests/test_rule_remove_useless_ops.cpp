@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -9,7 +11,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -33,7 +35,7 @@ TEST_F(NAME, remove_chained_negates)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, two_negated_products)
@@ -43,7 +45,7 @@ TEST_F(NAME, two_negated_products)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, remove_zero_summands)
@@ -53,7 +55,7 @@ TEST_F(NAME, remove_zero_summands)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, remove_one_products)
@@ -63,7 +65,7 @@ TEST_F(NAME, remove_one_products)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, remove_negative_one_products_left)
@@ -74,7 +76,7 @@ TEST_F(NAME, remove_negative_one_products_left)
     ASSERT_GE(r2, 0);
     csfg_rule_fold_constants(&p1);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, remove_negative_one_products_right)
@@ -85,7 +87,7 @@ TEST_F(NAME, remove_negative_one_products_right)
     ASSERT_GE(r2, 0);
     csfg_rule_fold_constants(&p1);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, remove_one_exponents)
@@ -96,7 +98,7 @@ TEST_F(NAME, remove_one_exponents)
     ASSERT_GE(r2, 0);
     csfg_rule_fold_constants(&p1);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, remove_zero_exponents)
@@ -107,7 +109,7 @@ TEST_F(NAME, remove_zero_exponents)
     ASSERT_GE(r2, 0);
     csfg_rule_fold_constants(&p1);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, cancel_products_1)
@@ -124,7 +126,7 @@ TEST_F(NAME, cancel_products_1)
     ASSERT_GE(r2, 0);
     csfg_rule_fold_constants(&p1);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, cancel_products_2)
@@ -139,5 +141,5 @@ TEST_F(NAME, cancel_products_2)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }

@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -9,7 +11,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -33,7 +35,7 @@ TEST_F(NAME, expand_positive)
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
     ASSERT_GT(csfg_rule_expand_constant_exponents(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }
 
 TEST_F(NAME, expand_negative)
@@ -46,5 +48,5 @@ TEST_F(NAME, expand_negative)
     csfg_rule_fold_constants(&p1);
     csfg_rule_fold_constants(&p2);
     ASSERT_GT(csfg_rule_expand_constant_exponents(&p1), 0);
-    ASSERT_TRUE(csfg_expr_equal(p1, r1, p2, r2));
+    ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }

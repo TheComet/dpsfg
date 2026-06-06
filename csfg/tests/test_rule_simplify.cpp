@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -12,7 +14,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -31,48 +33,48 @@ struct NAME : public Test
         mfile_unmap(&mf);
     }
 
-    const char*            filename = "../../csfg/src/symbolic/rulebook.txt";
-    struct mfile           mf;
-    struct strview         source;
-    struct csfg_rulebook   book;
+    const char* filename = "../../csfg/src/symbolic/rulebook.txt";
+    struct mfile mf;
+    struct strview source;
+    struct csfg_rulebook book;
     struct csfg_expr_pool* pool;
     struct csfg_expr_pool* expected_pool;
 };
 
 TEST_F(NAME, pattern_match1)
 {
-    int actual = csfg_expr_parse(&pool, cstr_view("a*(b+c)/(b+c)"));
+    int actual   = csfg_expr_parse(&pool, cstr_view("a*(b+c)/(b+c)"));
     int expected = csfg_expr_parse(&expected_pool, cstr_view("a"));
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
     ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, pattern_match2)
 {
-    int actual = csfg_expr_parse(&pool, cstr_view("(x+y)*s/(x+y)"));
+    int actual   = csfg_expr_parse(&pool, cstr_view("(x+y)*s/(x+y)"));
     int expected = csfg_expr_parse(&expected_pool, cstr_view("a"));
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
     ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, pattern_match3)
 {
-    int actual = csfg_expr_parse(&pool, cstr_view("a*(b+c)+b*(b+c)"));
+    int actual   = csfg_expr_parse(&pool, cstr_view("a*(b+c)+b*(b+c)"));
     int expected = csfg_expr_parse(&expected_pool, cstr_view("(b+c)*(a+b)"));
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
     ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, pattern_match4)
@@ -86,7 +88,7 @@ TEST_F(NAME, pattern_match4)
 
     ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, pattern_match5)
@@ -99,19 +101,19 @@ TEST_F(NAME, pattern_match5)
 
     ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, no_simplification1)
 {
-    int actual = csfg_expr_parse(&pool, cstr_view("a*(b+c)/(b+d)"));
+    int actual   = csfg_expr_parse(&pool, cstr_view("a*(b+c)/(b+d)"));
     int expected = csfg_expr_parse(&expected_pool, cstr_view("a*(b+c)/(b+d)"));
     ASSERT_GE(actual, 0);
     ASSERT_GE(expected, 0);
 
     ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 0);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, case1)
@@ -129,7 +131,7 @@ TEST_F(NAME, case1)
 
     ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, case2)
@@ -148,7 +150,7 @@ TEST_F(NAME, case2)
 
     ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }
 
 TEST_F(NAME, case3)
@@ -164,5 +166,5 @@ TEST_F(NAME, case3)
 
     ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
 
-    ASSERT_TRUE(csfg_expr_equal(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
 }

@@ -8,9 +8,29 @@ extern "C" {
 #include "csfg/util/str.h"
 }
 
-struct PolyHelper
+struct ExprHelper
 {
-    bool NodeEq(const struct csfg_expr_pool* pool, int n, const char* expr_str)
+    bool ExprEq(
+        const struct csfg_expr_pool* actual_pool,
+        int actual,
+        const struct csfg_expr_pool* expected_pool,
+        int expected)
+    {
+        if (csfg_expr_equal(actual_pool, actual, expected_pool, expected))
+            return true;
+
+        struct str* str;
+        str_init(&str);
+        csfg_expr_to_str(&str, expected_pool, expected);
+        std::cerr << "Expected: " << str_cstr(str) << std::endl;
+        str_clear(str);
+        csfg_expr_to_str(&str, actual_pool, actual);
+        std::cerr << "Actual: " << str_cstr(str) << std::endl;
+        str_deinit(str);
+        return false;
+    }
+
+    bool ExprEq(const struct csfg_expr_pool* pool, int n, const char* expr_str)
     {
         struct csfg_expr_pool* compare_pool;
         csfg_expr_pool_init(&compare_pool);
@@ -53,8 +73,8 @@ struct PolyHelper
     bool CoeffEq(
         const struct csfg_expr_pool* pool,
         const struct csfg_poly_expr* p,
-        int                          idx,
-        double                       factor)
+        int idx,
+        double factor)
     {
         if (idx >= vec_count(p))
         {
@@ -85,15 +105,15 @@ struct PolyHelper
     bool CoeffEq(
         const struct csfg_expr_pool* pool,
         const struct csfg_poly_expr* p,
-        int                          idx,
-        double                       factor,
-        const char*                  expr_str)
+        int idx,
+        double factor,
+        const char* expr_str)
     {
         if (idx >= vec_count(p))
             return false;
         if (vec_get(p, idx)->expr < 0)
             return false;
-        if (!NodeEq(pool, vec_get(p, idx)->expr, expr_str))
+        if (!ExprEq(pool, vec_get(p, idx)->expr, expr_str))
             return false;
         return vec_get(p, idx)->factor == factor;
     }
@@ -101,9 +121,9 @@ struct PolyHelper
     bool CoeffEq(
         const struct csfg_expr_pool* pool,
         const struct csfg_poly_expr* p,
-        int                          idx,
-        double                       factor,
-        enum csfg_expr_type          type)
+        int idx,
+        double factor,
+        enum csfg_expr_type type)
     {
         if (idx >= vec_count(p))
             return false;

@@ -1,4 +1,4 @@
-#include "csfg/tests/PolyHelper.hpp"
+#include "csfg/tests/ExprHelper.hpp"
 
 #include "gtest/gtest.h"
 
@@ -12,7 +12,7 @@ extern "C" {
 
 using namespace testing;
 
-struct NAME : public Test, public PolyHelper
+struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
@@ -134,9 +134,7 @@ TEST_F(NAME, gcd_test)
      * -----
      * b*c*d
      */
-    int expr = csfg_expr_parse(
-        &pool1,
-        cstr_view("(a*b*c) / (b*c*d)"));
+    int expr = csfg_expr_parse(&pool1, cstr_view("(a*b*c) / (b*c*d)"));
     ASSERT_GE(expr, 0);
 
     ASSERT_EQ(

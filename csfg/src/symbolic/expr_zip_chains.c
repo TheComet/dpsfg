@@ -94,6 +94,15 @@ next(const struct csfg_expr_pool* pool, int chain, enum csfg_expr_type op_type)
 }
 
 /* -------------------------------------------------------------------------- */
+static int
+value(const struct csfg_expr_pool* pool, int chain, enum csfg_expr_type op_type)
+{
+    if (pool->nodes[chain].type == op_type)
+        return pool->nodes[chain].child[1];
+    return chain;
+}
+
+/* -------------------------------------------------------------------------- */
 int csfg_expr_zip_chains(struct csfg_expr_pool** pool, int chain_a, int chain_b)
 {
     int i, val_a, val_b, compare, next_a, next_b;
@@ -113,12 +122,8 @@ int csfg_expr_zip_chains(struct csfg_expr_pool** pool, int chain_a, int chain_b)
 
     for (i = 0;; i++)
     {
-        val_a = (*pool)->nodes[chain_a].type == op_type
-                  ? (*pool)->nodes[chain_a].child[1]
-                  : chain_a;
-        val_b = (*pool)->nodes[chain_b].type == op_type
-                  ? (*pool)->nodes[chain_b].child[1]
-                  : chain_b;
+        val_a = value(*pool, chain_a, op_type);
+        val_b = value(*pool, chain_b, op_type);
 
         if (!is_identity(*pool, val_a, op_type) &&
             !is_identity(*pool, val_b, op_type))
