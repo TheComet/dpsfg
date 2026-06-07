@@ -98,7 +98,7 @@ static int insert_substitutions(
         if (dup == -1)
             return -1;
         (*pool)->nodes[n] = (*pool)->nodes[dup];
-        csfg_expr_mark_deleted(*pool, dup);
+        csfg_expr_mark_deleted_shallow(*pool, dup);
 
         if (insert_substitutions(pool, n, vt) != 0)
             return -1;
@@ -357,7 +357,7 @@ int csfg_expr_dup_recurse_from(
         if ((right = csfg_expr_dup_recurse_from(dst, src, right)) == -1)
             return -1;
 
-    dup = csfg_expr_dup_single_from(dst, src, n);
+    dup = csfg_expr_dup_shallow_from(dst, src, n);
     if (dup == -1)
         return -1;
     (*dst)->nodes[dup].child[0] = left;
@@ -392,7 +392,7 @@ int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_dup_single_from(
+int csfg_expr_dup_shallow_from(
     struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n)
 {
     int dup;
@@ -426,7 +426,7 @@ int csfg_expr_dup_single_from(
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n)
+int csfg_expr_dup_shallow(struct csfg_expr_pool** pool, int n)
 {
     int dup;
     if (n == -1)
@@ -439,7 +439,7 @@ int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n)
 }
 
 /* -------------------------------------------------------------------------- */
-void csfg_expr_mark_deleted(struct csfg_expr_pool* pool, int n)
+void csfg_expr_mark_deleted_shallow(struct csfg_expr_pool* pool, int n)
 {
     pool->nodes[n].type = CSFG_EXPR_GC;
 }
@@ -458,7 +458,7 @@ void csfg_expr_mark_deleted_recursive(struct csfg_expr_pool* pool, int n)
     if (right > -1)
         csfg_expr_mark_deleted_recursive(pool, right);
 
-    csfg_expr_mark_deleted(pool, n);
+    csfg_expr_mark_deleted_shallow(pool, n);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -503,7 +503,7 @@ void csfg_expr_collapse_into_parent(
 
     pool->nodes[parent] = pool->nodes[child];
 
-    csfg_expr_mark_deleted(pool, child);
+    csfg_expr_mark_deleted_shallow(pool, child);
     if (dangling_child > -1)
         csfg_expr_mark_deleted_recursive(pool, dangling_child);
 }
@@ -518,7 +518,7 @@ void csfg_expr_collapse_sibling_into_parent(struct csfg_expr_pool* pool, int n)
                                                 : pool->nodes[parent].child[0];
     CSFG_DEBUG_ASSERT(sibling > -1);
     pool->nodes[parent] = pool->nodes[sibling];
-    csfg_expr_mark_deleted(pool, sibling);
+    csfg_expr_mark_deleted_shallow(pool, sibling);
     csfg_expr_mark_deleted_recursive(pool, n);
 }
 
@@ -533,7 +533,7 @@ int csfg_expr_collapse_sibling_into_parent_steal_orphan(
                                                 : pool->nodes[parent].child[0];
 
     pool->nodes[parent] = pool->nodes[sibling];
-    csfg_expr_mark_deleted(pool, sibling);
+    csfg_expr_mark_deleted_shallow(pool, sibling);
     return n;
 }
 

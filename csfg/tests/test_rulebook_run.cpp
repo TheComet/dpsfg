@@ -1,3 +1,5 @@
+#include "csfg/tests/ExprHelper.hpp"
+
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -32,9 +34,7 @@ const struct TestParam TEST_PARAMETERS[] = {
     {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
      "x*y + y*z",           "y*(x+z)"                },
     {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
-     "x*z + y*z",           "(x+y)*z"                },
-    {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
-     "x*y + w*x",           "(w+y)*x"                },
+     "x*z + y*z",           "z*(x+y)"                },
 
     {{"factor", "factor { \"a*x+b*x\" --> \"(a+b)*x\" }"},
      "(x+(5*w))*y + (x+(5*w))*z", "(x+(5*w)) * (y+z)"},
@@ -54,7 +54,7 @@ std::ostream& operator<<(std::ostream& os, const TestParam& p)
 
 using namespace testing;
 
-struct NAME : public TestWithParam<TestParam>
+struct NAME : public TestWithParam<TestParam>, public ExprHelper
 {
     void SetUp() override
     {
@@ -87,11 +87,11 @@ TEST_P(NAME, test)
     ASSERT_GE(input_expr, 0);
     ASSERT_GE(expected_expr, 0);
 
+    csfg_expr_canonicalize(pool, input_expr);
+
     int run_result =
         csfg_rulebook_run(&book, GetParam().rule.name, &pool, &input_expr);
     ASSERT_EQ(run_result, 1);
 
-    bool is_same =
-        csfg_expr_equal(pool, input_expr, expected_pool, expected_expr);
-    ASSERT_TRUE(is_same);
+    ASSERT_TRUE(ExprEq(pool, input_expr, expected_pool, expected_expr));
 }

@@ -23,8 +23,8 @@ static int remove_chained_negates(struct csfg_expr_pool** pool)
 
         grandchild = (*pool)->nodes[child].child[0];
         (*pool)->nodes[n] = (*pool)->nodes[grandchild];
-        csfg_expr_mark_deleted(*pool, child);
-        csfg_expr_mark_deleted(*pool, grandchild);
+        csfg_expr_mark_deleted_shallow(*pool, child);
+        csfg_expr_mark_deleted_shallow(*pool, grandchild);
         modified = 1;
     }
 
@@ -86,10 +86,10 @@ static int remove_double_reciprocs(struct csfg_expr_pool** pool)
         }
 
         (*pool)->nodes[n] = (*pool)->nodes[base2];
-        csfg_expr_mark_deleted(*pool, base2);
-        csfg_expr_mark_deleted(*pool, exp2);
-        csfg_expr_mark_deleted(*pool, base1);
-        csfg_expr_mark_deleted(*pool, exp1);
+        csfg_expr_mark_deleted_shallow(*pool, base2);
+        csfg_expr_mark_deleted_shallow(*pool, exp2);
+        csfg_expr_mark_deleted_shallow(*pool, base1);
+        csfg_expr_mark_deleted_shallow(*pool, exp1);
         modified = 1;
     }
 
@@ -152,7 +152,7 @@ static int remove_one_products(struct csfg_expr_pool** pool)
             }
             else if (floats_equal(value, -1.0, 0.0000001))
             {
-                csfg_expr_mark_deleted(*pool, child);
+                csfg_expr_mark_deleted_shallow(*pool, child);
                 csfg_expr_set_neg(pool, n, sibling);
                 modified = 1;
                 break;
@@ -187,7 +187,7 @@ static int remove_one_and_zero_exponents(struct csfg_expr_pool** pool)
         else if (floats_equal(value, 0.0, 0.0000001))
         {
             csfg_expr_mark_deleted_recursive(*pool, left);
-            csfg_expr_mark_deleted(*pool, right);
+            csfg_expr_mark_deleted_shallow(*pool, right);
             csfg_expr_set_lit(*pool, n, 1.0);
             modified = 1;
         }

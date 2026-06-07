@@ -41,7 +41,7 @@ int csfg_expr_to_rational(
         }
 
         case CSFG_EXPR_INF: {
-            int n = csfg_expr_dup_single_from(tf_pool, in_pool, in_expr);
+            int n = csfg_expr_dup_shallow_from(tf_pool, in_pool, in_expr);
             if (n < 0)
                 return -1;
             if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(1.0, n)) != 0)
@@ -65,7 +65,7 @@ int csfg_expr_to_rational(
             else
             {
                 int n;
-                n = csfg_expr_dup_single_from(tf_pool, in_pool, in_expr);
+                n = csfg_expr_dup_shallow_from(tf_pool, in_pool, in_expr);
                 if (n < 0)
                     return -1;
                 if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(1.0, n)) != 0)

@@ -51,13 +51,13 @@ static int move_reciprocs(
                 to,
                 csfg_expr_dup_recurse_from(to, *from, base),
                 csfg_expr_lit(to, -value)),
-            csfg_expr_dup_single(to, to_root)) == -1)
+            csfg_expr_dup_shallow(to, to_root)) == -1)
     {
         return -1;
     }
 
     csfg_expr_mark_deleted_recursive(*from, base);
-    csfg_expr_mark_deleted(*from, exp);
+    csfg_expr_mark_deleted_shallow(*from, exp);
     csfg_expr_set_lit(*from, from_root, 1.0);
 
     return 1;

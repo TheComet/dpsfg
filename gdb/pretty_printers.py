@@ -18,9 +18,14 @@ from strview import strview_PrettyPrinter
 from strlist import strlist_PrettyPrinter
 
 def factories(val):
+    if str(val.type).endswith("**"):
+        val = val.dereference()
+
     if str(val.type).endswith("_rb *"):
         return rb_PrettyPrinter(val)
-    if str(val.type).endswith("_vec *") or str(val.type).endswith("csfg_poly_expr *"):
+    if str(val.type).endswith("_vec *") or \
+        str(val.type).endswith("csfg_poly_expr *") or \
+        str(val.type).endswith("csfg_mat_reorder *"):
         return vec_PrettyPrinter(val)
     if str(val.type).endswith("csfg_cpoly *"):
         return cpoly_PrettyPrinter(val)
@@ -30,8 +35,6 @@ def factories(val):
         return pfd_poly_PrettyPrinter(val)
     if str(val.type).endswith("csfg_mat *"):
         return mat_PrettyPrinter(val)
-    if str(val.type).endswith("csfg_mat_reorder *"):
-        return vec_PrettyPrinter(val)
     if str(val.type).endswith("_bmap *"):
         return bmap_PrettyPrinter(val)
     if str(val.type).endswith("_hmap *"):

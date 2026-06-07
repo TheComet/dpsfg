@@ -80,6 +80,24 @@ static void debug_print_expr(const struct csfg_expr_pool* pool, int n)
     fprintf(stderr, "\"%s\"", str_cstr(str));
     str_deinit(str);
 }
+static void debug_print_zip(const struct csfg_expr_pool* pool, int n)
+{
+    int i = debug_depth;
+    while (i--)
+        fprintf(stderr, " ");
+    fprintf(stderr, "> Zip    : ");
+    debug_print_expr(pool, n);
+    fprintf(stderr, "\n");
+}
+static void debug_print_unzip(const struct csfg_expr_pool* pool, int n)
+{
+    int i = debug_depth;
+    while (i--)
+        fprintf(stderr, " ");
+    fprintf(stderr, "> UnZip  : ");
+    debug_print_expr(pool, n);
+    fprintf(stderr, "\n");
+}
 static void debug_print_rotate(const struct csfg_expr_pool* pool, int n)
 {
     int i = debug_depth;
@@ -115,6 +133,7 @@ debug_print_replace_subtree_after(const struct csfg_expr_pool* pool, int n)
 #    define debug_depth_reset()
 #    define debug_print_run_ruleset(pool, group, group_idx, is_rerun)
 #    define debug_print_expr(pool, n)
+#    define debug_print_zip(pool, n)
 #    define debug_print_rotate(pool, n)
 #    define debug_print_replace_subtree_before(pool, n)
 #    define debug_print_replace_subtree_after(pool, n)
@@ -182,7 +201,7 @@ static int remove_one_products(struct csfg_expr_pool** pool)
             }
             else if (floats_equal(value, -1.0, 0.0000001))
             {
-                csfg_expr_mark_deleted(*pool, child);
+                csfg_expr_mark_deleted_shallow(*pool, child);
                 csfg_expr_set_neg(pool, n, sibling);
                 modified = 1;
                 break;
@@ -191,6 +210,22 @@ static int remove_one_products(struct csfg_expr_pool** pool)
     }
 
     return modified;
+}
+
+/* -------------------------------------------------------------------------- */
+static int match_info_add(
+    struct match_info_vec** matched_nodes,
+    int var_idx,
+    int search_expr,
+    int target_expr)
+{
+    struct match_info* match_info = match_info_vec_emplace(matched_nodes);
+    if (match_info == NULL)
+        return -1;
+    match_info->var_idx      = var_idx;
+    match_info->ruleset_node = search_expr;
+    match_info->target_node  = target_expr;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -230,16 +265,16 @@ static enum match_result match_subtree(
             int i;
             struct match_info* match_info;
 
+            if (match_info_add(
+                    matched_nodes,
+                    search_node->value.var_idx,
+                    search_expr,
+                    target_expr) != 0)
+                return MATCH_OOM;
+
             /* We can key on var_idx here instead of having to compare strings,
              * because csfg_expr_pool::var_names guarantees uniqueness. Both
              * structs point into the same varnames strlist */
-
-            match_info = match_info_vec_emplace(matched_nodes);
-            if (match_info == NULL)
-                return MATCH_OOM;
-            match_info->var_idx      = search_node->value.var_idx;
-            match_info->ruleset_node = search_expr;
-            match_info->target_node  = target_expr;
 
             /* If the search pattern uses the same variable again, then we must
              * check if the last subtree is the same as this subtree. */
@@ -341,6 +376,12 @@ static int zip_related_chains(
             }
     return chain_len;
 }
+static void unzip(struct csfg_expr_pool** target_pool, int* target_expr)
+{
+    csfg_rules_run(
+        target_pool, remove_zero_summands, remove_one_products, NULL);
+    *target_expr = csfg_expr_gc(*target_pool, *target_expr);
+}
 
 /* -------------------------------------------------------------------------- */
 static void rotate_related_chains(
@@ -432,26 +473,29 @@ static int dup_replace_tree(
 /* -------------------------------------------------------------------------- */
 static void collapse_gc_nodes(struct csfg_expr_pool* pool)
 {
-    int n, i;
-again:
-    for (n = 0; n != csfg_expr_pool_count(pool); ++n)
-        for (i = 0; i != 2; ++i)
-        {
-            int child   = pool->nodes[n].child[i];
-            int sibling = pool->nodes[n].child[1 - i];
-            if (child > -1 && pool->nodes[n].type != CSFG_EXPR_GC &&
-                pool->nodes[child].type == CSFG_EXPR_GC)
+    int n, i, modified;
+    do
+    {
+        modified = 0;
+        for (n = 0; n != csfg_expr_pool_count(pool); ++n)
+            for (i = 0; i != 2; ++i)
             {
-                if (sibling > -1)
+                int child   = pool->nodes[n].child[i];
+                int sibling = pool->nodes[n].child[1 - i];
+                if (child > -1 && pool->nodes[n].type != CSFG_EXPR_GC &&
+                    pool->nodes[child].type == CSFG_EXPR_GC)
                 {
-                    pool->nodes[n] = pool->nodes[sibling];
-                    csfg_expr_mark_deleted(pool, sibling);
+                    if (sibling > -1)
+                    {
+                        pool->nodes[n] = pool->nodes[sibling];
+                        csfg_expr_mark_deleted_shallow(pool, sibling);
+                    }
+                    else
+                        csfg_expr_mark_deleted_shallow(pool, n);
+                    modified = 1;
                 }
-                else
-                    csfg_expr_mark_deleted(pool, n);
-                goto again;
             }
-        }
+    } while (modified);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -462,40 +506,15 @@ static int replace_subtree(
     int replace_expr,
     const struct match_info_vec* matched_nodes)
 {
-    int replace_expr_dup;
-    const struct match_info* match_info;
-    enum csfg_expr_type target_node_type =
-        (*target_pool)->nodes[target_expr].type;
-
-    replace_expr_dup = dup_replace_tree(
+    int replace_expr_dup = dup_replace_tree(
         target_pool, replace_pool, replace_expr, matched_nodes);
     if (replace_expr_dup < 0)
         return -1;
 
-    vec_for_each (matched_nodes, match_info)
-        csfg_expr_mark_deleted_recursive(*target_pool, match_info->target_node);
-
-    switch (target_node_type)
-    {
-        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); return -1;
-        case CSFG_EXPR_LIT: CSFG_DEBUG_ASSERT(0); return -1;
-        case CSFG_EXPR_VAR: CSFG_DEBUG_ASSERT(0); return -1;
-        case CSFG_EXPR_INF: CSFG_DEBUG_ASSERT(0); return -1;
-        case CSFG_EXPR_NEG: CSFG_DEBUG_ASSERT(0); return -1;
-
-        case CSFG_EXPR_ADD:
-        case CSFG_EXPR_MUL:
-        case CSFG_EXPR_POW:
-            csfg_expr_set_binop(
-                *target_pool,
-                target_expr,
-                target_node_type,
-                replace_expr_dup,
-                csfg_expr_dup_single(target_pool, target_expr));
-            break;
-    }
-
-    collapse_gc_nodes(*target_pool);
+    csfg_expr_mark_deleted_recursive(*target_pool, target_expr);
+    (*target_pool)->nodes[target_expr] =
+        (*target_pool)->nodes[replace_expr_dup];
+    csfg_expr_mark_deleted_shallow(*target_pool, replace_expr_dup);
 
     return 0;
 }
@@ -539,8 +558,13 @@ static int run_ruleset(
                 case MATCH_NONE:
                     /* This rotates the chains back to their original state, so
                      * we can preserve ordering for the next match */
-                    while (permutation-- > 0)
-                        rotate_related_chains(*target_pool, *matched_nodes);
+                    if (permutation > 0)
+                    {
+                        while (permutation-- > 0)
+                            rotate_related_chains(*target_pool, *matched_nodes);
+                        unzip(target_pool, expr);
+                        debug_print_unzip(*target_pool, *expr);
+                    }
                     continue;
                 case MATCH_FOUND: break;
                 case MATCH_NEXT_PERMUTATION:
@@ -550,6 +574,7 @@ static int run_ruleset(
                             zip_related_chains(target_pool, *matched_nodes);
                         if (permutation < 0)
                             return -1;
+                        debug_print_zip(*target_pool, *expr);
                     }
                     if (permutation-- > 0)
                     {
@@ -557,6 +582,8 @@ static int run_ruleset(
                         debug_print_rotate(*target_pool, *expr);
                         goto next_permutation;
                     }
+                    unzip(target_pool, expr);
+                    debug_print_unzip(*target_pool, *expr);
                     continue;
             }
 
@@ -568,11 +595,21 @@ static int run_ruleset(
                     ruleset->expr_replace,
                     *matched_nodes) != 0)
                 return -1;
-            csfg_rules_run(
-                target_pool, remove_zero_summands, remove_one_products, NULL);
+            debug_print_replace_subtree_after(*target_pool, *expr);
+
+            if (permutation > 0)
+            {
+                csfg_rules_run(
+                    target_pool,
+                    remove_zero_summands,
+                    remove_one_products,
+                    NULL);
+            }
             csfg_expr_canonicalize(*target_pool, *expr);
             *expr = csfg_expr_gc(*target_pool, *expr);
-            debug_print_replace_subtree_after(*target_pool, *expr);
+            if (permutation > 0)
+                debug_print_unzip(*target_pool, *expr);
+
             modified = 1;
         }
     }

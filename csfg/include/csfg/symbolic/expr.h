@@ -158,15 +158,15 @@ int csfg_expr_dup_recurse_from(
     struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n);
 int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n);
 /* Copy a single node. All fields. */
-int csfg_expr_dup_single_from(
+int csfg_expr_dup_shallow_from(
     struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n);
-int csfg_expr_dup_single(struct csfg_expr_pool** pool, int n);
+int csfg_expr_dup_shallow(struct csfg_expr_pool** pool, int n);
 
 /* Mark for deletion (does not modify any other nodes, i.e. iterators remain
  * valid). csfg_expr_gc() removes all marked nodes and shrinks the array.
  * Indices will be modified, including potentially the root node. The new root
  * node is returned. These functions cannot fail. */
-void csfg_expr_mark_deleted(struct csfg_expr_pool* pool, int n);
+void csfg_expr_mark_deleted_shallow(struct csfg_expr_pool* pool, int n);
 void csfg_expr_mark_deleted_recursive(struct csfg_expr_pool* pool, int n);
 int csfg_expr_gc(struct csfg_expr_pool* pool, int root);
 

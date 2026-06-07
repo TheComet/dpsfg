@@ -12,9 +12,56 @@ extern "C" {
 
 #define NAME test_rule_simplify
 
+namespace {
+
+struct TestParam
+{
+    const char* input;
+    const char* expected_output;
+    int expected_run_result;
+};
+
+const struct TestParam TEST_PARAMETERS[] = {
+    {"a*(b+c)/(b+d)", "a*(b+c)/(b+d)", 0},
+    {"a*(b+c)/(b+c)", "a", 1},
+    {"a*(b+c)+b*(b+c)", "(b+c)*(a+b)", 1},
+    {"a*b/(b+c) + a*c/(b+c)", "a*b + a*c", 1},
+
+    {
+     "-G1*(C*s+G1+G2)"
+        "/(C*s*(C*s+G1+G2) + G2*(C*s+G1+G2))", "-G1/(C*s+G2)",
+     1, },
+
+    {"G1*(s*C+G2+G1)*(s*C+G2+G1)"
+     "/((s*C+G2+G1)*(s*C+G2+G1)*(s*C+G2))", "-(G1/(C*s+G2))",
+     1},
+
+    /*   -G1*(G2+s*C)
+     * -----------------
+     * (G2+s*C)*(s*C+G2) */
+    {"-1*(G1*(G2+s*C))"
+     "/(1*((s*C+G2)*(G2+C*s)))", "-G1/(C*s+G2)",
+     1},
+
+    /*         -G1*(G1+G2+C*s)
+     * --------------------------------
+     * C*s*(C*s+G2+G1) + G2*(C*s+G1+G2) */
+    {"-G1*(C*s+G1+G2) "
+     "/ (C*s*(C*s+G2+G1) + G2*(G2+s*C+G1))", "-G1/(C*s+G2)",
+     1},
+};
+
+std::ostream& operator<<(std::ostream& os, const TestParam& p)
+{
+    os << p.input << " --> " << p.expected_output;
+    return os;
+}
+
+} // namespace
+
 using namespace testing;
 
-struct NAME : public Test, public ExprHelper
+struct NAME : public TestWithParam<TestParam>, public ExprHelper
 {
     void SetUp() override
     {
@@ -41,130 +88,19 @@ struct NAME : public Test, public ExprHelper
     struct csfg_expr_pool* expected_pool;
 };
 
-TEST_F(NAME, pattern_match1)
+INSTANTIATE_TEST_SUITE_P(, NAME, ValuesIn(TEST_PARAMETERS));
+
+TEST_P(NAME, test)
 {
-    int actual   = csfg_expr_parse(&pool, cstr_view("a*(b+c)/(b+c)"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("a"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
-
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, pattern_match2)
-{
-    int actual   = csfg_expr_parse(&pool, cstr_view("(x+y)*s/(x+y)"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("a"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
-
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, pattern_match3)
-{
-    int actual   = csfg_expr_parse(&pool, cstr_view("a*(b+c)+b*(b+c)"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("(b+c)*(a+b)"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
-
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, pattern_match4)
-{
-    int actual = csfg_expr_parse(
-        &pool, cstr_view("-G1*(C*s+G1+G2)/(C*s*(C*s+G1+G2) + G2*(C*s+G1+G2))"));
-    int expected = csfg_expr_parse(
-        &expected_pool, cstr_view("-G1*(C*s+G1+G2)/((C*s+G2)*(C*s+G1+G2))"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
-
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, pattern_match5)
-{
-    int actual = csfg_expr_parse(&pool, cstr_view("a*b/(b+c) + a*c/(b+c)"));
+    int input = csfg_expr_parse(&pool, cstr_view(GetParam().input));
     int expected =
-        csfg_expr_parse(&expected_pool, cstr_view("a*(b/(b+c) + c/(b+c))"));
-    ASSERT_GE(actual, 0);
+        csfg_expr_parse(&expected_pool, cstr_view(GetParam().expected_output));
+    ASSERT_GE(input, 0);
     ASSERT_GE(expected, 0);
 
-    ASSERT_EQ(csfg_rulebook_run(&book, "factor", &pool, &actual), 1);
+    EXPECT_EQ(
+        csfg_rulebook_run(&book, "simplify", &pool, &input),
+        GetParam().expected_run_result);
 
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, no_simplification1)
-{
-    int actual   = csfg_expr_parse(&pool, cstr_view("a*(b+c)/(b+d)"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("a*(b+c)/(b+d)"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 0);
-
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, case1)
-{
-    /*
-     *   -G1*(G2+s*C)
-     * -----------------
-     * (G2+s*C)*(s*C+G2)
-     */
-    int actual = csfg_expr_parse(
-        &pool, cstr_view("-1*(G1*(G2+s*C))/(1*((s*C+G2)*(G2+C*s)))"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("-(G1/(s*C+G2))"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
-
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, case2)
-{
-    /*
-     *         -G1*(G1+G2+C*s)
-     * --------------------------------
-     * C*s*(C*s+G2+G1) + G2*(C*s+G1+G2)
-     */
-    int actual = csfg_expr_parse(
-        &pool,
-        cstr_view("-G1*(C*s+G1+G2) / (C*s*(C*s+G2+G1) + G2*(G2+s*C+G1))"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("-(G1/(C*s+G2))"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
-
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
-}
-
-TEST_F(NAME, case3)
-{
-    int actual = csfg_expr_parse(
-        &pool,
-        cstr_view(
-            "G1*(s*C+G2+G1)*(s*C+G2+G1)/"
-            "((s*C+G2+G1)*(s*C+G2+G1)*(s*C+G2))"));
-    int expected = csfg_expr_parse(&expected_pool, cstr_view("-(G1/(C*s+G2))"));
-    ASSERT_GE(actual, 0);
-    ASSERT_GE(expected, 0);
-
-    ASSERT_EQ(csfg_rulebook_run(&book, "simplify", &pool, &actual), 1);
-
-    ASSERT_TRUE(ExprEq(pool, actual, expected_pool, expected));
+    ASSERT_TRUE(ExprEq(pool, input, expected_pool, expected));
 }

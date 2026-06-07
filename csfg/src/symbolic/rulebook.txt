@@ -91,10 +91,7 @@ remove_useless_ops {
 //extern expand_constant_exponents
 
 factor {
-    "s*a + s*b" --> "s*(a+b)"
-    "s*a + b*s" --> "s*(a+b)"
-    "a*s + s*b" --> "s*(a+b)"
-    "a*s + b*s" --> "s*(a+b)"
+    "a*x + b*x" --> "(a+b)*x"
 
     "-(s*a) + -(s*b)" --> "-(s*(a+b))"
     "-(s*a) + -(b*s)" --> "-(s*(a+b))"
@@ -119,9 +116,8 @@ expand {
 }
 
 simplify {
-    "a*1" --> "a"
-    //expand [ignore]
-    //remove_useless_ops
-    //factor [ignore]
-    //remove_useless_ops
+    expand [ignore]
+    remove_useless_ops
+    factor [ignore]
+    remove_useless_ops
 }

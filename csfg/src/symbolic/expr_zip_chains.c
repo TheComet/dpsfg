@@ -66,7 +66,7 @@ static int insert_identity(
         *pool,
         chain,
         op_type,
-        csfg_expr_dup_single(pool, chain),
+        csfg_expr_dup_shallow(pool, chain),
         csfg_expr_lit(pool, identity_value_for_type(op_type)));
 }
 
@@ -79,7 +79,7 @@ static int append_identity(
             chain,
             op_type,
             csfg_expr_lit(pool, identity_value_for_type(op_type)),
-            csfg_expr_dup_single(pool, chain)) < 0)
+            csfg_expr_dup_shallow(pool, chain)) < 0)
         return -1;
     return (*pool)->nodes[chain].child[0];
 }
@@ -111,14 +111,20 @@ int csfg_expr_zip_chains(struct csfg_expr_pool** pool, int chain_a, int chain_b)
     CSFG_DEBUG_ASSERT(csfg_expr_is_canonicalized(*pool, chain_b));
 
     if (chain_a == chain_b)
-        return 1;
+        return 0;
 
     if (is_binop((*pool)->nodes[chain_a].type))
+    {
+        /* If both are binops, then they must match */
+        if (is_binop((*pool)->nodes[chain_b].type) &&
+            (*pool)->nodes[chain_a].type != (*pool)->nodes[chain_b].type)
+            return 0;
         op_type = (*pool)->nodes[chain_a].type;
+    }
     else if (is_binop((*pool)->nodes[chain_b].type))
         op_type = (*pool)->nodes[chain_b].type;
     else
-        return 1;
+        return 0;
 
     for (i = 0;; i++)
     {

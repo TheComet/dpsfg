@@ -14,23 +14,31 @@ struct TestParam
 {
     const char* input;
     const char* expected_output;
+    bool is_initially_canonical;
 };
 
 const struct TestParam TEST_PARAMETERS[] = {
-    {"1*1", "1*1"},
-    {"c+b+a", "a+b+c"},
-    {"s*C+G1", "G1+C*s"},
-    {"G1+s*C", "G1+C*s"},
-    {"(i+g+h)*(c+b+a)", "(a+b+c)*(g+h+i)"},
-    {"y*(c+b+a) + x*(i+g+h) + (i+h+g)*y", /**/
-     "x*(g+h+i) + y*(a+b+c) + y*(g+h+i)"},
+    {"1*1", "1*1", true},
+    {"c+b+a", "a+b+c", false},
+    {"s*C+G1", "G1+C*s", false},
+    {"G1+s*C", "G1+C*s", false},
+    {"(i+g+h)*(c+b+a)", "(a+b+c)*(g+h+i)", false},
+    {
+     "y*(c+b+a) + x*(i+g+h) + (i+h+g)*y", /**/
+        "x*(g+h+i) + y*(a+b+c) + y*(g+h+i)", false,
+     },
     {
      "a+(b+(c+(d+(e+(f+(g+(h+(i+(j+(k+(l+(m+(n+(o+p))))))))))))))", /**/
-        "a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p", },
-    {"(((a+b)+(c+d))+((e+f)+(g+h)))+(((i+j)+(k+l))+((m+n)+(o+p)))",
-     "a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p"},
-    {"-G1*(s*C+G1+G2) / (C*s*(s*C+G1+G2) + G2*(s*C+G1+G2))",
-     "-G1*(G1+G2+C*s) / (G2*(G1+G2+C*s) + C*s*(G1+G2+C*s))"},
+        "a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p", false,
+     },
+    {
+     "(((a+b)+(c+d))+((e+f)+(g+h)))+(((i+j)+(k+l))+((m+n)+(o+p)))", /**/
+        "a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p", false,
+     },
+    {
+     "-G1*(s*C+G1+G2) / (C*s*(s*C+G1+G2) + G2*(s*C+G1+G2))", /**/
+        "-G1*(G1+G2+C*s) / (G2*(G1+G2+C*s) + C*s*(G1+G2+C*s))", false,
+     },
 };
 
 std::ostream& operator<<(std::ostream& os, const TestParam& p)
@@ -52,7 +60,7 @@ struct NAME : public TestWithParam<TestParam>, public ExprHelper
 
 INSTANTIATE_TEST_SUITE_P(, NAME, ValuesIn(TEST_PARAMETERS));
 
-TEST_P(NAME, test)
+TEST_P(NAME, canonicalize)
 {
     int actual   = csfg_expr_parse(&p, cstr_view(GetParam().input));
     int expected = csfg_expr_parse(&p, cstr_view(GetParam().expected_output));
@@ -60,4 +68,13 @@ TEST_P(NAME, test)
     csfg_expr_canonicalize(p, actual);
 
     ASSERT_TRUE(ExprEq(p, actual, p, expected));
+}
+
+TEST_P(NAME, is_canonicalized)
+{
+    int actual = csfg_expr_parse(&p, cstr_view(GetParam().input));
+
+    ASSERT_EQ(
+        csfg_expr_is_canonicalized(p, actual),
+        GetParam().is_initially_canonical);
 }
