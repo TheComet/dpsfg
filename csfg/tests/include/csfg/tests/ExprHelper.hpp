@@ -25,7 +25,7 @@ struct ExprHelper
         std::cerr << "Expected: " << str_cstr(str) << std::endl;
         str_clear(str);
         csfg_expr_to_str(&str, actual_pool, actual);
-        std::cerr << "Actual: " << str_cstr(str) << std::endl;
+        std::cerr << "Actual  : " << str_cstr(str) << std::endl;
         str_deinit(str);
         return false;
     }
@@ -47,7 +47,7 @@ struct ExprHelper
             std::cerr << "Expected: " << str_cstr(str) << std::endl;
             str_clear(str);
             csfg_expr_to_str(&str, pool, n);
-            std::cerr << "Actual: " << str_cstr(str) << std::endl;
+            std::cerr << "Actual  : " << str_cstr(str) << std::endl;
             str_deinit(str);
         }
 

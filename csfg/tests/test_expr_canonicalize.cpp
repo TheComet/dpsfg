@@ -64,6 +64,8 @@ TEST_P(NAME, canonicalize)
 {
     int actual   = csfg_expr_parse(&p, cstr_view(GetParam().input));
     int expected = csfg_expr_parse(&p, cstr_view(GetParam().expected_output));
+    ASSERT_GE(actual, 0);
+    ASSERT_GE(expected, 0);
 
     csfg_expr_canonicalize(p, actual);
 

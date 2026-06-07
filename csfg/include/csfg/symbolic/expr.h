@@ -94,6 +94,7 @@ int csfg_expr_lexicographical_compare(
 int csfg_expr_zip_chains(struct csfg_expr_pool** pool, int chain1, int chain2);
 
 void csfg_expr_rotate_chain(struct csfg_expr_pool* pool, int chain);
+int csfg_expr_next_chain_permutation(struct csfg_expr_pool* pool, int chain);
 
 /*! Main function used to allocate a new node */
 int csfg_expr_new(
