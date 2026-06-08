@@ -15,10 +15,10 @@ VEC_DEFINE(node_idx_vec, int, 16)
 
 enum match_result
 {
-    MATCH_OOM              = -1,
-    MATCH_NONE             = 0,
-    MATCH_FOUND            = 1,
-    MATCH_NEXT_PERMUTATION = 2
+    MATCH_OOM           = -1,
+    MATCH_NONE          = 0,
+    MATCH_FOUND         = 1,
+    MATCH_NEXT_ROTATION = 2
 };
 
 struct match_info
@@ -238,8 +238,8 @@ combine_match_results(enum match_result r1, enum match_result r2)
     if (r1 == MATCH_NONE || r2 == MATCH_NONE)
         return MATCH_NONE;
 
-    if (r1 == MATCH_NEXT_PERMUTATION || r2 == MATCH_NEXT_PERMUTATION)
-        return MATCH_NEXT_PERMUTATION;
+    if (r1 == MATCH_NEXT_ROTATION || r2 == MATCH_NEXT_ROTATION)
+        return MATCH_NEXT_ROTATION;
 
     return MATCH_FOUND;
 }
@@ -286,7 +286,7 @@ static enum match_result match_subtree(
                             target_pool,
                             match_info->target_node))
                     {
-                        return MATCH_NEXT_PERMUTATION;
+                        return MATCH_NEXT_ROTATION;
                     }
 
             return MATCH_FOUND;
@@ -527,7 +527,7 @@ static int run_ruleset(
     const struct csfg_expr_pool* ruleset_pool,
     const struct csfg_ruleset* ruleset)
 {
-    int n, permutation, modified = 0;
+    int n, rotation, modified = 0;
 
     if (ruleset->extern_run != NULL)
     {
@@ -544,8 +544,8 @@ static int run_ruleset(
     {
         for (n = 0; n < vec_count(*target_pool); ++n)
         {
-            permutation = -1;
-        next_permutation:
+            rotation = -1;
+        next_rotation:
             match_info_vec_clear(*matched_nodes);
             switch (match_subtree(
                 matched_nodes,
@@ -558,29 +558,29 @@ static int run_ruleset(
                 case MATCH_NONE:
                     /* This rotates the chains back to their original state, so
                      * we can preserve ordering for the next match */
-                    if (permutation > 0)
+                    if (rotation > 0)
                     {
-                        while (permutation-- > 0)
+                        while (rotation-- > 0)
                             rotate_related_chains(*target_pool, *matched_nodes);
                         unzip(target_pool, expr);
                         debug_print_unzip(*target_pool, *expr);
                     }
                     continue;
                 case MATCH_FOUND: break;
-                case MATCH_NEXT_PERMUTATION:
-                    if (permutation == -1)
+                case MATCH_NEXT_ROTATION:
+                    if (rotation == -1)
                     {
-                        permutation =
+                        rotation =
                             zip_related_chains(target_pool, *matched_nodes);
-                        if (permutation < 0)
+                        if (rotation < 0)
                             return -1;
                         debug_print_zip(*target_pool, *expr);
                     }
-                    if (permutation-- > 0)
+                    if (rotation-- > 0)
                     {
                         rotate_related_chains(*target_pool, *matched_nodes);
                         debug_print_rotate(*target_pool, *expr);
-                        goto next_permutation;
+                        goto next_rotation;
                     }
                     unzip(target_pool, expr);
                     debug_print_unzip(*target_pool, *expr);
@@ -597,7 +597,7 @@ static int run_ruleset(
                 return -1;
             debug_print_replace_subtree_after(*target_pool, *expr);
 
-            if (permutation > 0)
+            if (rotation > 0)
             {
                 csfg_rules_run(
                     target_pool,
@@ -607,7 +607,7 @@ static int run_ruleset(
             }
             csfg_expr_canonicalize(*target_pool, *expr);
             *expr = csfg_expr_gc(*target_pool, *expr);
-            if (permutation > 0)
+            if (rotation > 0)
                 debug_print_unzip(*target_pool, *expr);
 
             modified = 1;
