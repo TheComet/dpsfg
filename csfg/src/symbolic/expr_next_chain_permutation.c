@@ -1,53 +1,108 @@
 #include "csfg/symbolic/expr.h"
+#include "csfg/util/mem.h"
+#include <assert.h>
 
 /* -------------------------------------------------------------------------- */
-/*     *
- *    / \
- *   *   a
- *  / \
- * c   b
- */
-static int find_pivot(
-    const struct csfg_expr_pool* pool, int chain, enum csfg_expr_type op_type)
+static int*
+find_pivot(struct csfg_expr_pool* pool, int chain, enum csfg_expr_type op_type)
 {
-    int value, next_value;
-    value = pool->nodes[chain].child[1];
+    int next_chain, *value, *next_value;
+    value = &pool->nodes[chain].child[1];
     while (1)
     {
-        chain      = pool->nodes[chain].child[0];
-        next_value = pool->nodes[chain].type == op_type
-                       ? pool->nodes[chain].child[1]
-                       : chain;
-        if (next_value < value)
+        next_chain = pool->nodes[chain].child[0];
+        next_value = pool->nodes[next_chain].type == op_type
+                       ? &pool->nodes[next_chain].child[1]
+                       : &pool->nodes[chain].child[0];
+        if (csfg_expr_lexicographical_compare(pool, *value, *next_value) < 0)
             return next_value;
-        if (pool->nodes[chain].type != op_type)
-            return -1;
         value = next_value;
+        chain = next_chain;
+        if (pool->nodes[chain].type != op_type)
+            return NULL;
     }
 }
 
 /* -------------------------------------------------------------------------- */
-/*        *             *
- *       / \           / \
- *      *   a   -->   *   d
- *     / \           / \
- *    *   b         *   c
- *   / \           / \
- *  d   c         a   b
- */
-static void reverse_chain(
+static int* find_successor(
     struct csfg_expr_pool* pool,
-    int n,
+    int chain,
+    int pivot,
+    enum csfg_expr_type op_type)
+{
+    int* value;
+    while (1)
+    {
+        /* The successor must always exist, otherwise something is wrong with
+         * the algoritihm */
+        CSFG_DEBUG_ASSERT(pool->nodes[chain].type == op_type);
+        value = &pool->nodes[chain].child[1];
+        if (csfg_expr_lexicographical_compare(pool, pivot, *value) > 0)
+            return value;
+        chain = pool->nodes[chain].child[0];
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static int reverse_chain(
+    struct csfg_expr_pool* pool,
+    int chain,
     int stop_at_value,
     enum csfg_expr_type op_type)
 {
+    int n, value;
+
+    int values_count = 0, values_capacity = 64;
+    int values_stack[64];
+    int* values_vec = values_stack;
+#define values_vec_push(value)                                                 \
+    if (values_count == values_capacity)                                       \
+    {                                                                          \
+        int* new_values;                                                       \
+        values_capacity *= 2;                                                  \
+        new_values =                                                           \
+            values_count == sizeof(values_stack) / sizeof(*values_stack)       \
+                ? mem_alloc(sizeof(*values_stack) * values_capacity)           \
+                : mem_realloc(                                                 \
+                      values_vec, sizeof(*values_stack) * values_capacity);    \
+        if (new_values == NULL)                                                \
+            return -1;                                                         \
+    }                                                                          \
+    values_vec[values_count++] = value;
+
+    n = chain;
+    while (1)
+    {
+        value = pool->nodes[n].type == op_type ? pool->nodes[n].child[1] : n;
+        if (value == stop_at_value)
+            break;
+        values_vec_push(value);
+        if (pool->nodes[n].type != op_type)
+            break;
+        n = pool->nodes[n].child[0];
+    }
+
+    n = chain;
+    while (values_count > 0)
+    {
+        pool->nodes[n].child[1] = values_vec[--values_count];
+        if (pool->nodes[pool->nodes[n].child[0]].type != op_type)
+            if (values_count > 0)
+                pool->nodes[n].child[0] = values_vec[--values_count];
+        n = pool->nodes[n].child[0];
+    }
+
+    if (values_capacity != 64)
+        mem_free(values_vec);
+
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
 int csfg_expr_next_chain_permutation(struct csfg_expr_pool* pool, int chain)
 {
     enum csfg_expr_type op_type;
-    int pivot;
+    int tmp, *pivot, *successor;
 
     op_type = pool->nodes[chain].type;
     switch (op_type)
@@ -64,25 +119,18 @@ int csfg_expr_next_chain_permutation(struct csfg_expr_pool* pool, int chain)
     }
 
     pivot = find_pivot(pool, chain, op_type);
-    /* If pivot point does not exist, reverse the whole array */
-    if (pivot == -1)
+    if (pivot == NULL)
     {
-        reverse(arr.begin(), arr.end());
-        return;
+        /* If pivot point does not exist, reverse the whole array */
+        reverse_chain(pool, chain, -1, op_type);
+        return 0;
     }
 
-    // find the element from the right that
-    // is greater than pivot
-    for (int i = n - 1; i > pivot; i--)
-    {
-        if (arr[i] > arr[pivot])
-        {
-            swap(arr[i], arr[pivot]);
-            break;
-        }
-    }
+    successor  = find_successor(pool, chain, *pivot, op_type);
+    tmp        = *pivot;
+    *pivot     = *successor;
+    *successor = tmp;
 
-    // Reverse the elements from pivot + 1 to the
-    // end to get the next permutation
-    reverse(arr.begin() + pivot + 1, arr.end());
+    reverse_chain(pool, chain, *pivot, op_type);
+    return 1;
 }

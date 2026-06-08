@@ -10,6 +10,15 @@ extern "C" {
 
 struct ExprHelper
 {
+    void PrintExpr(std::ostream& os, const struct csfg_expr_pool* pool, int n)
+    {
+        struct str* str;
+        str_init(&str);
+        csfg_expr_to_str(&str, pool, n);
+        os << str_cstr(str);
+        str_deinit(str);
+    }
+
     bool ExprEq(
         const struct csfg_expr_pool* actual_pool,
         int actual,
@@ -19,14 +28,11 @@ struct ExprHelper
         if (csfg_expr_equal(actual_pool, actual, expected_pool, expected))
             return true;
 
-        struct str* str;
-        str_init(&str);
-        csfg_expr_to_str(&str, expected_pool, expected);
-        std::cerr << "Expected: " << str_cstr(str) << std::endl;
-        str_clear(str);
-        csfg_expr_to_str(&str, actual_pool, actual);
-        std::cerr << "Actual  : " << str_cstr(str) << std::endl;
-        str_deinit(str);
+        std::cerr << "Expected: ";
+        PrintExpr(std::cerr, expected_pool, expected);
+        std::cerr << std::endl << "Actual  : ";
+        PrintExpr(std::cerr, actual_pool, actual);
+        std::cerr << std::endl;
         return false;
     }
 
@@ -41,14 +47,11 @@ struct ExprHelper
         bool result = csfg_expr_equal(pool, n, compare_pool, compare_expr);
         if (!result)
         {
-            struct str* str;
-            str_init(&str);
-            csfg_expr_to_str(&str, compare_pool, compare_expr);
-            std::cerr << "Expected: " << str_cstr(str) << std::endl;
-            str_clear(str);
-            csfg_expr_to_str(&str, pool, n);
-            std::cerr << "Actual  : " << str_cstr(str) << std::endl;
-            str_deinit(str);
+            std::cerr << "Expected: ";
+            PrintExpr(std::cerr, compare_pool, compare_expr);
+            std::cerr << std::endl << "Actual  : ";
+            PrintExpr(std::cerr, pool, n);
+            std::cerr << std::endl;
         }
 
         csfg_expr_pool_deinit(compare_pool);

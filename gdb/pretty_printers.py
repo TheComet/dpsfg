@@ -5,6 +5,9 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 if this_dir not in sys.path:
     sys.path.insert(0, this_dir)
 
+import plot
+import mathprint
+
 from rb import rb_PrettyPrinter
 from vec import vec_PrettyPrinter
 from bmap import bmap_PrettyPrinter
@@ -50,6 +53,3 @@ def factories(val):
 
 
 gdb.pretty_printers.append(factories)
-
-import plot
-import mathprint
