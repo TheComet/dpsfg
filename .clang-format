@@ -65,6 +65,7 @@ ForEachMacros: [
     vec_for_each_range,
     vec_enumerate,
     vec_enumerate_r,
+    vec_enumerate_range,
     csfg_graph_for_each_node,
     csfg_graph_for_each_edge,
     csfg_graph_enumerate_nodes,

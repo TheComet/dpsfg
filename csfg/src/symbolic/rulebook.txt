@@ -54,19 +54,10 @@ simplify_negates {
 
 simplify_divisions {
     "a*b/b" --> "a"
-    "b*a/b" --> "a"
+    "a*b/(c*b)" --> "a/c"
     "-(a*b)/b" --> "-a"
     "-(b*a)/b" --> "-a"
-
-    "a*b/(c*b)" --> "a/c"
-    "a*b/(b*c)" --> "a/c"
-    "b*a/(c*b)" --> "a/c"
-    "b*a/(b*c)" --> "a/c"
-
     "-(a*b)/(c*b)" --> "-(a/c)"
-    "-(a*b)/(b*c)" --> "-(a/c)"
-    "-(b*a)/(c*b)" --> "-(a/c)"
-    "-(b*a)/(b*c)" --> "-(a/c)"
 }
 
 remove_useless_ops {
@@ -74,16 +65,15 @@ remove_useless_ops {
     simplify_negates
     simplify_divisions
 
-    "-(-a)" --> "a"
-    "0+a" --> "a"
-    "1*a" --> "a"
-    "a*1" --> "a"
-    "-1*a" --> "a"
-    "a*-1" --> "a"
-    "-(1*a)" --> "-a"
-    "-(a*1)" --> "-a"
-    "a^1" --> "a"
-    "a^0" --> "1"
+    //"-(-a)" --> "a"
+    //"0+a" --> "a"
+    //"1*a" --> "a"
+    //"-1*a" --> "a"
+    //"a*-1" --> "a"
+    //"-(1*a)" --> "-a"
+    //"-(a*1)" --> "-a"
+    //"a^1" --> "a"
+    //"a^0" --> "1"
     "a*a^-1" --> "1"
     "a^-1^-1" --> "a"
 }
@@ -93,10 +83,10 @@ remove_useless_ops {
 factor {
     "a*x + b*x" --> "(a+b)*x"
 
-    "-(s*a) + -(s*b)" --> "-(s*(a+b))"
-    "-(s*a) + -(b*s)" --> "-(s*(a+b))"
-    "-(a*s) + -(s*b)" --> "-(s*(a+b))"
-    "-(a*s) + -(b*s)" --> "-(s*(a+b))"
+    //"-(s*a) + -(s*b)" --> "-(s*(a+b))"
+    //"-(s*a) + -(b*s)" --> "-(s*(a+b))"
+    //"-(a*s) + -(s*b)" --> "-(s*(a+b))"
+    //"-(a*s) + -(b*s)" --> "-(s*(a+b))"
 
     //"a + s^-c" --> "s^-c * (a*s^c + 1)"
     //"a + b*s^-c" --> "s^-c * (a*s^c + b)"
@@ -110,8 +100,8 @@ factor {
 }
 
 expand {
-    //    expand_constant_exponents
-    "s^(a+b)" --> "s^a * s^b"
+    // expand_constant_exponents
+    //"s^(a+b)" --> "s^a * s^b"
     "s*(a+b)" --> "s*a + s*b"
 }
 

@@ -30,6 +30,7 @@ set (csfg_SOURCES
     "src/util/bm.c"
     "src/util/hash.c"
     "src/util/log.c"
+    "src/util/permutation.c"
     "src/util/str.c"
     "src/util/strlist.c"
     "src/util/strview.c"
@@ -199,6 +200,7 @@ if (CSFG_TESTS)
         "tests/test_hmap_full.cpp"
         "tests/test_hset.cpp"
         "tests/test_mem.cpp"
+        "tests/test_permutation.cpp"
         "tests/test_strlist.cpp"
         "tests/test_strview.cpp"
         "tests/test_vec.cpp")

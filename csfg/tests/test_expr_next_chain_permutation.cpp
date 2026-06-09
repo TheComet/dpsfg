@@ -78,10 +78,15 @@ struct test_expr_next_chain_permutation_input_output
     void TearDown() override { csfg_expr_pool_deinit(p); }
     struct csfg_expr_pool* p;
 };
-
 struct test_expr_next_chain_permutation_full_cycle
     : public TestWithParam<TestParamFullCycle>,
       public ExprHelper
+{
+    void SetUp() override { csfg_expr_pool_init(&p); }
+    void TearDown() override { csfg_expr_pool_deinit(p); }
+    struct csfg_expr_pool* p;
+};
+struct test_expr_next_chain_permutation_sort : public Test, public ExprHelper
 {
     void SetUp() override { csfg_expr_pool_init(&p); }
     void TearDown() override { csfg_expr_pool_deinit(p); }
@@ -92,7 +97,6 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     test_expr_next_chain_permutation_input_output,
     ValuesIn(TEST_PARAMS_INPUT_OUTPUT));
-
 INSTANTIATE_TEST_SUITE_P(
     ,
     test_expr_next_chain_permutation_full_cycle,
@@ -124,5 +128,21 @@ TEST_P(test_expr_next_chain_permutation_full_cycle, test)
         permutations++;
 
     EXPECT_EQ(permutations, GetParam().expected_number_of_permutations);
+    EXPECT_TRUE(ExprEq(p, input, p, expected));
+}
+
+TEST_F(test_expr_next_chain_permutation_sort, test)
+{
+    int input    = csfg_expr_parse(&p, cstr_view("c*a*b*d"));
+    int expected = csfg_expr_parse(&p, cstr_view("a*b*c*d"));
+    ASSERT_GE(input, 0);
+    ASSERT_GE(expected, 0);
+
+    csfg_expr_canonicalize(p, input);
+    int permutations = 1;
+    while (csfg_expr_next_chain_permutation(p, input))
+        permutations++;
+
+    EXPECT_EQ(permutations, 24);
     EXPECT_TRUE(ExprEq(p, input, p, expected));
 }

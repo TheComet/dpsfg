@@ -541,6 +541,7 @@ int csfg_expr_collapse_sibling_into_parent_steal_orphan(
 int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n)
 {
     int p;
+    CSFG_DEBUG_ASSERT(n >= 0);
     for (p = 0; p != csfg_expr_pool_count(pool); ++p)
         if (pool->nodes[p].child[0] == n || pool->nodes[p].child[1] == n)
             if (pool->nodes[p].type != CSFG_EXPR_GC)

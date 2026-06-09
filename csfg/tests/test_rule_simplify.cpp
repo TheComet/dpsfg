@@ -24,7 +24,7 @@ struct TestParam
 const struct TestParam TEST_PARAMETERS[] = {
     {"a*(b+c)/(b+d)", "a*(b+c)/(b+d)", 0},
     {"a*(b+c)/(b+c)", "a", 1},
-    {"a*(b+c)+b*(b+c)", "(b+c)*(a+b)", 1},
+    {"(a*b + a*c + b*b + b*c)/(b+c)", "a+b", 1},
     {"a*b/(b+c) + a*c/(b+c)", "a*b + a*c", 1},
 
     {

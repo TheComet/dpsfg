@@ -122,7 +122,8 @@ int csfg_expr_next_chain_permutation(struct csfg_expr_pool* pool, int chain)
     if (pivot == NULL)
     {
         /* If pivot point does not exist, reverse the whole array */
-        reverse_chain(pool, chain, -1, op_type);
+        if (reverse_chain(pool, chain, -1, op_type) != 0)
+            return -1;
         return 0;
     }
 
@@ -131,6 +132,7 @@ int csfg_expr_next_chain_permutation(struct csfg_expr_pool* pool, int chain)
     *pivot     = *successor;
     *successor = tmp;
 
-    reverse_chain(pool, chain, *pivot, op_type);
+    if (reverse_chain(pool, chain, *pivot, op_type) != 0)
+        return -1;
     return 1;
 }
