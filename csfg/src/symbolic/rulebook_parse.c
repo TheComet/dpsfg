@@ -13,7 +13,7 @@
     X(COMMA, ',')
 
 #define KEYWORD_LIST                                                           \
-    X(EXTERN, "extern")                                                        \
+    X(BUILTIN, "builtin")                                                      \
     X(CONST, "const")                                                          \
     X(IGNORE, "ignore")                                                        \
     X(TRANSLATES_TO, "-->")
@@ -87,7 +87,7 @@ add_ruleset(struct csfg_ruleset_vec** rulesets, int* ruleset_idx)
 
     ruleset->expr_search  = -1;
     ruleset->expr_replace = -1;
-    ruleset->extern_run   = NULL;
+    ruleset->builtin_run  = NULL;
     ruleset->next         = -1;
     ruleset->child        = -1;
     ruleset->ignore       = 0;
@@ -367,10 +367,10 @@ static int parse(struct parser* p, struct csfg_rulebook* book)
             case TOK_ERROR: return -1;
             case TOK_END  : return 0;
 
-            case TOK_EXTERN: {
+            case TOK_BUILTIN: {
                 if (scan_next(p) != TOK_IDENTIFIER)
                     return parser_error(
-                        p, "Expected an identifier after 'extern'\n");
+                        p, "Expected an identifier after 'builtin'\n");
                 if (strview_eq_cstr(p->value.str, "fold_constants"))
                 {
                 }
@@ -379,7 +379,7 @@ static int parse(struct parser* p, struct csfg_rulebook* book)
                 {
                 }
                 else
-                    return parser_error(p, "Unknown external function\n");
+                    return parser_error(p, "Unknown builtin function\n");
                 break;
             }
 

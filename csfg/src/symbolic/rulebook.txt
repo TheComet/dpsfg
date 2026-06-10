@@ -20,14 +20,13 @@
 //
 // Rules can be grouped together, and groups can be referenced within other
 // groups. On the C side of things, groups can be executed by referencing their
-// name by string.
+// name by string with csfg_rulebook_run(..., "my_group", ...).
 //
 // Execution ends when no more rules cause changes to the expression, however,
 // sometimes rules from one group might cause circular dependencies with rules
 // from another groups and execution will never end. Debug builds have a
 // mechanism to detect this, but generally, one has to be careful to avoid this
-// situation. A tool that can be used sometimes is to mark a group with
-// [ignore]:
+// situation. A useful technique can be to mark a group with [ignore]:
 //
 //     my_group {
 //        another_group [ignore]
@@ -39,31 +38,25 @@
 // modify the expression, even if "another_group" did, execution will still
 // end.
 
-//extern fold_constants
+//builtin fold_constants
+//builtin expand_constant_exponents
 
-simplify_negates {
-    "-a*b" --> "-(a*b)"
-    "-a/b" --> "-(a/b)"
-
-    "a*-b" --> "-(a*b)"
-    "a/-b" --> "-(a/b)"
-
-    "-a*-b" --> "a*b"
-    "-a/-b" --> "a/b"
+canonicalize_negates {
+    //"-a*b" --> "-(a*b)"
+    //"-a/b" --> "-(a/b)"
+    //"a*-b" --> "-(a*b)"
+    //"a/-b" --> "-(a/b)"
+    //"-a*-b" --> "a*b"
+    //"-a/-b" --> "a/b"
 }
 
-simplify_divisions {
+simplify {
     "a*b/b" --> "a"
-    "a*b/(c*b)" --> "a/c"
-    "-(a*b)/b" --> "-a"
-    "-(b*a)/b" --> "-a"
-    "-(a*b)/(c*b)" --> "-(a/c)"
 }
 
 remove_useless_ops {
     //fold_constants
-    simplify_negates
-    simplify_divisions
+    //canonicalize_negates
 
     //"-(-a)" --> "a"
     //"0+a" --> "a"
@@ -77,8 +70,6 @@ remove_useless_ops {
     "a*a^-1" --> "1"
     "a^-1^-1" --> "a"
 }
-
-//extern expand_constant_exponents
 
 factor {
     "a*x + b*x" --> "(a+b)*x"
@@ -105,9 +96,11 @@ expand {
     "s*(a+b)" --> "s*a + s*b"
 }
 
-simplify {
+reduce {
     expand [ignore]
+    simplify
     remove_useless_ops
     factor [ignore]
+    simplify
     remove_useless_ops
 }

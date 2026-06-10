@@ -531,7 +531,6 @@ int csfg_expr_collapse_sibling_into_parent_steal_orphan(
     CSFG_DEBUG_ASSERT(parent > -1);
     sibling = pool->nodes[parent].child[0] == n ? pool->nodes[parent].child[1]
                                                 : pool->nodes[parent].child[0];
-
     pool->nodes[parent] = pool->nodes[sibling];
     csfg_expr_mark_deleted_shallow(pool, sibling);
     return n;
@@ -547,6 +546,26 @@ int csfg_expr_find_parent(const struct csfg_expr_pool* pool, int n)
             if (pool->nodes[p].type != CSFG_EXPR_GC)
                 return p;
     return -1;
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_expr_is_child_of(
+    const struct csfg_expr_pool* pool, int parent, int child)
+{
+    int left, right;
+    CSFG_DEBUG_ASSERT(parent >= 0);
+    CSFG_DEBUG_ASSERT(child >= 0);
+    if (parent == child)
+        return 1;
+    left = pool->nodes[parent].child[0];
+    if (left >= 0)
+        if (csfg_expr_is_child_of(pool, left, child))
+            return 1;
+    right = pool->nodes[parent].child[1];
+    if (right >= 0)
+        if (csfg_expr_is_child_of(pool, right, child))
+            return 1;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */

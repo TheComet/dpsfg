@@ -161,7 +161,7 @@ if (CSFG_TESTS)
         "tests/test_rule_factor_common_denominator.cpp"
         "tests/test_rule_lower_negates.cpp"
         "tests/test_rule_rebalance_fraction.cpp"
-        "tests/test_rule_simplify.cpp"
+        "tests/test_rule_reduce.cpp"
         "tests/test_rule_simplify_products.cpp"
         "tests/test_rule_simplify_sums.cpp"
         "tests/test_rule_remove_useless_ops.cpp"

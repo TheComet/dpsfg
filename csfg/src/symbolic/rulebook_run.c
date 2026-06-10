@@ -38,6 +38,7 @@ VEC_DEFINE(match_info_vec, struct match_info, 8)
 #if DEBUG_PRINTF == 1
 #    include <stdio.h>
 /* clang-format off */
+static struct str* debug_str;
 static int  debug_depth = 0;
 static void debug_depth_inc(void)   { debug_depth += 1;}
 static void debug_depth_dec(void)   { debug_depth -= 1;}
@@ -51,7 +52,6 @@ static void debug_print_run_ruleset(
     int is_rerun)
 {
     int i;
-    struct str* str;
     const struct str* ruleset_name;
     const int* ruleset_map_value;
 
@@ -75,24 +75,42 @@ static void debug_print_run_ruleset(
         return;
     }
 
-    str_init(&str);
-    csfg_expr_to_str(&str, pool, ruleset->expr_search);
-    fprintf(stderr, "%03d: Trying \"%s\" --> ", ruleset_idx, str_cstr(str));
-    str_clear(str);
-    csfg_expr_to_str(&str, pool, ruleset->expr_replace);
-    fprintf(stderr, "\"%s\"", str_cstr(str));
+    str_clear(debug_str);
+    csfg_expr_to_str(&debug_str, pool, ruleset->expr_search);
+    fprintf(
+        stderr, "%03d: Trying \"%s\" --> ", ruleset_idx, str_cstr(debug_str));
+    str_clear(debug_str);
+    csfg_expr_to_str(&debug_str, pool, ruleset->expr_replace);
+    fprintf(stderr, "\"%s\"", str_cstr(debug_str));
     if (is_rerun)
         fprintf(stderr, " (Re-run)");
     fprintf(stderr, "\n");
-    str_deinit(str);
 }
 static void debug_print_expr(const struct csfg_expr_pool* pool, int n)
 {
-    struct str* str;
-    str_init(&str);
-    csfg_expr_to_str(&str, pool, n);
-    fprintf(stderr, "\"%s\"", str_cstr(str));
-    str_deinit(str);
+    str_clear(debug_str);
+    csfg_expr_to_str(&debug_str, pool, n);
+    fprintf(stderr, "\"%s\"", str_cstr(debug_str));
+}
+static void debug_print_subexpr(const struct csfg_expr_pool* pool, int subexpr)
+{
+    int i = debug_depth;
+    while (i--)
+        fprintf(stderr, " ");
+    fprintf(stderr, "> Subexpr: ");
+    debug_print_expr(pool, subexpr);
+    fprintf(stderr, "\n");
+}
+static void debug_print_permutations(const struct permutation_vec* p)
+{
+    const int* chain;
+    int i = debug_depth;
+    while (i--)
+        fprintf(stderr, " ");
+    fprintf(stderr, "> Permuts: {");
+    vec_enumerate (p, i, chain)
+        fprintf(stderr, "%s%d", i ? ", " : "", *chain);
+    fprintf(stderr, "}\n");
 }
 static void debug_print_permutate(const struct csfg_expr_pool* pool, int n)
 {
@@ -130,6 +148,7 @@ debug_print_replace_subtree_after(const struct csfg_expr_pool* pool, int n)
 #    define debug_print_run_ruleset(pool, book, ruleset, ruleset_idx, is_rerun)
 #    define debug_print_expr(pool, n)
 #    define debug_print_zip(pool, n)
+#    define debug_print_permutations(p)
 #    define debug_print_permutate(pool, n)
 #    define debug_print_replace_subtree_before(pool, n)
 #    define debug_print_replace_subtree_after(pool, n)
@@ -344,58 +363,132 @@ static enum match_result match_subtree(
 }
 
 /* -------------------------------------------------------------------------- */
-static int zip_related_chains(
-    struct csfg_expr_pool** target_pool,
-    const struct match_info_vec* matched_nodes)
+static int add_permutation(struct permutation_vec** permutations, int chain)
 {
-    int i1, i2, chain_len = 0;
-    int count = vec_count(matched_nodes);
-    for (i1 = 0; i1 != count; ++i1)
-        for (i2 = i1 + 1; i2 < count; ++i2)
-            if (vec_get(matched_nodes, i1)->var_idx ==
-                vec_get(matched_nodes, i2)->var_idx)
-            {
-                int chain1 = csfg_expr_find_top_of_chain(
-                    *target_pool,
-                    csfg_expr_find_parent(
-                        *target_pool, vec_get(matched_nodes, i1)->target_node));
-                int chain2 = csfg_expr_find_top_of_chain(
-                    *target_pool,
-                    csfg_expr_find_parent(
-                        *target_pool, vec_get(matched_nodes, i2)->target_node));
-                int new_chain_len =
-                    csfg_expr_zip_chains(target_pool, chain1, chain2);
-                if (new_chain_len < 0)
-                    return -1;
-                if (chain_len < new_chain_len)
-                    chain_len = new_chain_len;
-            }
-    return chain_len;
-}
-static void unzip(struct csfg_expr_pool** target_pool, int* target_expr)
-{
-    csfg_rules_run(
-        target_pool, remove_zero_summands, remove_one_products, NULL);
-    *target_expr = csfg_expr_gc(*target_pool, *target_expr);
+    const int* existing;
+    vec_for_each (*permutations, existing)
+        if (chain == *existing)
+            return 0;
+    return permutation_vec_push(permutations, chain);
 }
 
 /* -------------------------------------------------------------------------- */
+static int chain_depth(const struct csfg_expr_pool* pool, int parent, int expr)
+{
+    int left, right, is_top_of_chain, left_depth, right_depth;
+    enum csfg_expr_type type;
+
+    type = pool->nodes[expr].type;
+    switch (type)
+    {
+        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); break;
+        case CSFG_EXPR_LIT: break;
+        case CSFG_EXPR_VAR: break;
+        case CSFG_EXPR_INF: break;
+        case CSFG_EXPR_NEG:
+            return chain_depth(pool, expr, pool->nodes[expr].child[0]);
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+            left            = pool->nodes[expr].child[0];
+            right           = pool->nodes[expr].child[1];
+            is_top_of_chain = (parent >= 0 && pool->nodes[parent].type != type);
+            left_depth      = chain_depth(pool, expr, left);
+            right_depth     = chain_depth(pool, expr, right);
+            return is_top_of_chain +
+                   (left_depth > right_depth ? left_depth : right_depth);
+        case CSFG_EXPR_POW: break;
+    }
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+static int expand_collected_chains(
+    struct permutation_vec** permutations,
+    const struct csfg_expr_pool* pool,
+    int expr,
+    int depth,
+    int is_top_of_chain)
+{
+    int child;
+    enum csfg_expr_type type;
+
+    if (depth == 0)
+        return 0;
+
+    type = pool->nodes[expr].type;
+    switch (type)
+    {
+        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); break;
+        case CSFG_EXPR_LIT: break;
+        case CSFG_EXPR_VAR: break;
+        case CSFG_EXPR_INF: break;
+        case CSFG_EXPR_NEG:
+            return expand_collected_chains(
+                permutations, pool, pool->nodes[expr].child[0], depth, 0);
+        case CSFG_EXPR_ADD:
+        case CSFG_EXPR_MUL:
+            if (is_top_of_chain)
+            {
+                if (add_permutation(permutations, expr) != 0)
+                    return -1;
+                depth--;
+            }
+
+            child           = pool->nodes[expr].child[0];
+            is_top_of_chain = (pool->nodes[child].type != type);
+            if (expand_collected_chains(
+                    permutations, pool, child, depth, is_top_of_chain) != 0)
+                return -1;
+            child           = pool->nodes[expr].child[1];
+            is_top_of_chain = (pool->nodes[child].type != type);
+            if (expand_collected_chains(
+                    permutations, pool, child, depth, is_top_of_chain) != 0)
+                return -1;
+
+            return 0;
+        case CSFG_EXPR_POW: break;
+    }
+
+    return 0;
+}
+static void sort_collected_chains(
+    struct permutation_vec* permutations,
+    const struct csfg_expr_pool* target_pool)
+{
+    int i1, i2;
+    for (i1 = 0; i1 != vec_count(permutations); ++i1)
+        for (i2 = i1 + 1; i2 < vec_count(permutations); ++i2)
+            if (csfg_expr_is_child_of(
+                    target_pool,
+                    *vec_get(permutations, i1),
+                    *vec_get(permutations, i2)))
+            {
+                permutation_vec_swap_values(permutations, i1, i2);
+            }
+}
 static int collect_chains_to_permutate(
     struct permutation_vec** permutations,
     const struct match_info_vec* matched_nodes,
-    const struct csfg_expr_pool* pool,
-    int target_subexpr)
+    const struct csfg_expr_pool* target_pool,
+    int target_subexpr,
+    const struct csfg_expr_pool* ruleset_pool,
+    int search_expr)
 {
     int passed_subexpr = 0;
     const struct match_info* match_info;
+
+    /* Travel up the tree to find the parent-most chain that is still affected
+     * by "target_subexpr". Note that this could be a parent of
+     * "target_subexpr", if "target_subexpr" is pointing somewhere into the
+     * middle of a chain. */
     vec_for_each (matched_nodes, match_info)
     {
-        const int* existing;
         int parent, n;
         n = match_info->target_node;
         do
         {
-            parent = csfg_expr_find_parent(pool, n);
+            parent = csfg_expr_find_parent(target_pool, n);
             if (parent < 0)
                 break;
             do
@@ -403,19 +496,26 @@ static int collect_chains_to_permutate(
                 n = parent;
                 if (n == target_subexpr)
                     passed_subexpr = 1;
-                parent = csfg_expr_find_parent(pool, n);
-            } while (parent >= 0 &&
-                     pool->nodes[parent].type == pool->nodes[n].type);
+                parent = csfg_expr_find_parent(target_pool, n);
+            } while (parent >= 0 && target_pool->nodes[parent].type ==
+                                        target_pool->nodes[n].type);
             CSFG_DEBUG_ASSERT(n >= 0);
 
-            vec_for_each (*permutations, existing)
-                if (n == *existing)
-                    goto exists;
-            if (permutation_vec_push(permutations, n) != 0)
+            if (add_permutation(permutations, n) != 0)
                 return -1;
-        exists:;
         } while (!passed_subexpr && parent >= 0);
     }
+
+    if (vec_count(*permutations) > 0)
+        if (expand_collected_chains(
+                permutations,
+                target_pool,
+                *vec_last(*permutations),
+                chain_depth(ruleset_pool, -1, search_expr),
+                0) != 0)
+            return -1;
+
+    sort_collected_chains(*permutations, target_pool);
 
     return vec_count(*permutations);
 }
@@ -425,13 +525,13 @@ static enum match_result match_subtree_permutations(
     struct match_info_vec** matched_nodes,
     struct permutation_vec** permutations,
     struct csfg_expr_pool* target_pool,
-    int target_expr,
     int target_subexpr,
     const struct csfg_expr_pool* ruleset_pool,
     int search_expr)
 {
     int chain_idx, chain;
 
+    debug_print_subexpr(target_pool, target_subexpr);
     match_info_vec_clear(*matched_nodes);
     switch (match_subtree(
         matched_nodes, target_pool, target_subexpr, ruleset_pool, search_expr))
@@ -444,7 +544,12 @@ static enum match_result match_subtree_permutations(
 
     permutation_vec_clear(*permutations);
     switch (collect_chains_to_permutate(
-        permutations, *matched_nodes, target_pool, target_subexpr))
+        permutations,
+        *matched_nodes,
+        target_pool,
+        target_subexpr,
+        ruleset_pool,
+        search_expr))
     {
         case -1: return MATCH_OOM;
         case 0 : return MATCH_NONE;
@@ -453,6 +558,8 @@ static enum match_result match_subtree_permutations(
 
     CSFG_DEBUG_ASSERT(vec_count(*permutations) > 0);
     CSFG_DEBUG_ASSERT(csfg_expr_is_canonicalized(target_pool, target_subexpr));
+
+    debug_print_permutations(*permutations);
 
     while (1)
     {
@@ -467,7 +574,7 @@ static enum match_result match_subtree_permutations(
             case 0 : chain_idx++; goto permutate_next_chain;
             case 1 : break;
         }
-        debug_print_permutate(target_pool, target_expr);
+        debug_print_permutate(target_pool, target_subexpr);
 
         match_info_vec_clear(*matched_nodes);
         switch (match_subtree(
@@ -484,6 +591,7 @@ static enum match_result match_subtree_permutations(
         }
     }
 
+    CSFG_DEBUG_ASSERT(csfg_expr_is_canonicalized(target_pool, target_subexpr));
     return MATCH_NONE;
 }
 
@@ -609,9 +717,9 @@ static int run_rule(
 {
     int subexpr, modified = 0;
 
-    if (rule->extern_run != NULL)
+    if (rule->builtin_run != NULL)
     {
-        switch (rule->extern_run(target_pool))
+        switch (rule->builtin_run(target_pool))
         {
             case -1: return -1;
             case 0 : break;
@@ -628,7 +736,6 @@ static int run_rule(
                 matched_nodes,
                 permutations,
                 *target_pool,
-                *expr,
                 subexpr,
                 ruleset_pool,
                 rule->expr_search))
@@ -766,6 +873,8 @@ int csfg_rulebook_run(
     fprintf(stderr, "Result: ");
     debug_print_expr(*pool, *expr);
     fprintf(stderr, "\n");
+    str_deinit(debug_str);
+    debug_str = NULL;
 #endif
 
     match_info_vec_deinit(matched_nodes);

@@ -10,7 +10,7 @@ extern "C" {
 #include "csfg/symbolic/var_table.h"
 }
 
-#define NAME test_rule_simplify
+#define NAME test_rule_reduce
 
 namespace {
 
@@ -20,6 +20,12 @@ struct TestParam
     const char* expected_output;
     int expected_run_result;
 };
+
+/*
+a*c + b*a + b*b + b*c
+-------------------
+      (b + c)
+*/
 
 const struct TestParam TEST_PARAMETERS[] = {
     {"a*(b+c)/(b+d)", "a*(b+c)/(b+d)", 0},
@@ -99,7 +105,7 @@ TEST_P(NAME, test)
     ASSERT_GE(expected, 0);
 
     EXPECT_EQ(
-        csfg_rulebook_run(&book, "simplify", &pool, &input),
+        csfg_rulebook_run(&book, "reduce", &pool, &input),
         GetParam().expected_run_result);
 
     ASSERT_TRUE(ExprEq(pool, input, expected_pool, expected));

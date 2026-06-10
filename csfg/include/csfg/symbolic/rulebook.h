@@ -9,7 +9,7 @@ struct csfg_expr_pool;
 
 struct csfg_ruleset
 {
-    csfg_rule_run_func extern_run; /* Set to NULL if not used */
+    csfg_rule_run_func builtin_run; /* Set to NULL if not used */
     int next;                      /* Index into rulesets[] */
     int child;                     /* Index into rulesets[] */
     int expr_search, expr_replace; /* Index into pool[] */
