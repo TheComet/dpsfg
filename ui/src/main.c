@@ -1,3 +1,4 @@
+#include "csfg/init.h"
 #include "csfg/io/deserialize.h"
 #include "csfg/io/io.h"
 #include "csfg/io/serialize.h"
@@ -528,9 +529,8 @@ int main(int argc, char** argv)
     GtkApplication* app;
     int status = EXIT_FAILURE;
 
-    if (trackers_init_tls() != 0)
-        goto mem_init_failed;
-    log_init();
+    if (csfg_init() != 0)
+        goto csfg_init_failed;
 
     switch (args_parse(&args, argc, argv))
     {
@@ -572,7 +572,7 @@ int main(int argc, char** argv)
     math_pipeline_deinit(&app_ctx.pipeline);
 
 parse_args_break:
-    trackers_deinit_tls();
-mem_init_failed:
+    csfg_deinit();
+csfg_init_failed:
     return status;
 }

@@ -11,9 +11,9 @@
 /* -------------------------------------------------------------------------- */
 static int load_expr_ops(struct csfg_rulebook* ops)
 {
-    struct mfile   mf;
+    struct mfile mf;
     struct strview source;
-    const char*    filepath = "../../csfg/src/symbolic/rulebook.txt";
+    const char* filepath = "../../csfg/src/symbolic/rulebook.txt";
 
     if (mfile_map_read(&mf, filepath, 1) != 0)
         goto open_file_failed;
@@ -41,7 +41,7 @@ int math_pipeline_init(struct math_pipeline* pl)
     csfg_graph_init(&pl->graph);
     csfg_path_vec_init(&pl->paths);
     csfg_path_vec_init(&pl->loops);
-    pl->node_in = -1;
+    pl->node_in  = -1;
     pl->node_out = -1;
 
     csfg_var_table_init(&pl->substitutions);
@@ -50,8 +50,8 @@ int math_pipeline_init(struct math_pipeline* pl)
     csfg_expr_pool_init(&pl->subs_pool);
     csfg_expr_pool_init(&pl->lim_pool);
     pl->graph_expr = -1;
-    pl->subs_expr = -1;
-    pl->lim_expr = -1;
+    pl->subs_expr  = -1;
+    pl->lim_expr   = -1;
 
     csfg_expr_pool_init(&pl->tf_pool);
     csfg_tf_expr_init(&pl->tf_expr);
@@ -155,20 +155,8 @@ static void calc_limits(struct math_pipeline* pipeline)
             &pipeline->lim_pool);
     if (pipeline->lim_expr > -1)
     {
-        // TODO: Make this optimization pass more generic
-        csfg_rules_run(&pipeline->lim_pool, csfg_rule_fold_constants, NULL);
         pipeline->lim_expr =
-            csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
-
-        csfg_rulebook_run(
-            &pipeline->rulebook,
-            "simplify",
-            &pipeline->lim_pool,
-            &pipeline->lim_expr);
-
-        csfg_rules_run(&pipeline->lim_pool, csfg_rule_fold_constants, NULL);
-        pipeline->lim_expr =
-            csfg_expr_gc(pipeline->lim_pool, pipeline->lim_expr);
+            csfg_expr_simplify(&pipeline->lim_pool, pipeline->lim_expr);
     }
 }
 static void calc_symbolic_tf(struct math_pipeline* pipeline)
@@ -260,9 +248,9 @@ void math_pipeline_update(
 
 /* -------------------------------------------------------------------------- */
 static void notify_graph_changed(
-    const struct math_pipeline*          pipeline,
+    const struct math_pipeline* pipeline,
     const struct dpsfg_plugin_interface* i,
-    struct plugin_ctx*                   ctx)
+    struct plugin_ctx* ctx)
 {
     if (i->graph == NULL)
         return;
@@ -271,9 +259,9 @@ static void notify_graph_changed(
     i->graph->on_layout_changed(ctx);
 }
 static void notify_expr_changed(
-    const struct math_pipeline*          pipeline,
+    const struct math_pipeline* pipeline,
     const struct dpsfg_plugin_interface* i,
-    struct plugin_ctx*                   ctx)
+    struct plugin_ctx* ctx)
 {
     if (i->expr == NULL)
         return;
@@ -292,9 +280,9 @@ static void notify_parameters_changed(
     i->parameters->on_changed(ctx);
 }
 static void notify_numeric_changed(
-    const struct math_pipeline*          pipeline,
+    const struct math_pipeline* pipeline,
     const struct dpsfg_plugin_interface* i,
-    struct plugin_ctx*                   ctx)
+    struct plugin_ctx* ctx)
 {
     if (i->numeric == NULL)
         return;
@@ -309,11 +297,11 @@ static void notify_numeric_changed(
         i->numeric->on_ramp_response_changed(ctx, pipeline->pfd_ramp);
 }
 void math_pipeline_notify_plugins(
-    const struct math_pipeline*          pipeline,
+    const struct math_pipeline* pipeline,
     const struct dpsfg_plugin_interface* plugin_iface,
-    struct plugin_ctx*                   plugin_ctx,
-    enum math_pipeline_state             state,
-    char                                 is_source_plugin)
+    struct plugin_ctx* plugin_ctx,
+    enum math_pipeline_state state,
+    char is_source_plugin)
 {
     switch (state)
     {

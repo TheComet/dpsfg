@@ -31,10 +31,10 @@ void mem_unown_strlist(struct strlist* l);
 #    define mem_unown_strlist(l)
 #endif
 
-int  strlist_add(struct strlist** l, const char* data, int len);
-int  strlist_add_cstr(struct strlist** l, const char* cstr);
-int  strlist_insert(struct strlist** l, int insert, const char* cstr);
-int  strlist_set(struct strlist** l, int idx, const char* data, int len);
+int strlist_add(struct strlist** l, const char* data, int len);
+int strlist_add_cstr(struct strlist** l, const char* cstr);
+int strlist_insert(struct strlist** l, int insert, const char* cstr);
+int strlist_set(struct strlist** l, int idx, const char* data, int len);
 void strlist_erase(struct strlist* l, int idx);
 void strlist_clear(struct strlist* l);
 
@@ -57,6 +57,12 @@ static struct strview strlist_view(const struct strlist* l, int i)
 {
     struct strspan span = strlist_span(l, i);
     return strview(l->data, span.off, span.len);
+}
+
+static char* strlist_data(struct strlist* l, int i)
+{
+    struct strspan span = strlist_span(l, i);
+    return l->data + span.off;
 }
 
 static const char* strlist_cstr(const struct strlist* l, int i)

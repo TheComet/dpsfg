@@ -147,6 +147,7 @@ debug_print_replace_subtree_after(const struct csfg_expr_pool* pool, int n)
 #    define debug_depth_reset()
 #    define debug_print_run_ruleset(pool, book, ruleset, ruleset_idx, is_rerun)
 #    define debug_print_expr(pool, n)
+#    define debug_print_subexpr(pool, subexpr)
 #    define debug_print_zip(pool, n)
 #    define debug_print_permutations(p)
 #    define debug_print_permutate(pool, n)
@@ -413,6 +414,7 @@ static int expand_collected_chains(
     int child;
     enum csfg_expr_type type;
 
+    CSFG_DEBUG_ASSERT(expr >= 0);
     if (depth == 0)
         return 0;
 
@@ -475,17 +477,18 @@ static int collect_chains_to_permutate(
     const struct csfg_expr_pool* ruleset_pool,
     int search_expr)
 {
-    int passed_subexpr = 0;
+    int passed_subexpr, top_most_node, parent, n;
     const struct match_info* match_info;
 
     /* Travel up the tree to find the parent-most chain that is still affected
      * by "target_subexpr". Note that this could be a parent of
      * "target_subexpr", if "target_subexpr" is pointing somewhere into the
      * middle of a chain. */
+    top_most_node = -1;
     vec_for_each (matched_nodes, match_info)
     {
-        int parent, n;
-        n = match_info->target_node;
+        n              = match_info->target_node;
+        passed_subexpr = 0;
         do
         {
             parent = csfg_expr_find_parent(target_pool, n);
@@ -504,13 +507,15 @@ static int collect_chains_to_permutate(
             if (add_permutation(permutations, n) != 0)
                 return -1;
         } while (!passed_subexpr && parent >= 0);
+        if (passed_subexpr)
+            top_most_node = n;
     }
 
     if (vec_count(*permutations) > 0)
         if (expand_collected_chains(
                 permutations,
                 target_pool,
-                *vec_last(*permutations),
+                top_most_node,
                 chain_depth(ruleset_pool, -1, search_expr),
                 0) != 0)
             return -1;
@@ -574,7 +579,7 @@ static enum match_result match_subtree_permutations(
             case 0 : chain_idx++; goto permutate_next_chain;
             case 1 : break;
         }
-        debug_print_permutate(target_pool, target_subexpr);
+        /*debug_print_permutate(target_pool, target_subexpr);*/
 
         match_info_vec_clear(*matched_nodes);
         switch (match_subtree(

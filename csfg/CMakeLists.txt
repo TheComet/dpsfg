@@ -26,6 +26,8 @@ endif ()
 configure_file ("templates/config.h.in" "include/csfg/config.h")
 
 set (csfg_SOURCES
+    "src/init.c"
+
     # util
     "src/util/bm.c"
     "src/util/hash.c"
@@ -58,6 +60,7 @@ set (csfg_SOURCES
     "src/symbolic/expr_integrity_check.c"
     "src/symbolic/expr_parse.c"
     "src/symbolic/expr_rotate_chain.c"
+    "src/symbolic/expr_simplify.c"
     "src/symbolic/expr_zip_chains.c"
     "src/symbolic/rulebook.c"
     "src/symbolic/rulebook_parse.c"
@@ -127,6 +130,7 @@ target_compile_options (dpsfg-csfg
         $<$<C_COMPILER_ID:MSVC>:/W4 /wd4706 /wd4305 /wd4244 /wd4505>
         $<$<C_COMPILER_ID:GNU>:-W -Wall -Wextra -pedantic -Wno-unused-function>
         $<$<C_COMPILER_ID:Clang>:-W -Wall -Wextra -pedantic -Wno-unused-function>)
+target_link_libraries (dpsfg-csfg PRIVATE DPSFG::mathomatic)
 set_target_properties (dpsfg-csfg
     PROPERTIES
         C_STANDARD 90)

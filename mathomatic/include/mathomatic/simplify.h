@@ -1,0 +1,40 @@
+#pragma once
+
+struct token_type;
+
+void organize(struct token_type *equation, int *np);
+void elim_loop(struct token_type *equation, int *np);
+void simp_ssub(struct token_type *equation, int *np, long v, double d, int power_flag, int times_flag, int fc_level);
+void simp_equation(int n);
+void mid_simp_side(struct token_type *equation, int *np);
+void mid_simp_equation(int n);
+void simps_side(struct token_type *equation, int *np, int zsolve);
+void simpv_side(struct token_type *equation, int *np, long v);
+void simpv_equation(int n, long v);
+int factor_imaginary(struct token_type *equation, int *np);
+void factorv(struct token_type *equation, int *np, long v);
+void calc_simp(struct token_type *equation, int *np);
+void approximate(struct token_type *equation, int *np);
+int simp_i(struct token_type *equation, int *np);
+void simp_divide(struct token_type *equation, int *np);
+void simp2_divide(struct token_type *equation, int *np, long v, int fc_level);
+void simpb_side(struct token_type *equation, int *np, int uf_power_flag, int power_flag, int fc_level);
+void simple_frac_side(struct token_type *equation, int *np);
+void simpa_side(struct token_type *equation, int *np, int quick_flag, int frac_flag);
+void simpa_repeat_side(struct token_type *equation, int *np, int quick_flag, int frac_flag);
+void simpa_repeat(int n, int quick_flag, int frac_flag);
+void simple_frac_repeat_side(struct token_type *equation, int *np);
+int simp_loop(struct token_type *equation, int *np);
+int simp_pp(struct token_type *equation, int *np);
+int integer_root_simp(struct token_type *equation, int *np);
+int simp_constant_power(struct token_type *equation, int *np);
+int simp2_power(struct token_type *equation, int *np);
+double fixed_fmod(double k1, double k2);
+int combine_constants(struct token_type *equation, int *np, int iflag);
+int calc(int *op1p, double *k1p, int op2, double k2);
+int elim_k(struct token_type *equation, int *np);
+int se_compare(struct token_type *p1, int n1, struct token_type *p2, int n2, int *diff_signp);
+int elim_sign(struct token_type *equation, int *np);
+int div_imaginary(struct token_type *equation, int *np);
+int reorder(struct token_type *equation, int *np);
+int rationalize(struct token_type *equation, int *np);

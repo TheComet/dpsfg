@@ -119,6 +119,8 @@ int csfg_expr_apply_limits(
     const struct csfg_var_table* vt,
     struct csfg_expr_pool** out_pool);
 
+int csfg_expr_simplify(struct csfg_expr_pool** pool, int expr);
+
 /* Leaf nodes */
 int csfg_expr_lit(struct csfg_expr_pool** pool, double value);
 int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name);
