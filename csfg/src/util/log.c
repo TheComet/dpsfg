@@ -1,4 +1,4 @@
-#include "csfg/platform/backtrace.h"
+#include "csfg/util/backtrace.h"
 #include "csfg/util/cli_colors.h"
 #include "csfg/util/log.h"
 #include <errno.h>
@@ -52,12 +52,12 @@ static char stream_is_terminal(FILE* fp)
 
 void log_init(void)
 {
-    g_out_log.write = default_write_func;
-    g_out_log.flush = default_flush_func;
-    g_out_log.prefix = "";
-    g_out_log.set_color = "";
+    g_out_log.write       = default_write_func;
+    g_out_log.flush       = default_flush_func;
+    g_out_log.prefix      = "";
+    g_out_log.set_color   = "";
     g_out_log.clear_color = "";
-    g_out_log.use_color = stream_is_terminal(stderr);
+    g_out_log.use_color   = stream_is_terminal(stderr);
 }
 
 void log_set_prefix(const char* prefix)
@@ -67,14 +67,14 @@ void log_set_prefix(const char* prefix)
 
 void log_set_colors(const char* set_color, const char* clear_color)
 {
-    g_out_log.set_color = set_color;
+    g_out_log.set_color   = set_color;
     g_out_log.clear_color = clear_color;
 }
 
 struct log_interface log_configure(struct log_interface iface)
 {
     struct log_interface old = g_out_log;
-    g_out_log = iface;
+    g_out_log                = iface;
     return old;
 }
 
@@ -222,12 +222,13 @@ void log_info(const char* fmt, ...)
 }
 
 /* -------------------------------------------------------------------------- */
-void log_warn(const char* fmt, ...)
+int log_warn(const char* fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
     out_log_vwrite(LOG_WARN, fmt, ap);
     va_end(ap);
+    return -1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -254,8 +255,8 @@ void log_note(const char* fmt, ...)
 int log_err_win32(const char* fmt, ...)
 {
     va_list ap;
-    char*   error;
-    DWORD   dwError = GetLastError();
+    char* error;
+    DWORD dwError = GetLastError();
     if (FormatMessageA(
             FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
                 FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -283,7 +284,7 @@ int log_err_win32(const char* fmt, ...)
 int log_oom(int bytes, const char* func_name)
 {
     log_err("Failed to allocate %d bytes in %s\n", bytes, func_name);
-    log_backtrace();
+    backtrace_log();
     return -1;
 }
 
@@ -326,29 +327,6 @@ void log_hex_ascii(const void* data, int len)
 }
 
 /* -------------------------------------------------------------------------- */
-#if defined(CSFG_BACKTRACE)
-void log_backtrace(void)
-{
-    char** bt;
-    int    bt_size, i;
-
-    if (!(bt = backtrace_get(&bt_size)))
-    {
-        out_log_write("Failed to generate backtrace\n");
-        return;
-    }
-
-    for (i = BACKTRACE_OMIT_COUNT; i < bt_size; ++i)
-    {
-        if (strstr(bt[i], "invoke_main"))
-            break;
-        out_log_write("  %s\n", bt[i]);
-    }
-    backtrace_free(bt);
-}
-#endif
-
-/* -------------------------------------------------------------------------- */
 static const char* emph_style(void)
 {
     return COL_B_WHITE;
@@ -368,11 +346,11 @@ static const char* reset_style(void)
 
 /* -------------------------------------------------------------------------- */
 void log_vflc(
-    const char*    filename,
-    const char*    source,
+    const char* filename,
+    const char* source,
     struct strspan loc,
-    const char*    fmt,
-    va_list        ap)
+    const char* fmt,
+    va_list ap)
 {
     int i;
     int l1, c1;
@@ -393,10 +371,10 @@ void log_vflc(
 
 /* -------------------------------------------------------------------------- */
 void log_flc(
-    const char*    filename,
-    const char*    source,
+    const char* filename,
+    const char* source,
     struct strspan loc,
-    const char*    fmt,
+    const char* fmt,
     ...)
 {
     va_list ap;
@@ -408,11 +386,11 @@ void log_flc(
 /* -------------------------------------------------------------------------- */
 void log_excerpt(const char* source, struct strspan loc)
 {
-    int            i;
-    int            l1, c1, l2, c2;
-    int            indent, max_indent;
-    int            gutter_indent;
-    int            line;
+    int i;
+    int l1, c1, l2, c2;
+    int indent, max_indent;
+    int gutter_indent;
+    int line;
     struct strspan block;
 
     /* Calculate line column as well as beginning of block. The goal is to make

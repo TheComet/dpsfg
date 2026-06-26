@@ -6,15 +6,15 @@
 
 struct tweak
 {
-    struct plugin_ctx*     plugin_ctx;
+    struct plugin_ctx* plugin_ctx;
     struct csfg_var_table* vt;
-    struct str*            name;
+    struct str* name;
 
-    GtkWidget*     label;
+    GtkWidget* label;
     GtkAdjustment* scale_adj;
-    GtkWidget*     scale;
+    GtkWidget* scale;
     GtkAdjustment* spin_adj;
-    GtkWidget*     spin_button;
+    GtkWidget* spin_button;
 };
 
 HMAP_DECLARE_STR(extern, tweak_hmap, struct tweak, 16)
@@ -53,10 +53,10 @@ static void on_scale_adj_changed(GtkAdjustment* adj, gpointer user_data)
     struct tweak* tweak = user_data;
 
     double log_val = gtk_adjustment_get_value(adj);
-    double value = pow(10.0, log_val);
+    double value   = pow(10.0, log_val);
     double rounded = floor(log_val);
-    double step = pow(10.0, rounded) / 10.0;
-    int    digits = rounded >= 1.0 ? 0 : -(int)rounded + 1.0;
+    double step    = pow(10.0, rounded) / 10.0;
+    int digits     = rounded >= 1.0 ? 0 : -(int)rounded + 1.0;
 
     g_signal_handlers_block_by_func(
         tweak->spin_adj, G_CALLBACK(on_spin_adj_changed), tweak);
@@ -77,13 +77,13 @@ static void on_spin_adj_changed(GtkAdjustment* adj, gpointer user_data)
 {
     struct tweak* tweak = user_data;
 
-    double value = gtk_adjustment_get_value(adj);
+    double value   = gtk_adjustment_get_value(adj);
     double log_min = log(value) / log(10) - 1.0;
     double log_max = log(value) / log(10) + 1.0;
     double log_val = log(value) / log(10);
     double rounded = floor(log_val);
-    double step = pow(10.0, rounded) / 10.0;
-    int    digits = rounded < 0.0 ? 0 : (int)rounded;
+    double step    = pow(10.0, rounded) / 10.0;
+    int digits     = rounded < 0.0 ? 0 : (int)rounded;
 
     g_signal_handlers_block_by_func(
         tweak->scale_adj, G_CALLBACK(on_scale_adj_changed), tweak);
@@ -104,7 +104,7 @@ static void maybe_expand_bounds(struct tweak* s, double L)
 {
     double lower = gtk_adjustment_get_lower(s->scale_adj);
     double upper = gtk_adjustment_get_upper(s->scale_adj);
-    double span = upper - lower;
+    double span  = upper - lower;
 
 #if 0
     if (L < lower + s->expand_margin)
@@ -128,11 +128,11 @@ static void maybe_expand_bounds(struct tweak* s, double L)
 
 struct plugin_ctx
 {
-    GtkWidget*                            grid;
-    const struct plugin_notify_interface* icb;
-    struct dpsfg_plugin_callbacks*        cb;
-    struct csfg_var_table*                parameters;
-    struct tweak_hmap*                    tweaks;
+    GtkWidget* grid;
+    const struct plugin_notify_interface* notify_interface;
+    struct plugin_notify_context* notify_ctx;
+    struct csfg_var_table* parameters;
+    struct tweak_hmap* tweaks;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -140,8 +140,8 @@ static void
 update_tweak(struct tweak* tweak, const struct csfg_var_table_entry* entry)
 {
 
-    double value = csfg_expr_eval(entry->pool, entry->expr, NULL);
-    double step = value / 10.0;
+    double value   = csfg_expr_eval(entry->pool, entry->expr, NULL);
+    double step    = value / 10.0;
     double log_min = log(value / 10.0);
     double log_max = log(value * 10.0);
     double log_val = log(value);
@@ -155,10 +155,10 @@ update_tweak(struct tweak* tweak, const struct csfg_var_table_entry* entry)
 /* -------------------------------------------------------------------------- */
 static void rebuild_ui(struct plugin_ctx* ctx)
 {
-    int                                slot, row;
-    const struct str*                  name;
+    int slot, row;
+    const struct str* name;
     const struct csfg_var_table_entry* entry;
-    struct tweak*                      tweak;
+    struct tweak* tweak;
 
     row = 0;
     hmap_for_each (ctx->tweaks, slot, name, tweak)
@@ -182,13 +182,13 @@ static void rebuild_ui(struct plugin_ctx* ctx)
     {
         switch (tweak_hmap_emplace_or_get(&ctx->tweaks, str_view(name), &tweak))
         {
-            case HMAP_OOM: return;
-            case HMAP_NEW: break;
+            case HMAP_OOM   : return;
+            case HMAP_NEW   : break;
             case HMAP_EXISTS: update_tweak(tweak, entry); continue;
         }
 
         tweak->plugin_ctx = ctx;
-        tweak->vt = ctx->parameters;
+        tweak->vt         = ctx->parameters;
         str_init(&tweak->name);
         str_set_str(&tweak->name, name);
 
@@ -202,7 +202,7 @@ static void rebuild_ui(struct plugin_ctx* ctx)
         gtk_widget_set_hexpand(tweak->scale, TRUE);
         // gtk_scale_set_draw_value(GTK_SCALE(tweak->scale), FALSE);
 
-        tweak->spin_adj = gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        tweak->spin_adj    = gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         tweak->spin_button = gtk_spin_button_new(tweak->spin_adj, 0.0, 1);
 
         gtk_grid_attach(GTK_GRID(ctx->grid), tweak->label, 0, row, 1, 1);
@@ -241,9 +241,9 @@ static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
-    int               slot;
+    int slot;
     const struct str* name;
-    struct tweak*     tweak;
+    struct tweak* tweak;
 
     hmap_for_each (ctx->tweaks, slot, name, tweak)
         (void)slot, (void)name, str_deinit(tweak->name);
@@ -254,23 +254,23 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_notify_interface* icb,
-    struct dpsfg_plugin_callbacks*        cb,
-    GTypeModule*                          type_module)
+    const struct plugin_notify_interface* notify_interface,
+    struct plugin_notify_context* notify_ctx,
+    GTypeModule* type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     (void)type_module;
-    ctx->icb = icb;
-    ctx->cb = cb;
-    ctx->parameters = NULL;
+    ctx->notify_interface = notify_interface;
+    ctx->notify_ctx       = notify_ctx;
+    ctx->parameters       = NULL;
     tweak_hmap_init(&ctx->tweaks);
     return ctx;
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 {
-    int               slot;
+    int slot;
     const struct str* name;
-    struct tweak*     tweak;
+    struct tweak* tweak;
     (void)type_module;
 
     hmap_for_each (ctx->tweaks, slot, name, tweak)
@@ -284,7 +284,7 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 static void notify_parameters_changed(struct plugin_ctx* ctx)
 {
     if (ctx->parameters != NULL)
-        ctx->icb->parameters_changed(ctx->cb, ctx);
+        ctx->notify_interface->parameters_changed(ctx->notify_ctx, ctx);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -330,4 +330,5 @@ PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     NULL,
     NULL,
     &parameters,
+    NULL,
     NULL};

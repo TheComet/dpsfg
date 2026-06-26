@@ -65,3 +65,12 @@ TEST_F(NAME, converge)
     ASSERT_TRUE(CoeffEq(tf_pool, tf.num, 0, 1.0, "b"));
     ASSERT_TRUE(CoeffEq(tf_pool, tf.den, 0, 1.0, "d"));
 }
+
+TEST_F(NAME, bug1)
+{
+    /*
+     *          G1*z2*A           |           G1
+     * -------------------------  |       = ------
+     * 1 - (z2*A*G2) - (z2*A*s*C) |A->oo    
+     */
+}

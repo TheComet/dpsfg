@@ -1,3 +1,4 @@
+#include "csfg/util/backtrace.h"
 #include "csfg/util/log.h"
 #include "csfg/util/mem.h"
 #include "csfg/util/tracker.h"
@@ -10,17 +11,13 @@ void* mem_alloc(int size)
     if (size == 0)
     {
         log_warn("malloc(0) called\n");
-#if defined(CSFG_BACKTRACE)
-        log_backtrace();
-#endif
+        backtrace_log();
     }
 
     if (p == NULL)
     {
         log_err("malloc() failed (out of memory)\n");
-#if defined(CSFG_BACKTRACE)
-        log_backtrace(); /* probably won't work but may as well*/
-#endif
+        backtrace_log(); /* probably won't work but may as well */
         return NULL;
     }
 
@@ -32,22 +29,18 @@ void* mem_alloc(int size)
 void* mem_realloc(void* p, int new_size)
 {
     uintptr_t old_addr = (uintptr_t)p;
-    p = realloc(p, new_size);
+    p                  = realloc(p, new_size);
 
     if (new_size == 0)
     {
         log_warn("realloc(0) called\n");
-#if defined(CSFG_BACKTRACE)
-        log_backtrace();
-#endif
+        backtrace_log();
     }
 
     if (p == NULL)
     {
         log_err("realloc() failed (out of memory)\n");
-#if defined(CSFG_BACKTRACE)
-        log_backtrace(); /* probably won't work but may as well*/
-#endif
+        backtrace_log(); /* probably won't work but may as well */
         return NULL;
     }
 
@@ -64,9 +57,7 @@ void mem_free(void* p)
     if (p == NULL)
     {
         log_warn("free(NULL) called\n");
-#if defined(CSFG_BACKTRACE)
-        log_backtrace();
-#endif
+        backtrace_log();
     }
 
     untrack_mem(p);

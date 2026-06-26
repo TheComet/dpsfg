@@ -135,7 +135,7 @@ int csfg_rpoly_partial_fraction_decomposition(
 
     csfg_pfd_poly_clear(*pfd_terms);
     if (vec_count(numerator) >= vec_count(denominator) + 1)
-        return log_err(
+        return log_warn(
             "Partial fraction decomposition on reducible rational functions is "
             "currently not supported\n");
 
@@ -186,6 +186,7 @@ int csfg_rpoly_partial_fraction_decomposition(
     return 0;
 
 fail:
+    csfg_mat_reorder_deinit(reorder);
     csfg_mat_deinit(U);
     csfg_mat_deinit(L);
     csfg_mat_deinit(out);

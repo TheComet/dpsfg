@@ -44,7 +44,7 @@ struct _GraphEditor
     GtkWidget* entry; /* Text entry, when active */
 
     const struct plugin_notify_interface* icb;
-    struct dpsfg_plugin_callbacks*        cb;
+    struct plugin_notify_context*        cb;
     struct plugin_ctx*                    plugin_ctx;
 
     struct csfg_graph*     graph;
@@ -1705,7 +1705,7 @@ void graph_editor_register_type_internal(GTypeModule* type_module)
 GraphEditor* graph_editor_new(
     struct plugin_ctx*                    plugin_ctx,
     const struct plugin_notify_interface* icb,
-    struct dpsfg_plugin_callbacks*        cb)
+    struct plugin_notify_context*        cb)
 {
     GraphEditor* editor = g_object_new(PLUGIN_TYPE_GRAPH_EDITOR, NULL);
     editor->plugin_ctx = plugin_ctx;

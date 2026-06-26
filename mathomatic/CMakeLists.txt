@@ -25,7 +25,7 @@ configure_file ("templates/config.h.in" "include/mathomatic/config.h")
 # Library
 ###############################################################################
 
-add_library (mathomatic
+add_library (mathomatic OBJECT
     "src/am.c"
     "src/cmds.c"
     "src/complex.c"

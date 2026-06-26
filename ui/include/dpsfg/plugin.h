@@ -10,15 +10,20 @@ struct csfg_tf_expr;
 struct csfg_tf;
 struct csfg_pfd_poly;
 
-typedef struct _GtkWidget   GtkWidget;
+typedef struct _GtkWidget GtkWidget;
 typedef struct _GTypeModule GTypeModule;
 
-struct dpsfg_plugin_callbacks;
+struct plugin_notify_context;
 
 /*!
  * Plugins are able to modify structures provided by the main application.
- * Whenever this happens, the plugin should call the appropriate notification
+ * Whenever this happens, the plugin should call the appropriate callback
  * function to propagate changes.
+ *
+ * plugin_app_context contains the application's context. This is passed to
+ * each plugin's create() function. If a plugin wishes to make callbacks, then
+ * it must store this pointer for later, as it is required as a parameter by
+ * each callback.
  *
  * To prevent self-calling, plugins must pass in their context object so that
  * the main application can filter the callbacks.
@@ -31,28 +36,28 @@ struct plugin_notify_interface
      *
      * The graph is passed in via @see dpsfg_graph_interface. */
     void (*graph_structure_changed)(
-        struct dpsfg_plugin_callbacks* ctx,
-        const struct plugin_ctx*       source_plugin,
-        int                            node_in,
-        int                            node_out);
+        struct plugin_notify_context* ctx,
+        const struct plugin_ctx* source_plugin,
+        int node_in,
+        int node_out);
 
     /*! Call this if the graph visually changes. This includes changing node
      * positions, or changing edge positions. */
     void (*graph_layout_changed)(
-        struct dpsfg_plugin_callbacks* ctx,
-        const struct plugin_ctx*       source_plugin);
+        struct plugin_notify_context* ctx,
+        const struct plugin_ctx* source_plugin);
 
     /*! Call this if the substitution table is altered. The substitution table
      * is passed in via @see dpsfg_substitutions_interface.  */
     void (*substitutions_changed)(
-        struct dpsfg_plugin_callbacks* ctx,
-        const struct plugin_ctx*       source_plugin);
+        struct plugin_notify_context* ctx,
+        const struct plugin_ctx* source_plugin);
 
     /*! Call this if the parameters table is altered. The parameters table is
      * passed in via @see dpsfg_parameters_interface. */
     void (*parameters_changed)(
-        struct dpsfg_plugin_callbacks* ctx,
-        const struct plugin_ctx*       source_plugin);
+        struct plugin_notify_context* ctx,
+        const struct plugin_ctx* source_plugin);
 };
 
 struct dpsfg_ui_center_interface
@@ -82,8 +87,8 @@ struct dpsfg_graph_interface
     void (*on_set)(
         struct plugin_ctx* ctx,
         struct csfg_graph* graph,
-        int                node_in,
-        int                node_out);
+        int node_in,
+        int node_out);
 
     /*! Called when the graph is deallocated by the main application. A plugin
      * should clear any references to the graph pointer passed by on_set(). */
@@ -131,9 +136,9 @@ struct dpsfg_expr_interface
     /*! Called after converting the limit expression into a rational function.
      * This is also known as the "transfer function", or "tf" for short. */
     void (*on_tf_expr)(
-        struct plugin_ctx*           ctx,
+        struct plugin_ctx* ctx,
         const struct csfg_expr_pool* pool,
-        const struct csfg_tf_expr*   tf);
+        const struct csfg_tf_expr* tf);
 };
 
 /*!
@@ -199,6 +204,14 @@ struct dpsfg_numeric_interface
         struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms);
 };
 
+struct deserializer;
+struct serializer;
+struct dpsfg_io_interface
+{
+    int (*on_save)(struct plugin_ctx* ctx, struct serializer** ser);
+    int (*on_load)(struct plugin_ctx* ctx, struct deserializer* des);
+};
+
 struct dpsfg_plugin_info
 {
     const char* name;
@@ -210,23 +223,24 @@ struct dpsfg_plugin_info
 
 struct dpsfg_plugin_interface
 {
-    uint32_t                  plugin_version;
-    uint32_t                  app_version;
+    uint32_t plugin_version;
+    uint32_t app_version;
     struct dpsfg_plugin_info* info;
 
     /* Main create/destroy of plugin context */
     struct plugin_ctx* (*create)(
-        const struct plugin_notify_interface* icb,
-        struct dpsfg_plugin_callbacks*        cb,
-        GTypeModule*                          type_module);
+        const struct plugin_notify_interface* notify_interface,
+        struct plugin_notify_context* notify_ctx,
+        GTypeModule* type_module);
     void (*destroy)(struct plugin_ctx* ctx, GTypeModule* type_module);
 
     /* Various interfaces that can optionally be implemented */
-    const struct dpsfg_ui_center_interface*     ui_center;
-    const struct dpsfg_ui_pane_interface*       ui_pane;
-    const struct dpsfg_graph_interface*         graph;
+    const struct dpsfg_ui_center_interface* ui_center;
+    const struct dpsfg_ui_pane_interface* ui_pane;
+    const struct dpsfg_graph_interface* graph;
     const struct dpsfg_substitutions_interface* substitutions;
-    const struct dpsfg_expr_interface*          expr;
-    const struct dpsfg_parameters_interface*    parameters;
-    const struct dpsfg_numeric_interface*       numeric;
+    const struct dpsfg_expr_interface* expr;
+    const struct dpsfg_parameters_interface* parameters;
+    const struct dpsfg_numeric_interface* numeric;
+    const struct dpsfg_io_interface* io;
 };

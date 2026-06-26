@@ -27,6 +27,7 @@ if (DPSFG_TESTS)
     add_subdirectory ("tests")
 endif ()
 
+add_subdirectory ("libbacktrace")
 add_subdirectory ("mathomatic")
 add_subdirectory ("csfg")
 add_subdirectory ("ui")

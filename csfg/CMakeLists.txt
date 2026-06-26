@@ -97,26 +97,20 @@ if (CSFG_DEBUG_MEMORY)
         "src/util/tracker.c")
 endif ()
 
+if (CSFG_BACKTRACE)
+    list (APPEND csfg_SOURCES
+        "src/util/backtrace.c")
+endif ()
+
 if (WIN32)
     list (APPEND csfg_SOURCES
         "src/platform/mfile_win32.c")
-    if (CSFG_BACKTRACE)
-        list (APPEND csfg_SOURCES
-            "src/platform/backtrace_win32.c")
-    endif ()
 elseif (LINUX)
     list (APPEND csfg_SOURCES
         "src/platform/mfile_linux.c")
-    if (CSFG_BACKTRACE)
-        list (APPEND csfg_SOURCES
-            "src/platform/backtrace_linux.c")
-    endif ()
 elseif (UNIX)
     list (APPEND csfg_SOURCES
         "src/platform/mfile_posix.c")
-    if (CSFG_BACKTRACE)
-        message (FATAL_ERROR "backtraces are not yet implemented for this platform. Build with -DCSFG_BACKTRACE=OFF, or implement it yourself ;)")
-    endif ()
 endif ()
 
 add_library (dpsfg-csfg SHARED
@@ -136,6 +130,9 @@ set_target_properties (dpsfg-csfg
         C_STANDARD 90)
 add_library (DPSFG::csfg ALIAS dpsfg-csfg)
 
+if (CSFG_BACKTRACE)
+    target_link_libraries (dpsfg-csfg PRIVATE libbacktrace)
+endif ()
 if (CSFG_WERROR)
     target_compile_options (dpsfg-csfg
         PRIVATE

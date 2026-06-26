@@ -1,5 +1,6 @@
 #pragma once
 
+#include "csfg/config.h"
 #include <assert.h>
 #include <stdint.h>
 

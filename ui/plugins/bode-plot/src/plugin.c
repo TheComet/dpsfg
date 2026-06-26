@@ -5,9 +5,7 @@
 
 struct plugin_ctx
 {
-    BodePlot*                             bode_plot;
-    const struct plugin_notify_interface* icb;
-    struct dpsfg_plugin_callbacks*        cb;
+    BodePlot* bode_plot;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -24,13 +22,12 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_notify_interface* icb,
-    struct dpsfg_plugin_callbacks*        cb,
-    GTypeModule*                          type_module)
+    const struct plugin_notify_interface* notify_interface,
+    struct plugin_notify_context* notify_ctx,
+    GTypeModule* type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
-    ctx->icb = icb;
-    ctx->cb = cb;
+    (void)notify_interface, (void)notify_ctx;
 
     bode_plot_register_type_internal(type_module);
 
@@ -74,4 +71,5 @@ PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     NULL,
     NULL,
     NULL,
-    &numeric};
+    &numeric,
+    NULL};

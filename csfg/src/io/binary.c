@@ -161,7 +161,7 @@ static int
 deserialize_var_table(struct deserializer* des, struct csfg_var_table* vt)
 {
     int16_t entry_count = deserialize_li16(des);
-    if (entry_count > 1000)
+    if (entry_count < 0 || entry_count > 1000)
         return log_err(
             "Variable table entry count is implausible: %d\n", entry_count);
 
@@ -201,12 +201,10 @@ static int save(
     const struct csfg_node* n;
     const struct csfg_edge* e;
 
-    const char magic[4]    = {'C', 'S', 'F', 'G'};
-    const uint16_t version = 0x0000;
-    int err                = 0;
+    const uint8_t version = 0;
+    int err               = 0;
 
-    err += serialize_data(ser, magic, 4);
-    err += serialize_lu16(ser, version);
+    err += serialize_u8(ser, version);
 
     err += serialize_li16(ser, node_in);
     err += serialize_li16(ser, node_out);
@@ -236,7 +234,7 @@ static int save(
 }
 
 /* -------------------------------------------------------------------------- */
-static int load_0_0(
+static int load_0(
     struct deserializer* des,
     struct csfg_var_table* substitutions,
     struct csfg_var_table* parameters,
@@ -250,7 +248,7 @@ static int load_0_0(
     *node_out = deserialize_li16(des);
 
     node_count = deserialize_li16(des);
-    if (node_count > 10000)
+    if (node_count < 0 || node_count > 10000)
         return log_err("Read implausible node count: %d\n", node_count);
     for (i = 0; i != node_count; ++i)
     {
@@ -269,7 +267,7 @@ static int load_0_0(
     }
 
     edge_count = deserialize_li16(des);
-    if (edge_count > 10000)
+    if (edge_count < 0 || edge_count > 10000)
         return log_err("Read implausible node count: %d\n", edge_count);
     for (i = 0; i != edge_count; ++i)
     {
@@ -316,15 +314,10 @@ static int load(
     int* node_in,
     int* node_out)
 {
-    char magic[4];
-    uint16_t version;
+    uint8_t version;
     int result;
 
-    deserialize_data(des, magic, 4);
-    if (deserializer_err(des) || memcmp(magic, "CSFG", 4) != 0)
-        return log_err("Invalid header\n");
-
-    version = deserialize_lu16(des);
+    version = deserialize_u8(des);
     if (deserializer_err(des))
         return log_err("Failed to read version: EOF\n");
 
@@ -334,8 +327,8 @@ static int load(
 
     switch (version)
     {
-        case 0x0000:
-            result = load_0_0(
+        case 0x00:
+            result = load_0(
                 des, substitutions, parameters, graph, node_in, node_out);
             break;
 

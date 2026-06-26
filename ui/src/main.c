@@ -82,13 +82,13 @@ struct app_ctx
     GtkWidget* paned2;
 
     struct plugin_vec** plugins;
-    struct dpsfg_plugin_callbacks* plugin_callbacks_ctx;
+    struct plugin_notify_context* plugin_callbacks_ctx;
     struct math_pipeline pipeline;
 };
 
 /* Implement the opaque pointer from plugin.h. This is passed in when plugins
  * call back to the main application. */
-struct dpsfg_plugin_callbacks
+struct plugin_notify_context
 {
     struct app_ctx* app;
 };
@@ -114,7 +114,7 @@ static void notify_plugins(
 
 /* -------------------------------------------------------------------------- */
 static void graph_structure_changed_cb(
-    struct dpsfg_plugin_callbacks* cb,
+    struct plugin_notify_context* cb,
     const struct plugin_ctx* source_plugin,
     int node_in,
     int node_out)
@@ -130,7 +130,7 @@ static void graph_structure_changed_cb(
         *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
 static void graph_layout_changed_cb(
-    struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
+    struct plugin_notify_context* cb, const struct plugin_ctx* source_plugin)
 {
     struct app_ctx* app            = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
@@ -138,7 +138,7 @@ static void graph_layout_changed_cb(
         *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
 static void substitutions_changed_cb(
-    struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
+    struct plugin_notify_context* cb, const struct plugin_ctx* source_plugin)
 {
     struct app_ctx* app            = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
@@ -150,7 +150,7 @@ static void substitutions_changed_cb(
         MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
 }
 static void parameters_changed_cb(
-    struct dpsfg_plugin_callbacks* cb, const struct plugin_ctx* source_plugin)
+    struct plugin_notify_context* cb, const struct plugin_ctx* source_plugin)
 {
     struct app_ctx* app            = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
@@ -181,7 +181,7 @@ shorcut_quit_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 static int start_plugin(
     struct plugin* plugin,
     struct plugin_lib lib,
-    struct dpsfg_plugin_callbacks* callbacks_ctx,
+    struct plugin_notify_context* callbacks_ctx,
     GtkNotebook* center,
     GtkBox* pane)
 {
@@ -313,7 +313,7 @@ static void setup_global_shortcuts(GtkWidget* window)
 struct on_plugin_ctx
 {
     struct plugin_vec** plugins;
-    struct dpsfg_plugin_callbacks* plugin_callbacks_ctx;
+    struct plugin_notify_context* plugin_callbacks_ctx;
     GtkNotebook* center_area;
     GtkBox* property_pane;
 };
@@ -438,14 +438,33 @@ static void activate(GtkApplication* app, gpointer user_data)
 }
 
 /* -------------------------------------------------------------------------- */
-static void save_pipeline(const struct math_pipeline* pl)
+struct entry
+{
+    struct serializer* ser;
+    const char* name;
+};
+VEC_DECLARE(entry_vec, struct entry, 16)
+VEC_DEFINE(entry_vec, struct entry, 16)
+static void
+save_graph(const struct math_pipeline* pl, const struct plugin_vec* plugins)
 {
     FILE* fp;
-    struct serializer* ser;
+    struct entry_vec* entry_table;
+    struct entry* entry;
+    struct serializer* header;
+    const struct plugin* plugin;
+    int entry_off, err;
 
-    serializer_init(&ser);
+    entry_vec_init(&entry_table);
+    serializer_init(&header);
+
+    entry = entry_vec_emplace(&entry_table);
+    if (entry == NULL)
+        goto serialize_failed;
+    serializer_init(&entry->ser);
+    entry->name = "graph";
     if (csfg_io_save(
-            &ser,
+            &entry->ser,
             &pl->substitutions,
             &pl->parameters,
             &pl->graph,
@@ -453,13 +472,66 @@ static void save_pipeline(const struct math_pipeline* pl)
             pl->node_out,
             "binary") != 0)
         goto serialize_failed;
+
+    vec_for_each (plugins, plugin)
+    {
+        if (plugin->lib.i->io == NULL)
+            continue;
+        entry = entry_vec_emplace(&entry_table);
+        if (entry == NULL)
+            goto serialize_failed;
+        serializer_init(&entry->ser);
+        entry->name = plugin->lib.i->info->name;
+        if (plugin->lib.i->io->on_save(plugin->ctx, &entry->ser) != 0 ||
+            vec_count(entry->ser) == 0)
+            entry_vec_pop(entry_table);
+    }
+
+    err = 0;
+    err += serialize_data(&header, "CSFG", 4); /* magic */
+    err += serialize_u8(&header, 0);           /* version */
+
+    err += serialize_u8(&header, vec_count(entry_table));
+    entry_off = vec_count(header);
+    vec_for_each (entry_table, entry)
+    {
+        entry_off += strlen(entry->name) + 1;
+        entry_off += sizeof(int);
+        entry_off += sizeof(int);
+    }
+    vec_for_each (entry_table, entry)
+    {
+        err += serialize_cstr(&header, entry->name);
+        err += serialize_li32(&header, entry_off);
+        err += serialize_li32(&header, vec_count(entry->ser));
+        entry_off += vec_count(entry->ser);
+    }
+    if (err != 0)
+        goto serialize_failed;
+
     fp = fopen("graph.sfg", "w");
     if (fp == NULL)
         goto fopen_failed;
-    fwrite(ser->data, ser->count, 1, fp);
-    fclose(fp);
+    fwrite(vec_data(header), 1, vec_count(header), fp);
+    vec_for_each (entry_table, entry)
+        fwrite(vec_data(entry->ser), 1, vec_count(entry->ser), fp);
+    if (ferror(fp))
+        goto write_failed;
 
-    serializer_clear(ser);
+write_failed:
+    fclose(fp);
+fopen_failed:
+serialize_failed:
+    vec_for_each (entry_table, entry)
+        serializer_deinit(entry->ser);
+    entry_vec_deinit(entry_table);
+    serializer_deinit(header);
+}
+static void save_graphviz(const struct math_pipeline* pl)
+{
+    struct serializer* ser;
+    FILE* fp;
+    serializer_init(&ser);
     if (csfg_io_save(
             &ser,
             &pl->substitutions,
@@ -474,8 +546,19 @@ static void save_pipeline(const struct math_pipeline* pl)
         goto fopen_failed;
     fwrite(ser->data, ser->count, 1, fp);
     fclose(fp);
+    serializer_deinit(ser);
+    return;
 
-    serializer_clear(ser);
+fopen_failed:
+    serializer_deinit(ser);
+serialize_failed:
+    return;
+}
+static void save_latex(const struct math_pipeline* pl)
+{
+    struct serializer* ser;
+    FILE* fp;
+    serializer_init(&ser);
     if (csfg_io_save(
             &ser,
             &pl->substitutions,
@@ -490,32 +573,106 @@ static void save_pipeline(const struct math_pipeline* pl)
         goto fopen_failed;
     fwrite(ser->data, ser->count, 1, fp);
     fclose(fp);
+    serializer_deinit(ser);
+    return;
 
 fopen_failed:
-serialize_failed:
     serializer_deinit(ser);
+serialize_failed:
+    return;
+}
+static void
+save_pipeline(const struct math_pipeline* pl, const struct plugin_vec* plugins)
+{
+    save_graph(pl, plugins);
+    save_graphviz(pl);
+    save_latex(pl);
 }
 
 /* -------------------------------------------------------------------------- */
-static void load_pipeline(struct math_pipeline* pl)
+static int
+load_pipeline(struct math_pipeline* pl, const struct plugin_vec* plugins)
 {
     struct mfile mf;
+    struct deserializer header;
     struct deserializer des;
+    struct entry_vec* entry_table;
+    const struct plugin* plugin;
+    char magic[4];
+    int entry_count;
+    uint8_t version;
+
+    entry_vec_init(&entry_table);
 
     if (mfile_map_read(&mf, "graph.sfg", 1) != 0)
-        return;
+        goto map_failed;
 
-    des = deserializer(mf.address, mf.size);
-    csfg_io_load(
-        &des,
-        &pl->substitutions,
-        &pl->parameters,
-        &pl->graph,
-        &pl->node_in,
-        &pl->node_out,
-        "binary");
+    header = deserializer(mf.address, mf.size);
+    deserialize_data(&header, magic, 4);
+    if (deserializer_err(&header) || memcmp(magic, "CSFG", 4) != 0)
+    {
+        log_err("Found invalid header in file \"graph.sfg\"\n");
+        goto read_failed;
+    }
+
+    version = deserialize_u8(&header);
+    if (deserializer_err(&header))
+    {
+        log_err("Failed to read version: EOF\n");
+        goto read_failed;
+    }
+    (void)version; /* TODO */
+
+    entry_count = deserialize_u8(&header);
+    if (deserializer_err(&header))
+    {
+        log_err("Failed to read entry table size: EOF\n");
+        goto read_failed;
+    }
+    while (entry_count--)
+    {
+        const char* name = deserialize_cstr(&header);
+        int off          = deserialize_li32(&header);
+        int len          = deserialize_li32(&header);
+        if (deserializer_err(&header))
+        {
+            log_err("Failed to read entry\n");
+            goto read_failed;
+        }
+
+        des = deserializer((const uint8_t*)mf.address + off, len);
+        if (strcmp(name, "graph") == 0)
+        {
+            if (csfg_io_load(
+                    &des,
+                    &pl->substitutions,
+                    &pl->parameters,
+                    &pl->graph,
+                    &pl->node_in,
+                    &pl->node_out,
+                    "binary") != 0)
+                goto read_failed;
+        }
+        else
+        {
+            vec_for_each (plugins, plugin)
+            {
+                if (plugin->lib.i->io == NULL)
+                    continue;
+                if (strcmp(name, plugin->lib.i->info->name))
+                    continue;
+                plugin->lib.i->io->on_load(plugin->ctx, &des);
+            }
+        }
+    }
 
     mfile_unmap(&mf);
+    return 0;
+
+read_failed:
+map_failed:
+    entry_vec_deinit(entry_table);
+    return -1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -523,7 +680,7 @@ int main(int argc, char** argv)
 {
     struct args args;
     struct app_ctx app_ctx;
-    struct dpsfg_plugin_callbacks callbacks_ctx;
+    struct plugin_notify_context callbacks_ctx;
     struct plugin* plugin;
     struct plugin_vec* plugins;
     GtkApplication* app;
@@ -556,7 +713,7 @@ int main(int argc, char** argv)
     app_ctx.plugin_callbacks_ctx = &callbacks_ctx;
 
     math_pipeline_init(&app_ctx.pipeline);
-    load_pipeline(&app_ctx.pipeline);
+    load_pipeline(&app_ctx.pipeline, *app_ctx.plugins);
 
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
@@ -564,12 +721,12 @@ int main(int argc, char** argv)
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 
+    save_pipeline(&app_ctx.pipeline, *app_ctx.plugins);
+    math_pipeline_deinit(&app_ctx.pipeline);
+
     vec_for_each (plugins, plugin)
         stop_plugin(plugin);
     plugin_vec_deinit(plugins);
-
-    save_pipeline(&app_ctx.pipeline);
-    math_pipeline_deinit(&app_ctx.pipeline);
 
 parse_args_break:
     csfg_deinit();

@@ -7,19 +7,21 @@
 
 struct plugin_ctx
 {
-    GtkWidget*                            pole_zero_plot;
-    GtkTextBuffer*                        text_buffer;
-    const struct plugin_notify_interface* icb;
-    struct dpsfg_plugin_callbacks*        cb;
-    struct csfg_var_table*                substitutions_table;
+    const struct plugin_notify_interface* notify_interface;
+    struct plugin_notify_context* notify_ctx;
+    struct str* str; /* scratch buffer for temporary string manipulation */
+    /* reference to app's substitutions table */
+    struct csfg_var_table* substitutions_table;
+    GtkWidget* pole_zero_plot;
+    GtkTextBuffer* text_buffer;
 };
 
 enum token
 {
-    TOK_ERROR = -1,
-    TOK_END = 0,
+    TOK_ERROR  = -1,
+    TOK_END    = 0,
     TOK_EQUALS = '=',
-    TOK_TEXT = 256
+    TOK_TEXT   = 256
 };
 
 struct parser
@@ -36,7 +38,7 @@ struct parser
 static void parser_init(struct parser* p, const char* text)
 {
     p->data = text;
-    p->end = strlen(text);
+    p->end  = strlen(text);
     p->head = 0;
     p->tail = 0;
 }
@@ -44,7 +46,7 @@ static void parser_init(struct parser* p, const char* text)
 /* -------------------------------------------------------------------------- */
 static int parser_error(const struct parser* p, const char* fmt, ...)
 {
-    va_list        ap;
+    va_list ap;
     struct strview loc;
 
     loc.off = p->tail;
@@ -113,7 +115,7 @@ static enum token scan_next(struct parser* p)
         if (!isspace(p->data[p->head]))
         {
             p->value.str.data = p->data;
-            p->value.str.off = p->head++;
+            p->value.str.off  = p->head++;
             while (p->head != p->end &&
                    (p->data[p->head] != '\n' && p->data[p->head] != '='))
             {
@@ -135,13 +137,13 @@ static enum token scan_next(struct parser* p)
 static int parse_text(struct parser* p, struct csfg_var_table* vt)
 {
     struct strview var_name;
-    int            modified = 0;
+    int modified = 0;
 
 next_token:
     switch (scan_next(p))
     {
         case TOK_ERROR: return -1;
-        case TOK_END: break;
+        case TOK_END  : break;
 
         case TOK_TEXT:
             var_name = p->value.str;
@@ -163,10 +165,10 @@ next_token:
 /* -------------------------------------------------------------------------- */
 static void on_text_buffer_changed(GtkTextBuffer* buffer, gpointer user_data)
 {
-    gchar*             text;
-    GtkTextIter        start, end;
-    int                modified;
-    struct parser      p;
+    gchar* text;
+    GtkTextIter start, end;
+    int modified;
+    struct parser p;
     struct plugin_ctx* ctx = user_data;
 
     gtk_text_buffer_get_start_iter(buffer, &start);
@@ -180,7 +182,7 @@ static void on_text_buffer_changed(GtkTextBuffer* buffer, gpointer user_data)
     g_free(text);
 
     if (modified)
-        ctx->icb->substitutions_changed(ctx->cb, ctx);
+        ctx->notify_interface->substitutions_changed(ctx->notify_ctx, ctx);
 }
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
@@ -200,15 +202,12 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 }
 
 /* -------------------------------------------------------------------------- */
-void substitutions_on_changed(struct plugin_ctx* ctx)
+static void substitutions_on_changed(struct plugin_ctx* ctx)
 {
-    GtkTextIter                        end;
-    int16_t                            slot;
-    struct str*                        str;
-    const struct str*                  name;
+    GtkTextIter end;
+    int16_t slot;
+    const struct str* name;
     const struct csfg_var_table_entry* entry;
-
-    str_init(&str);
 
     g_signal_handlers_block_by_func(
         ctx->text_buffer, G_CALLBACK(on_text_buffer_changed), ctx);
@@ -218,8 +217,8 @@ void substitutions_on_changed(struct plugin_ctx* ctx)
         if (ctx->substitutions_table != NULL)
             hmap_for_each (ctx->substitutions_table->map, slot, name, entry)
             {
-                str_clear(str);
-                csfg_expr_to_str(&str, entry->pool, entry->expr);
+                str_clear(ctx->str);
+                csfg_expr_to_str(&ctx->str, entry->pool, entry->expr);
                 gtk_text_buffer_get_end_iter(ctx->text_buffer, &end);
                 gtk_text_buffer_insert(
                     ctx->text_buffer, &end, str_cstr(name), -1);
@@ -227,23 +226,21 @@ void substitutions_on_changed(struct plugin_ctx* ctx)
                 gtk_text_buffer_insert(ctx->text_buffer, &end, " = ", -1);
                 gtk_text_buffer_get_end_iter(ctx->text_buffer, &end);
                 gtk_text_buffer_insert(
-                    ctx->text_buffer, &end, str_cstr(str), -1);
+                    ctx->text_buffer, &end, str_cstr(ctx->str), -1);
                 gtk_text_buffer_get_end_iter(ctx->text_buffer, &end);
                 gtk_text_buffer_insert(ctx->text_buffer, &end, "\n", -1);
             }
     }
     g_signal_handlers_unblock_by_func(
         ctx->text_buffer, G_CALLBACK(on_text_buffer_changed), ctx);
-
-    str_deinit(str);
 }
-void substitutions_on_set(
+static void substitutions_on_set(
     struct plugin_ctx* ctx, struct csfg_var_table* substitutions)
 {
     ctx->substitutions_table = substitutions;
     substitutions_on_changed(ctx);
 }
-void substitutions_on_clear(struct plugin_ctx* ctx)
+static void substitutions_on_clear(struct plugin_ctx* ctx)
 {
     ctx->substitutions_table = NULL;
     substitutions_on_changed(ctx);
@@ -251,19 +248,22 @@ void substitutions_on_clear(struct plugin_ctx* ctx)
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_notify_interface* icb,
-    struct dpsfg_plugin_callbacks*        cb,
-    GTypeModule*                          type_module)
+    const struct plugin_notify_interface* notify_interface,
+    struct plugin_notify_context* notify_ctx,
+    GTypeModule* type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     (void)type_module;
-    ctx->icb = icb;
-    ctx->cb = cb;
+    ctx->notify_interface = notify_interface;
+    ctx->notify_ctx       = notify_ctx;
+    str_init(&ctx->str);
+    ctx->substitutions_table = NULL;
     return ctx;
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 {
     (void)type_module;
+    str_deinit(ctx->str);
     mem_free(ctx);
 }
 
@@ -271,7 +271,7 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 static struct dpsfg_ui_pane_interface ui_pane = {
     ui_pane_create, ui_pane_destroy};
 static struct dpsfg_substitutions_interface substitutions = {
-    &substitutions_on_set, &substitutions_on_clear, &substitutions_on_changed};
+    substitutions_on_set, substitutions_on_clear, substitutions_on_changed};
 
 static struct dpsfg_plugin_info info = {
     "Substitutions",
@@ -290,6 +290,7 @@ PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     &ui_pane,
     NULL,
     &substitutions,
+    NULL,
     NULL,
     NULL,
     NULL};

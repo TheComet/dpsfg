@@ -1,18 +1,15 @@
-#include "csfg/platform/backtrace.h"
+#include "csfg/util/backtrace.h"
+#include "csfg/util/hash.h"
 #include "csfg/util/hmap.h"
 #include "csfg/util/mem.h"
-#include "csfg/util/str.h"
 #include "csfg/util/tracker.h"
 #include <inttypes.h>
 
 struct data
 {
-    int         size;
-    struct str* name;
-#if defined(CSFG_BACKTRACE)
-    int    backtrace_size;
-    char** backtrace;
-#endif
+    int size;
+    char name[32];
+    struct backtrace_vec* backtrace;
 };
 
 HMAP_DECLARE_HASH(static, tracker_hmap, hash32, uintptr_t, struct data, 32)
@@ -27,90 +24,45 @@ HMAP_DEFINE_HASH(
 
 struct tracker
 {
-    struct str*          name;
+    char name[32];
     struct tracker_hmap* hmap;
-    int                  tracks, untracks;
+    int tracks, untracks;
 };
-
-/* -------------------------------------------------------------------------- */
-#if defined(CSFG_BACKTRACE)
-static void print_backtrace(const struct data* data)
-{
-    int i;
-    for (i = BACKTRACE_OMIT_COUNT; i < data->backtrace_size; ++i)
-    {
-        if (strstr(data->backtrace[i], "invoke_main"))
-            break;
-        log_raw("  %s\n", data->backtrace[i]);
-    }
-}
-#endif
 
 /* -------------------------------------------------------------------------- */
 struct tracker* tracker_create(const char* name)
 {
     struct tracker* t = mem_alloc(sizeof *t);
     if (t == NULL)
-        goto alloc_tracker_failed;
+        return NULL;
 
-    str_init(&t->name);
     tracker_hmap_init(&t->hmap);
+    strncpy(t->name, name, sizeof(t->name) - 1);
 
-    if (str_set_cstr(&t->name, name) != 0)
-        goto set_name_failed;
-
-    t->tracks = 0;
+    t->tracks   = 0;
     t->untracks = 0;
 
     return t;
-
-set_name_failed:
-    tracker_hmap_deinit(t->hmap);
-    str_deinit(t->name);
-    mem_free(t);
-alloc_tracker_failed:
-    return NULL;
 }
 
 /* -------------------------------------------------------------------------- */
 void tracker_destroy(struct tracker* t)
 {
-    int          slot;
-    uintptr_t    p;
+    int slot;
+    uintptr_t p;
     struct data* data;
 
     hmap_for_each (t->hmap, slot, p, data)
     {
-        (void)slot;
-        log_err(
-            "Un-freed %s 0x%" PRIxPTR " \"%s\"",
-            str_cstr(t->name),
-            p,
-            str_cstr(data->name));
+        log_err("Un-freed %s 0x%" PRIxPTR " \"%s\"", t->name, p, data->name);
         if (data->size)
             log_raw(", size %d", data->size);
         log_raw("\n");
-#if defined(CSFG_BACKTRACE)
-        print_backtrace(data);
-        backtrace_free(data->backtrace);
-#endif
-        str_deinit(data->name);
-#if defined(CSFG_HEX_DUMP)
-        if (data->size <= CSFG_HEX_DUMP_SIZE)
-            log_hex_ascii((void*)p, data->size);
-#endif
+        backtrace_log_vec(data->backtrace);
+        backtrace_vec_deinit(data->backtrace);
     }
-
-#if defined(CSFG_BACKTRACE)
-    if (t->tracks != t->untracks)
-    {
-        log_note("Call to tracker_destroy():\n");
-        log_backtrace();
-    }
-#endif
 
     tracker_hmap_deinit(t->hmap);
-    str_deinit(t->name);
     mem_free(t);
 }
 
@@ -124,12 +76,10 @@ void tracker_track(struct tracker* t, void* p, int size, const char* name)
     {
         case HMAP_OOM: break;
         case HMAP_NEW: {
-            str_init(&data->name);
-            str_set_cstr(&data->name, name);
-            data->size = size;
-#if defined(CSFG_BACKTRACE)
-            data->backtrace = backtrace_get(&data->backtrace_size);
-#endif
+            strncpy(data->name, name, sizeof(data->name) - 1);
+            data->size      = size;
+            data->backtrace = NULL;
+            backtrace_generate(&data->backtrace);
             break;
         }
 
@@ -137,12 +87,10 @@ void tracker_track(struct tracker* t, void* p, int size, const char* name)
             log_err(
                 "Double track on %s! This is usually caused by "
                 "calling tracker_track() on the same resource twice.\n",
-                str_cstr(t->name));
-#if defined(CSFG_BACKTRACE)
-            log_backtrace();
-            log_err("%s was previously tracked at:\n", str_cstr(t->name));
-            print_backtrace(data);
-#endif
+                t->name);
+            backtrace_log();
+            log_note("%s was previously tracked at:\n", t->name);
+            backtrace_log_vec(data->backtrace);
             break;
         }
     }
@@ -155,24 +103,17 @@ void tracker_untrack(struct tracker* t, void* p)
     ++t->untracks;
 
     data = tracker_hmap_erase(t->hmap, (uintptr_t)p);
-    if (data == NULL)
+    if (data != NULL)
+        backtrace_vec_deinit(data->backtrace);
+    else
     {
-        log_err("Untracking a %s that was never tracked.\n", str_cstr(t->name));
-#if defined(CSFG_BACKTRACE)
-        log_backtrace();
-#endif
-        return;
+        log_err("Untracking a %s that was never tracked.\n", t->name);
+        backtrace_log();
     }
-
-#if defined(CSFG_BACKTRACE)
-    if (data->backtrace)
-        backtrace_free(data->backtrace);
-#endif
-    str_deinit(data->name);
 }
 
 /* -------------------------------------------------------------------------- */
-static CSFG_THREADLOCAL int             g_ignore_malloc;
+static CSFG_THREADLOCAL int g_ignore_malloc;
 static CSFG_THREADLOCAL struct tracker* g_tracker_mem;
 static CSFG_THREADLOCAL struct tracker* g_tracker_fd;
 
@@ -180,15 +121,11 @@ static CSFG_THREADLOCAL struct tracker* g_tracker_fd;
 int trackers_init_tls(void)
 {
     g_ignore_malloc = 1;
-    g_tracker_mem = tracker_create("memory allocation");
+    g_tracker_mem   = tracker_create("memory allocation");
     if (g_tracker_mem == NULL)
         goto tracker_mem_create_failed;
     g_ignore_malloc = 0;
     track_mem(g_tracker_mem, sizeof *g_tracker_mem, "g_tracker_mem");
-    track_mem(
-        g_tracker_mem->name,
-        str_len(g_tracker_mem->name),
-        "g_tracker_mem->name");
 
     g_tracker_fd = tracker_create("file descriptor");
     if (g_tracker_fd == NULL)
@@ -207,7 +144,6 @@ void trackers_deinit_tls(void)
 {
     tracker_destroy(g_tracker_fd);
 
-    untrack_mem(g_tracker_mem->name);
     untrack_mem(g_tracker_mem);
     g_ignore_malloc = 1;
     tracker_destroy(g_tracker_mem);

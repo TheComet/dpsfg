@@ -186,7 +186,7 @@ static int expr_to_mathomatic_equation(
         case CSFG_EXPR_INF:
             /* We cannot simplify the equation meaningfully if it contains
              * infinities. Make sure to run csfg_expr_apply_limits() first! */
-            CSFG_DEBUG_ASSERT(0);
+            log_dbg("csfg_expr_simplify() failed: Contains infinities\n");
             return -1;
         case CSFG_EXPR_NEG:
             tok = token_vec_emplace(eq);
@@ -343,7 +343,7 @@ int csfg_expr_simplify(struct csfg_expr_pool** pool, int expr)
     token_vec_realloc(&eq, n_tokens);
 
     if (expr_to_mathomatic_equation(&eq, *pool, expr, 1) != 0)
-        return -1;
+        goto convert_to_mathomatic_failed;
     simpa_repeat_side(vec_data(eq), &eq->count, quick_flag, repeat_flag);
     new_expr = mathomatic_equation_to_expr(pool, eq);
 
@@ -351,4 +351,9 @@ int csfg_expr_simplify(struct csfg_expr_pool** pool, int expr)
     token_vec_deinit(eq);
 
     return new_expr;
+
+convert_to_mathomatic_failed:
+    unlink_variable_names_from_mathomatic(*pool, expr);
+    token_vec_deinit(eq);
+    return -1;
 }

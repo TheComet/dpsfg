@@ -31,7 +31,7 @@ void log_file_close(void);
 
 CSFG_PRINTF_FORMAT(1, 2) void log_raw(const char* fmt, ...);
 CSFG_PRINTF_FORMAT(1, 2) void log_info(const char* fmt, ...);
-CSFG_PRINTF_FORMAT(1, 2) void log_warn(const char* fmt, ...);
+CSFG_PRINTF_FORMAT(1, 2) int log_warn(const char* fmt, ...);
 CSFG_PRINTF_FORMAT(1, 2) int log_err(const char* fmt, ...);
 CSFG_PRINTF_FORMAT(1, 2) void log_note(const char* fmt, ...);
 
@@ -52,11 +52,6 @@ CSFG_PRINTF_FORMAT(1, 2) int log_err_win32(const char* fmt, ...);
 
 int  log_oom(int bytes, const char* func_name);
 void log_hex_ascii(const void* data, int len);
-#if defined(CSFG_BACKTRACE)
-void log_backtrace(void);
-#else
-#    define log_backtrace()
-#endif
 
 /* Parser/File logging functions -------------------------------------------- */
 

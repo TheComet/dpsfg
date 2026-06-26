@@ -4,16 +4,17 @@
 
 struct plugin_ctx
 {
-    GraphEditor*                          graph_editor;
-    GtkWidget*                            pole_zero_plot;
-    const struct plugin_notify_interface* icb;
-    struct dpsfg_plugin_callbacks*        cb;
+    GraphEditor* graph_editor;
+    GtkWidget* pole_zero_plot;
+    const struct plugin_notify_interface* notify_interface;
+    struct plugin_notify_context* notify_ctx;
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_center_create(struct plugin_ctx* ctx)
 {
-    ctx->graph_editor = graph_editor_new(ctx, ctx->icb, ctx->cb);
+    ctx->graph_editor =
+        graph_editor_new(ctx, ctx->notify_interface, ctx->notify_ctx);
     return GTK_WIDGET(g_object_ref_sink(ctx->graph_editor));
 }
 static void ui_center_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
@@ -44,13 +45,13 @@ static void graph_on_layout_changed(struct plugin_ctx* ctx)
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_notify_interface* icb,
-    struct dpsfg_plugin_callbacks*        cb,
-    GTypeModule*                          type_module)
+    const struct plugin_notify_interface* notify_interface,
+    struct plugin_notify_context* notify_ctx,
+    GTypeModule* type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
-    ctx->icb = icb;
-    ctx->cb = cb;
+    ctx->notify_interface  = notify_interface;
+    ctx->notify_ctx        = notify_ctx;
 
     graph_editor_register_type_internal(type_module);
 
@@ -87,6 +88,7 @@ PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     &ui_center,
     NULL,
     &graph,
+    NULL,
     NULL,
     NULL,
     NULL,

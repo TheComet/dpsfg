@@ -39,7 +39,7 @@ static void column_view_activate_cb(
     GtkColumnView* self, guint position, gpointer user_pointer)
 {
     GtkSelectionModel* selection_model = gtk_column_view_get_model(self);
-    GListModel*        model =
+    GListModel* model =
         gtk_multi_selection_get_model(GTK_MULTI_SELECTION(selection_model));
     GtkTreeListRow* row =
         gtk_tree_list_model_get_row(GTK_TREE_LIST_MODEL(model), position);
@@ -51,9 +51,9 @@ static void column_view_activate_cb(
 
 static void selection_changed_cb(
     GtkSelectionModel* self,
-    guint              position_hint,
-    guint              n_items,
-    gpointer           user_data)
+    guint position_hint,
+    guint n_items,
+    gpointer user_data)
 {
 }
 
@@ -75,19 +75,25 @@ bind_listitem_cb(GtkListItemFactory* factory, GtkListItem* list_item)
 
 static GtkWidget* create_project_list(void)
 {
-    GtkStringList*       model;
-    GtkMultiSelection*   selection_model;
-    GtkWidget*           column_view;
-    GtkListItemFactory*  item_factory;
+    GtkStringList* model;
+    GtkMultiSelection* selection_model;
+    GtkWidget* column_view;
+    GtkListItemFactory* item_factory;
     GtkColumnViewColumn* column;
-    const char*          strings[] = {"hello 1", "hey 2", NULL};
+    const char* strings[] = {"hello 1", "hey 2", NULL};
 
-    model = gtk_string_list_new(strings);
+    model           = gtk_string_list_new(strings);
     selection_model = gtk_multi_selection_new(G_LIST_MODEL(model));
-    column_view = gtk_column_view_new(GTK_SELECTION_MODEL(selection_model));
-    /*gtk_column_view_set_show_row_separators(GTK_COLUMN_VIEW(column_view),
-     * TRUE);*/
-    gtk_widget_set_vexpand(column_view, TRUE);
+    column_view     = gtk_column_view_new(GTK_SELECTION_MODEL(selection_model));
+    gtk_widget_set_hexpand(column_view, TRUE);
+
+    item_factory = gtk_signal_list_item_factory_new();
+    g_signal_connect(
+        item_factory, "setup", G_CALLBACK(setup_listitem_cb), NULL);
+    g_signal_connect(item_factory, "bind", G_CALLBACK(bind_listitem_cb), NULL);
+    column = gtk_column_view_column_new("Date", item_factory);
+    gtk_column_view_append_column(GTK_COLUMN_VIEW(column_view), column);
+    g_object_unref(column);
 
     item_factory = gtk_signal_list_item_factory_new();
     g_signal_connect(
@@ -182,7 +188,7 @@ static void dpsfg_project_browser_dispose(GObject* object)
 static void dpsfg_project_browser_class_init(DPSFGProjectBrowserClass* class)
 {
     GObjectClass* object_class = G_OBJECT_CLASS(class);
-    object_class->dispose = dpsfg_project_browser_dispose;
+    object_class->dispose      = dpsfg_project_browser_dispose;
     // gtk_widget_class_set_layout_manager_type(
     //     GTK_WIDGET_CLASS(class), GTK_TYPE_BIN_LAYOUT);
 

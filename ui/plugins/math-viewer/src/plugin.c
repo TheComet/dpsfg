@@ -4,7 +4,7 @@
 
 struct plugin_ctx
 {
-    GtkWidget*  top_level;
+    GtkWidget* top_level;
     MathViewer* graph_expr_viewer;
     MathViewer* substituted_expr_viewer;
     MathViewer* limit_expr_viewer;
@@ -14,10 +14,10 @@ struct plugin_ctx
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
-    ctx->graph_expr_viewer = math_viewer_new();
+    ctx->graph_expr_viewer       = math_viewer_new();
     ctx->substituted_expr_viewer = math_viewer_new();
-    ctx->limit_expr_viewer = math_viewer_new();
-    ctx->tf_viewer = math_viewer_new();
+    ctx->limit_expr_viewer       = math_viewer_new();
+    ctx->tf_viewer               = math_viewer_new();
 
     ctx->top_level = gtk_notebook_new();
     gtk_notebook_append_page(
@@ -47,12 +47,12 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 
 /* -------------------------------------------------------------------------- */
 static struct plugin_ctx* create(
-    const struct plugin_notify_interface* icb,
-    struct dpsfg_plugin_callbacks*                 cb,
-    GTypeModule*                             type_module)
+    const struct plugin_notify_interface* notify_interface,
+    struct plugin_notify_context* notify_ctx,
+    GTypeModule* type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
-    (void)icb, (void)cb;
+    (void)notify_interface, (void)notify_ctx;
     math_viewer_register_type_internal(type_module);
     return ctx;
 }
@@ -79,9 +79,9 @@ static void on_limit_expr(
     math_viewer_set_expr(ctx->limit_expr_viewer, pool, expr);
 }
 static void on_graph_tf(
-    struct plugin_ctx*           ctx,
+    struct plugin_ctx* ctx,
     const struct csfg_expr_pool* pool,
-    const struct csfg_tf_expr*   tf)
+    const struct csfg_tf_expr* tf)
 {
     math_viewer_set_tf(ctx->tf_viewer, pool, tf);
 }
@@ -111,5 +111,6 @@ PLUGIN_API struct dpsfg_plugin_interface dpsfg_plugin = {
     NULL,
     NULL,
     &expr,
+    NULL,
     NULL,
     NULL};
