@@ -982,6 +982,7 @@ int			int_flag;	/* integer arithmetic flag, should work with any language */
 					cp = "//";
 					break;
 				}
+                /* fallthrough */
 			case DIVIDE:
 				cp = "/";
 				break;

@@ -124,7 +124,7 @@ target_compile_options (dpsfg-csfg
         $<$<C_COMPILER_ID:MSVC>:/W4 /wd4706 /wd4305 /wd4244 /wd4505>
         $<$<C_COMPILER_ID:GNU>:-W -Wall -Wextra -pedantic -Wno-unused-function>
         $<$<C_COMPILER_ID:Clang>:-W -Wall -Wextra -pedantic -Wno-unused-function>)
-target_link_libraries (dpsfg-csfg PRIVATE DPSFG::mathomatic)
+target_link_libraries (dpsfg-csfg PRIVATE mathomatic)
 set_target_properties (dpsfg-csfg
     PROPERTIES
         C_STANDARD 90)

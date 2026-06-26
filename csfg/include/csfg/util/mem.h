@@ -3,6 +3,17 @@
 #include "csfg/config.h"
 #include <stdint.h>
 
+#if defined(_WIN32)
+#   include <malloc.h>
+static inline int mem_allocated_size(void* p) { return (int)_msize(p); }
+#elif defined(__APPLE__)
+#   include <malloc/malloc.h>
+#   define mem_allocated_size  malloc_size
+#else
+#   include <malloc.h>
+#   define mem_allocated_size  malloc_usable_size
+#endif
+
 #if !defined(CSFG_DEBUG_MEMORY)
 /* clang-format off */
 #   include <stdlib.h>

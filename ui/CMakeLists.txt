@@ -18,9 +18,17 @@ gtk_compile_resource (
     "res/dpsfg-ui.gresource.xml"
     "src/dpsfg-ui.gresource.c")
 
+sqlgen_target (dpsfg-db
+    INPUT "src/db.sqlgen"
+    HEADER "include/dpsfg/db.h"
+    BACKENDS sqlite3)
+
 add_executable (dpsfg-ui
     "res/dpsfg-ui.gresource.xml"
     "${PROJECT_BINARY_DIR}/src/dpsfg-ui.gresource.c"
+
+    "src/db.sqlgen"
+    "${SQLGEN_dpsfg-db_OUTPUTS}"
 
     "src/args.c"
     "src/dynlib.c"
@@ -29,9 +37,14 @@ add_executable (dpsfg-ui
     "src/plugin_loader.c"
     "src/project_browser.c"
     "src/main.c")
+set_source_files_properties(${SQLGEN_dpsfg-db_OUTPUTS} PROPERTIES
+    COMPILE_FLAGS "$<$<C_COMPILER_ID:GNU>:-Wno-long-long -Wno-overlength-strings>")
+target_include_directories (dpsfg-ui PRIVATE
+    "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>")
 target_link_libraries (dpsfg-ui PRIVATE
     DPSFG::plugin
     DPSFG::csfg
+    sqlite
     GTK4::glib
     GTK4::cairo
     GTK4::pango

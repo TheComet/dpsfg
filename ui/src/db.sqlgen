@@ -1,0 +1,130 @@
+%option prefix="db"
+%option malloc="mem_alloc"
+%option free="mem_free"
+%option log-dbg="log_dbg"
+%option log-error="log_err"
+%option log-sql-error="log_sql_err"
+%option custom-init
+%option custom-deinit
+%option custom-api-decl
+//%option debug-layer
+
+%header-preamble {
+}
+
+%source-includes {
+#include "dpsfg/db.h"
+#include "csfg/config.h"
+#include "csfg/util/log.h"
+#include "csfg/util/mem.h"
+#include "sqlite/sqlite3.h"
+}
+
+%header-postamble {
+int db_init(void);
+void db_deinit(void);
+struct db_interface* db(const char* backend);
+}
+
+%source-preamble {
+static void log_sql_err(int error_code, const char* error_code_str, const char* error_msg)
+{
+    log_err("%s (%d): %s\n", error_code_str, error_code, error_msg);
+}
+}
+
+%source-postamble {
+#if defined(CSFG_DEBUG_MEMORY)
+static int dbgmem_roundup(int size) { return size; }
+static int dbgmem_init(void* user) { (void)user; return 0; }
+static void dbgmem_deinit(void* user) { (void)user; }
+static int dbgmem_allocated_size(void* p) { return (int)mem_allocated_size(p); }
+static struct sqlite3_mem_methods dpsfg_mem_sqlite = {
+    mem_alloc,
+    mem_free,
+    mem_realloc,
+    dbgmem_allocated_size,
+    dbgmem_roundup,
+    dbgmem_init,
+    dbgmem_deinit,
+    NULL
+};
+#endif
+
+int db_init(void)
+{
+#if defined(CSFG_DEBUG_MEMORY)
+    sqlite3_config(SQLITE_CONFIG_MALLOC, &dpsfg_mem_sqlite);
+#endif
+    if (sqlite3_initialize() != SQLITE_OK)
+        return -1;
+    return 0;
+}
+
+void db_deinit(void)
+{
+    sqlite3_shutdown();
+}
+}
+
+%upgrade 1 {
+CREATE TABLE IF NOT EXISTS projects (
+    id              INTEGER PRIMARY KEY NOT NULL,
+    name            TEXT NOT NULL,
+    timestamp       DATE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(name)
+);
+CREATE TABLE IF NOT EXISTS graph_data (
+    project_id      INTEGER NOT NULL CHECK (project_id > 0),
+    data            BLOB,
+    UNIQUE(project_id), -- Can only save one graph per project
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+CREATE TABLE IF NOT EXISTS plugin_data (
+    project_id      INTEGER NOT NULL CHECK (project_id > 0),
+    plugin_name     TEXT NOT NULL,
+    data            BLOB,
+    UNIQUE(project_id, plugin_name), -- Can only have one blob of storage per plugin per project
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+}
+
+%downgrade 0 {
+DROP TABLE IF EXISTS plugin_data;
+DROP TABLE IF EXISTS graph_data;
+DROP TABLE IF EXISTS projects;
+}
+
+%query project,new(const char* name) {
+    type insert-new
+    table projects
+    return id
+}
+%query project,new_or_get(const char* name) {
+    type insert-or-get
+    table projects
+    return id
+}
+%query project,get(const char* name) {
+    type select-first
+    table projects
+    return id
+}
+%query project,save_graph_data(int project_id, const void* data) {
+    type upsert
+    table graph_data
+}
+%query project,load_graph_data(int project_id) {
+    type select-first
+    table graph_data
+    callback const void* data
+}
+%query project,save_plugin_data(int project_id, const char* plugin_name, const void* data) {
+    type upsert
+    table plugin_data
+}
+%query project,load_plugin_data(int project_id, const char* plugin_name) {
+    type select-first
+    table plugin_data
+    callback const void* data
+}
