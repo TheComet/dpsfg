@@ -9,6 +9,6 @@ struct db;
 G_DECLARE_FINAL_TYPE(
     DPSFGProjectBrowser, dpsfg_project_browser, DPSFG, PROJECT_BROWSER, GtkBox)
 
-GtkWidget* dpsfg_project_browser_new(void);
-void dpsfg_project_browser_reload_from_db(
-    DPSFGProjectBrowser* self, const struct db_interface* dbi, struct db* db);
+GtkWidget*
+dpsfg_project_browser_new(const struct db_interface* dbi, struct db* db);
+void dpsfg_project_browser_reload_from_db(DPSFGProjectBrowser* self);

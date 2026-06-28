@@ -66,9 +66,9 @@ struct plugin
 
 #if defined(CSFG_DEBUG_MEMORY)
 static void
-track_plugin_widget_deallocation(GtkWidget* self, gpointer user_pointer)
+track_plugin_widget_deallocation(GtkWidget* self, gpointer user_data)
 {
-    (void)user_pointer;
+    (void)user_data;
     untrack_mem(self);
 }
 #endif
@@ -144,11 +144,11 @@ static void graph_layout_changed_cb(
 static void substitutions_changed_cb(
     struct plugin_notify_context* cb, const struct plugin_ctx* source_plugin)
 {
-    struct app_ctx* app            = cb->app;
-    struct math_pipeline* pipeline = &app->pipeline;
+    struct app_ctx* ctx            = cb->app;
+    struct math_pipeline* pipeline = &ctx->pipeline;
     math_pipeline_update(pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
     notify_plugins(
-        *app->plugins,
+        *ctx->plugins,
         source_plugin,
         pipeline,
         MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
@@ -441,7 +441,7 @@ static int load_from_db(
 {
     struct plugin* plugin;
 
-    if (dbi->project.load_graph_data(
+    if (dbi->graph_data.load(
             db, project_id, load_pipeline_graph_data_on_row, pipeline) != 0)
     {
         return -1;
@@ -450,7 +450,7 @@ static int load_from_db(
     vec_for_each (plugins, plugin)
         if (plugin->lib.i->io != NULL)
         {
-            if (dbi->project.load_plugin_data(
+            if (dbi->plugin_data.load(
                     db,
                     project_id,
                     plugin->lib.i->info->name,
@@ -475,7 +475,7 @@ static int save_to_db(
 
     if (math_pipeline_save(pipeline, &ser) != 0)
         goto serialize_failed;
-    dbi->project.save_graph_data(db, project_id, vec_data(ser), vec_count(ser));
+    dbi->graph_data.save(db, project_id, vec_data(ser), vec_count(ser));
 
     vec_for_each (plugins, plugin)
     {
@@ -487,7 +487,7 @@ static int save_to_db(
             vec_count(ser) == 0)
             continue;
 
-        if (dbi->project.save_plugin_data(
+        if (dbi->plugin_data.save(
                 db,
                 project_id,
                 plugin->lib.i->info->name,
@@ -509,6 +509,7 @@ static void on_project_selected(
     struct app_ctx* ctx = user_data;
     (void)project_browser;
 
+    math_pipeline_clear(&ctx->pipeline);
     load_from_db(ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
     math_pipeline_update(&ctx->pipeline, MATH_PIPELINE_GRAPH_CHANGED);
     notify_plugins(
@@ -558,7 +559,7 @@ static void activate(GtkApplication* app, gpointer user_data)
         property_pane_container);
 
     center_area     = plugin_view_new();
-    project_browser = dpsfg_project_browser_new();
+    project_browser = dpsfg_project_browser_new(ctx->dbi, ctx->db);
 
     ctx->paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_paned_set_start_child(GTK_PANED(ctx->paned2), center_area);
@@ -609,7 +610,7 @@ static void activate(GtkApplication* app, gpointer user_data)
     }
 
     dpsfg_project_browser_reload_from_db(
-        DPSFG_PROJECT_BROWSER(project_browser), ctx->dbi, ctx->db);
+        DPSFG_PROJECT_BROWSER(project_browser));
 
     gtk_window_set_child(GTK_WINDOW(window), ctx->paned1);
     gtk_window_maximize(GTK_WINDOW(window));

@@ -63,13 +63,13 @@ static void draw_cb(
     cairo_t*        cr,
     int             width,
     int             height,
-    gpointer        user_pointer)
+    gpointer        user_data)
 {
     double                     left, top, right, bottom;
     double                     center_x, center_y;
     double                     scale;
     const struct csfg_complex* c;
-    PoleZeroPlot*              plot = user_pointer;
+    PoleZeroPlot*              plot = user_data;
     (void)area;
 
     /* Normalize canvas to put [0,0] in center */

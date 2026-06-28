@@ -84,9 +84,9 @@ static void draw_mag_cb(
     cairo_t*        cr,
     int             width,
     int             height,
-    gpointer        user_pointer)
+    gpointer        user_data)
 {
-    BodePlot* plot = user_pointer;
+    BodePlot* plot = user_data;
     draw_mag_or_phase(width, height, cr, plot, 1);
     (void)area;
 }
@@ -97,10 +97,10 @@ static void draw_phase_cb(
     cairo_t*        cr,
     int             width,
     int             height,
-    gpointer        user_pointer)
+    gpointer        user_data)
 {
 
-    BodePlot* plot = user_pointer;
+    BodePlot* plot = user_data;
     draw_mag_or_phase(width, height, cr, plot, 0);
     (void)area;
 }

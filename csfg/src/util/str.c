@@ -268,6 +268,36 @@ int str_eq_cstr(const struct str* str, const char* cstr)
 }
 
 /* -------------------------------------------------------------------------- */
+int str_vfmt(struct str** str, const char* fmt, va_list ap)
+{
+    va_list ap2;
+    int len;
+
+    __va_copy(ap2, ap);
+    len = vsnprintf(NULL, 0, fmt, ap2);
+    va_end(ap2);
+
+    if (str_ensure_capacity(str, len) != 0)
+        return -1;
+
+    if (vsprintf(str_data(*str), fmt, ap) != len)
+        return -1;
+
+    return 0;
+}
+int str_fmt(struct str** str, const char* fmt, ...)
+{
+    va_list ap;
+    int result;
+
+    va_start(ap, fmt);
+    result = str_vfmt(str, fmt, ap);
+    va_end(ap);
+
+    return result;
+}
+
+/* -------------------------------------------------------------------------- */
 int str_set_path_cstr(struct str** str, const char* path)
 {
     int              i;

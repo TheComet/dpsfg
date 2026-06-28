@@ -1922,7 +1922,7 @@ write_sqlite_prepare_stmt(struct mstream* ms, const struct root* root, const str
             if (q->return_name.len || q->cb_args)
             {
                 mstream_cstr(ms, " \"" NL);
-                mstream_cstr(ms, "            \" RETURNING ");
+                mstream_cstr(ms, "            \"RETURNING ");
                 if (q->return_name.len)
                     mstream_fmt(ms, "%S", q->return_name, data);
                 for (a = q->cb_args; a; a = a->next)
@@ -1953,7 +1953,7 @@ write_sqlite_prepare_stmt(struct mstream* ms, const struct root* root, const str
             }
             mstream_cstr(ms, ")\"" NL);
 
-            mstream_cstr(ms, "            \" RETURNING ");
+            mstream_cstr(ms, "            \"RETURNING ");
             if (q->return_name.len)
                 mstream_fmt(ms, "%S", q->return_name, data);
             for (a = q->cb_args; a; a = a->next)
@@ -2166,10 +2166,10 @@ static void
 write_sqlite_exec_callback(struct mstream* ms, const struct query_group* g, const struct query* q, const char* data)
 {
     struct arg* a = q->cb_args;
-    int i = q->return_name.len ? 1 : 0;
+    int i;
 
     mstream_cstr(ms, "            ret = on_row(" NL);
-    for (; a; a = a->next, i++)
+    for (i = 0; a; a = a->next, i++)
     {
         mstream_cstr(ms, "                ");
         if (a->nullable)

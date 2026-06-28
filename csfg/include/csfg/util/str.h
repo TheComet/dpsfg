@@ -1,37 +1,43 @@
 #pragma once
 
+#include "csfg/config.h"
 #include "csfg/util/strview.h"
 #include <stdint.h>
+#include <stdarg.h>
 
 struct str;
 
-int         str_init(struct str** str);
-void        str_deinit(struct str* str);
-int         str_ensure_capacity(struct str** str, int capacity);
-int         str_capacity(const struct str* str);
-int         str_len(const struct str* str);
-char*       str_data(struct str* str);
-int         str_append_char(struct str** str, char c);
-int         str_append_cstr(struct str** str, const char* cstr);
-int         str_append_int(struct str** str, int value);
-int         str_append_float(struct str** str, double value);
-void        str_pop_char(struct str* str);
-void        str_set_char(struct str* str, int index, char c);
-void        str_clear(struct str* str);
-void        str_set_len(struct str* str, int new_len);
-int         str_set(struct str** str, const char* data, int len);
-int         str_set_str(struct str** str, const struct str* other);
-int         str_set_view(struct str** str, struct strview view);
-int         str_set_utf32(struct str** str, const uint32_t* utf32, int len);
-int         str_set_cstr(struct str** str, const char* cstr);
+int str_init(struct str** str);
+void str_deinit(struct str* str);
+int str_ensure_capacity(struct str** str, int capacity);
+int str_capacity(const struct str* str);
+int str_len(const struct str* str);
+char* str_data(struct str* str);
+int str_append_char(struct str** str, char c);
+int str_append_cstr(struct str** str, const char* cstr);
+int str_append_int(struct str** str, int value);
+int str_append_float(struct str** str, double value);
+void str_pop_char(struct str* str);
+void str_set_char(struct str* str, int index, char c);
+void str_clear(struct str* str);
+void str_set_len(struct str* str, int new_len);
+int str_set(struct str** str, const char* data, int len);
+int str_set_str(struct str** str, const struct str* other);
+int str_set_view(struct str** str, struct strview view);
+int str_set_utf32(struct str** str, const uint32_t* utf32, int len);
+int str_set_cstr(struct str** str, const char* cstr);
 const char* str_cstr(const struct str* str);
-int         str_eq_cstr(const struct str* str, const char* cstr);
+int str_eq_cstr(const struct str* str, const char* cstr);
 
-int         str_set_path_cstr(struct str** str, const char* path);
-int         str_join_path(struct str** str, struct strview path);
-int         str_join_path_cstr(struct str** str, const char* path);
-int         str_join_path_prepend_cstr(struct str** str, const char* path);
-void        str_dirname(struct str* str);
+CSFG_PRINTF_FORMAT(2, 3) int str_fmt(struct str** str, const char* fmt, ...);
+CSFG_PRINTF_FORMAT(2, 0)
+int str_vfmt(struct str** str, const char* fmt, va_list ap);
+
+int str_set_path_cstr(struct str** str, const char* path);
+int str_join_path(struct str** str, struct strview path);
+int str_join_path_cstr(struct str** str, const char* path);
+int str_join_path_prepend_cstr(struct str** str, const char* path);
+void str_dirname(struct str* str);
 const char* cstr_ext(const char* str);
 
 int cstr_ends_with(const char* cstr, const char* suffix);

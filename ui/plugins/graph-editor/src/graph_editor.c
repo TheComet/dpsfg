@@ -924,7 +924,7 @@ static gboolean shortcut_set_out_node_cb(
 }
 
 /* -------------------------------------------------------------------------- */
-static void finish_editing(GtkEntry* e, gpointer user_pointer);
+static void finish_editing(GtkEntry* e, gpointer user_data);
 static void
 on_entry_focus_changed(GObject* obj, GParamSpec* pspec, gpointer user_data)
 {
@@ -1254,11 +1254,11 @@ static void draw_cb(
     cairo_t* cr,
     int width,
     int height,
-    gpointer user_pointer)
+    gpointer user_data)
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
     (void)area;
     cairo_translate(cr, editor->pan_x, editor->pan_y);
     cairo_scale(cr, editor->zoom, editor->zoom);
@@ -1370,13 +1370,13 @@ try_select_edge(double mouse_x, double mouse_y, const struct csfg_graph* graph)
 }
 
 /* -------------------------------------------------------------------------- */
-static void finish_editing(GtkEntry* entry, gpointer user_pointer)
+static void finish_editing(GtkEntry* entry, gpointer user_data)
 {
     int n_idx;
     struct csfg_node* n;
     struct csfg_edge* e;
     struct edge_attr* ea;
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
 
     const char* text = gtk_editable_get_text(GTK_EDITABLE(entry));
 
@@ -1427,9 +1427,9 @@ static void click_begin(
     int n_press,
     double x,
     double y,
-    gpointer user_pointer)
+    gpointer user_data)
 {
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
     (void)gesture;
 
     gtk_widget_grab_focus(GTK_WIDGET(editor));
@@ -1451,18 +1451,18 @@ static void click_end(
     int n_press,
     double x,
     double y,
-    gpointer user_pointer)
+    gpointer user_data)
 {
 }
 
 /* -------------------------------------------------------------------------- */
 static void
-drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_pointer)
+drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
 
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
     (void)gesture;
 
     try_select_edge_or_node(editor, x, y);
@@ -1486,12 +1486,12 @@ static void drag_update(
     GtkGestureDrag* gesture,
     double offset_x,
     double offset_y,
-    gpointer user_pointer)
+    gpointer user_data)
 {
     struct csfg_node* n;
     struct csfg_edge* e;
     double start_x, start_y, x, y;
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
 
     gtk_gesture_drag_get_start_point(gesture, &start_x, &start_y);
     x = (start_x + offset_x - editor->pan_x) / editor->zoom;
@@ -1522,15 +1522,15 @@ static void drag_update(
 
 /* -------------------------------------------------------------------------- */
 static void
-drag_end(GtkGestureDrag* gesture, double x, double y, gpointer user_pointer)
+drag_end(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
 }
 
 /* -------------------------------------------------------------------------- */
 static void
-pan_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_pointer)
+pan_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
     (void)gesture, (void)x, (void)y;
     editor->pan_offset_x = editor->pan_x;
     editor->pan_offset_y = editor->pan_y;
@@ -1541,10 +1541,10 @@ static void pan_update(
     GtkGestureDrag* gesture,
     double offset_x,
     double offset_y,
-    gpointer user_pointer)
+    gpointer user_data)
 {
     double start_x, start_y;
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
 
     gtk_gesture_drag_get_start_point(gesture, &start_x, &start_y);
     editor->pan_x = editor->pan_offset_x + offset_x;
@@ -1557,10 +1557,10 @@ static gboolean scroll_cb(
     GtkEventControllerScroll* controller,
     double dx,
     double dy,
-    gpointer user_pointer)
+    gpointer user_data)
 {
     double gx, gy, new_zoom;
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
     (void)controller, (void)dx;
 
     new_zoom = dy > 0 ? editor->zoom * 0.9 : editor->zoom * 1.1;
@@ -1585,9 +1585,9 @@ static gboolean mouse_motion_cb(
     GtkEventControllerMotion* controller,
     double dx,
     double dy,
-    gpointer user_pointer)
+    gpointer user_data)
 {
-    GraphEditor* editor = user_pointer;
+    GraphEditor* editor = user_data;
     (void)controller;
     editor->mouse_x = dx;
     editor->mouse_y = dy;

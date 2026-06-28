@@ -93,9 +93,9 @@ static void draw_cb(
     cairo_t* cr,
     int width,
     int height,
-    gpointer user_pointer)
+    gpointer user_data)
 {
-    MathViewer* viewer = user_pointer;
+    MathViewer* viewer = user_data;
     (void)area, (void)width, (void)height;
 
     cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);

@@ -384,14 +384,17 @@ if (dbi->example(db, 1, 2, "test", on_row, NULL) < 0)
 The ```type``` statement roughly describes the type of query you wish to perform, and
 defines how the generated C function behaves. 
 These are:
+
 ```c
 %query example() {
     type insert-new | insert-or-get | upsert | update | delete | exists | select-first | select-all
 }
 ```
+
 ```insert-new``` will generate an "insert" operation. The C function will
 return 0 on success (or return the value, if you specified "return"), -1 on
 failure. 
+
 ```
 %query example() {
     type insert-new
@@ -412,6 +415,7 @@ specified "return"), -1 on failure.
     // callback ...
 }
 ```
+
 ```upsert``` will generate a "insert or update" operation. This is different from a
 "insert or get" operation, because in the case of the value already existing,
 the existing value is modified and returned, whereas with the "insert or get"
@@ -420,6 +424,7 @@ operation, the existing value is returned un-modified.
 when creating the table. In the example below, UNIQUE is being used to ensure
 there can only be one of each value. If you do not do this, then the value will
 just be inserted anyway, even if there is an existing value.
+
 ```
 -- Assuming: CREATE TABLE example (value INTEGER UNIQUE);
 %query example(int value) {
@@ -429,12 +434,16 @@ just be inserted anyway, even if there is an existing value.
     // callback ...
 }
 ```
-```update``` will generate a "UPDATE ... SET ... WHERE ..." operation. Because it is unclear
-which columns need to be updated and which columns are the conditions for the
-search, you must provide a list of column names to update. All remaining parameters
-in the function's list are assumed to be the WHERE condition.
 
-In this example, this will produce ```UPDATE example SET col1=?, col=? WHERE col3=? AND col4=?;```
+```update``` will generate a "UPDATE ... SET ... WHERE ..." operation. Because
+it is unclear which columns need to be updated and which columns are the
+conditions for the search, you must provide a list of column names to update.
+All remaining parameters in the function's list are assumed to be the WHERE
+condition.
+
+In this example, this will produce ```UPDATE example SET col1=?, col=? WHERE
+col3=? AND col4=?;```
+
 ```
 %query example(int col1, int col2, int col3, int col4) {
     type update col1, col2
@@ -443,9 +452,11 @@ In this example, this will produce ```UPDATE example SET col1=?, col=? WHERE col
     // callback ...
 }
 ```
+
 ```delete``` will generate a ```DELETE FROM ... WHERE ...``` statement. Values can
 be returned if necessary.
 ```
+
 %query example(int col1, int col2) {
     type delete
     table example
@@ -453,18 +464,22 @@ be returned if necessary.
     // callback ...
 }
 ```
+
 ```exists``` will check if 1 or more rows matching the criteria exist. This query type
 does not support returning values. The C function will return 1 if it exists, 0 if it does
 not exist, and -1 if an error occurred.
+
 ```
 %query example(int col1, int col2) {
     type exists
     table example
 }
 ```
+
 ```select-first``` will return the first row it finds. Note that you may want to
 order the rows if you expect more than one to match the criteria. This can be achieved
 by specifying a custom ```stmt```
+
 ```
 %query example(int col1, int col2) {
     type select-first
@@ -472,6 +487,7 @@ by specifying a custom ```stmt```
     callback int col3, int col4
 }
 ```
+
 ```
 %query example(int col1, int col2) {
     type select-first
@@ -479,7 +495,9 @@ by specifying a custom ```stmt```
     callback int col3, int col4
 }
 ```
+
 ```select-all``` will return the all rows matching the criteria.
+
 ```
 %query example(int col1, int col2) {
     type select-all

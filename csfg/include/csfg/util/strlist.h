@@ -48,6 +48,11 @@ static int strlist_set_view(struct strlist** l, int idx, struct strview str)
     return strlist_set(l, idx, str.data + str.off, str.len);
 }
 
+static int strlist_set_cstr(struct strlist** l, int idx, const char* cstr)
+{
+    return strlist_set(l, idx, cstr, strlen(cstr));
+}
+
 static struct strspan strlist_span(const struct strlist* l, int i)
 {
     return STRLIST_TABLE_PTR(l)[-i];

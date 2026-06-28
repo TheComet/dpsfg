@@ -1,3 +1,4 @@
+#include "csfg/util/str.h"
 #include "csfg/util/strlist.h"
 #include "csfg/util/tracker.h"
 #include "csfg/util/vec.h"
@@ -17,14 +18,18 @@ enum column
         COLUMN_COUNT
 };
 
+static const int SCRATCH_PROJECT_ID     = 1;
+static const char* SCRATCH_PROJECT_NAME = "Scratch";
+
 /* -------------------------------------------------------------------------- */
 /* Project List Item */
 /* -------------------------------------------------------------------------- */
 struct _DPSFGProjectListItem
 {
     GObject parent_instance;
-    int project_id;
     struct strlist* columns;
+    struct _DPSFGProjectBrowser* project_browser;
+    int project_id;
 };
 
 #define DPSFG_TYPE_PROJECT_LIST_ITEM (dpsfg_project_list_item_get_type())
@@ -43,6 +48,7 @@ static void dpsfg_project_list_item_finalize(GObject* object)
     G_OBJECT_CLASS(dpsfg_project_list_item_parent_class)->finalize(object);
 }
 static DPSFGProjectListItem* dpsfg_project_list_item_new(
+    DPSFGProjectBrowser* project_browser,
     int project_id
 #define X(str, caps, name) , const char* name
         COLUMNS_LIST
@@ -51,7 +57,8 @@ static DPSFGProjectListItem* dpsfg_project_list_item_new(
 {
     DPSFGProjectListItem* self =
         g_object_new(DPSFG_TYPE_PROJECT_LIST_ITEM, NULL);
-    self->project_id = project_id;
+    self->project_browser = project_browser;
+    self->project_id      = project_id;
     strlist_init(&self->columns);
 #define X(str, caps, name) strlist_add_cstr(&self->columns, name);
     COLUMNS_LIST
@@ -118,7 +125,7 @@ G_DEFINE_TYPE_WITH_CODE(
 static void dpsfg_project_list_init(DPSFGProjectList* self)
 {
     DPSFGProjectListItem_vec_init(&self->items);
-    self->scratch = dpsfg_project_list_item_new(1, "Scratch", "", "");
+    self->scratch = NULL;
 }
 static void dpsfg_project_list_dispose(GObject* object)
 {
@@ -135,16 +142,37 @@ static void dpsfg_project_list_class_init(DPSFGProjectListClass* class)
     GObjectClass* object_class = G_OBJECT_CLASS(class);
     object_class->dispose      = dpsfg_project_list_dispose;
 }
-static DPSFGProjectList* dpsfg_project_list_new(void)
+static DPSFGProjectList*
+dpsfg_project_list_new(DPSFGProjectBrowser* project_browser)
 {
-    return g_object_new(DPSFG_TYPE_PROJECT_LIST, NULL);
+    DPSFGProjectList* self = g_object_new(DPSFG_TYPE_PROJECT_LIST, NULL);
+    self->scratch          = dpsfg_project_list_item_new(
+        project_browser, 1, SCRATCH_PROJECT_NAME, "", "");
+    return self;
 }
 static void
 dpsfg_project_list_append(DPSFGProjectList* self, DPSFGProjectListItem* item)
 {
+    int scratch_entry = 1;
     DPSFGProjectListItem_vec_push(&self->items, item);
     g_list_model_items_changed(
-        G_LIST_MODEL(self), vec_count(self->items), 0, 1);
+        G_LIST_MODEL(self), vec_count(self->items) - 1 + scratch_entry, 0, 1);
+}
+static void
+dpsfg_project_list_remove_by_id(DPSFGProjectList* self, int project_id)
+{
+    DPSFGProjectListItem** item;
+    int i;
+    int scratch_entry = 1;
+    vec_enumerate (self->items, i, item)
+        if ((*item)->project_id == project_id)
+        {
+            g_object_unref(*item);
+            DPSFGProjectListItem_vec_erase(self->items, i);
+            g_list_model_items_changed(
+                G_LIST_MODEL(self), i + scratch_entry, 1, 0);
+            break;
+        }
 }
 static void dpsfg_project_list_clear(DPSFGProjectList* self)
 {
@@ -162,6 +190,8 @@ static void dpsfg_project_list_clear(DPSFGProjectList* self)
 struct _DPSFGProjectBrowser
 {
     GtkBox parent_instance;
+    const struct db_interface* dbi;
+    struct db* db;
     DPSFGProjectList* project_list;
     GtkSingleSelection* selection_model;
     int current_project_id;
@@ -181,8 +211,32 @@ static gint project_browser_signals[SIGNAL_COUNT];
 
 G_DEFINE_TYPE(DPSFGProjectBrowser, dpsfg_project_browser, GTK_TYPE_BOX)
 
-static void column_view_activate_cb(
-    GtkColumnView* self, guint position, gpointer user_pointer)
+static int project_list_on_row(
+    int id,
+#define X(str, caps, name) const char *name,
+    COLUMNS_LIST
+#undef X
+    void* user_data)
+{
+    DPSFGProjectListItem* item;
+    DPSFGProjectBrowser* self = user_data;
+
+    if (id == 1) /* scratch project is always at id=1 */
+        return 0;
+
+    item = dpsfg_project_list_item_new(
+        self,
+        id
+#define X(str, caps, name) , name
+            COLUMNS_LIST
+#undef X
+    );
+    dpsfg_project_list_append(self->project_list, item);
+    return 0;
+}
+
+static void
+column_view_activate_cb(GtkColumnView* self, guint position, gpointer user_data)
 {
     GtkSelectionModel* selection_model = gtk_column_view_get_model(self);
     GListModel* model =
@@ -193,7 +247,7 @@ static void column_view_activate_cb(
     gtk_tree_list_row_set_expanded(row, !gtk_tree_list_row_get_expanded(row));
 
     g_object_unref(row);
-    (void)user_pointer;
+    (void)user_data;
 }
 static void handle_list_or_selection_changed(DPSFGProjectBrowser* self)
 {
@@ -232,9 +286,9 @@ static void items_changed_cb(
     guint position,
     guint removed,
     guint added,
-    gpointer user_pointer)
+    gpointer user_data)
 {
-    DPSFGProjectBrowser* project_browser = user_pointer;
+    DPSFGProjectBrowser* project_browser = user_data;
     (void)self, (void)position, (void)removed, (void)added;
     handle_list_or_selection_changed(project_browser);
 }
@@ -242,18 +296,112 @@ static void selection_changed_cb(
     GtkSelectionModel* self,
     guint position_hint,
     guint n_items,
-    gpointer user_pointer)
+    gpointer user_data)
 {
-    DPSFGProjectBrowser* project_browser = user_pointer;
+    DPSFGProjectBrowser* project_browser = user_data;
     (void)self, (void)position_hint, (void)n_items;
     handle_list_or_selection_changed(project_browser);
+}
+static void editable_done_editing_cb(
+    GtkEditableLabel* editable, GParamSpec* pspec, gpointer user_data)
+{
+    GtkListItem* list_item               = user_data;
+    DPSFGProjectListItem* item           = gtk_list_item_get_item(list_item);
+    DPSFGProjectBrowser* project_browser = item->project_browser;
+    const char* current_name = strlist_cstr(item->columns, COLUMN_NAME);
+    const char* new_name     = gtk_editable_get_text(GTK_EDITABLE(editable));
+    const struct db_interface* dbi = project_browser->dbi;
+    struct db* db                  = project_browser->db;
+    (void)pspec;
+
+    if (gtk_editable_label_get_editing(editable) == TRUE)
+        return;
+    if (strcmp(current_name, new_name) == 0)
+        return;
+    if (strcmp(new_name, SCRATCH_PROJECT_NAME) == 0)
+        return;
+    if (!*new_name)
+    {
+        /* Restore the original text */
+        gtk_editable_set_text(GTK_EDITABLE(editable), current_name);
+        return;
+    }
+
+    if (item->project_id == SCRATCH_PROJECT_ID)
+    {
+        int new_project_id, n_items;
+
+        new_project_id = dbi->project.new(
+            db, new_name, project_list_on_row, project_browser);
+        if (new_project_id < 0)
+        {
+            /* The rename can fail if there is another project with the same
+             * name already */
+            struct str* str;
+            int counter = 1;
+            str_init(&str);
+            do
+            {
+                str_fmt(&str, "%s (%d)", new_name, counter++);
+                new_project_id = dbi->project.new(
+                    db, str_cstr(str), project_list_on_row, project_browser);
+            } while (new_project_id < 0);
+            str_deinit(str);
+        }
+
+        /* Restore the original text on the "Scratch" project */
+        gtk_editable_set_text(GTK_EDITABLE(editable), SCRATCH_PROJECT_NAME);
+
+        /* The "Scratch" project has probably not saved all of its data to the
+         * db yet. By selecting the new project, we emit the selection signals,
+         * which will cause all data to be saved */
+        n_items = g_list_model_get_n_items(
+            G_LIST_MODEL(project_browser->project_list));
+        gtk_single_selection_set_selected(
+            project_browser->selection_model, n_items - 1);
+
+        /* Move the data from the "Scratch" project to the new project */
+        dbi->graph_data.move(db, SCRATCH_PROJECT_ID, new_project_id);
+        dbi->plugin_data.move(db, SCRATCH_PROJECT_ID, new_project_id);
+
+        /* Reselect the new project so the moved data gets loaded */
+        g_signal_emit(
+            project_browser,
+            project_browser_signals[SIGNAL_PROJECT_SELECTED],
+            0,
+            new_project_id);
+
+        return;
+    }
+
+    if (dbi->project.rename(db, item->project_id, new_name) == 0)
+        strlist_set_cstr(&item->columns, COLUMN_NAME, new_name);
+    else
+    {
+        /* The rename can fail if there is another project with the same name
+         * already */
+        struct str* str;
+        int counter = 1;
+        str_init(&str);
+        do
+            str_fmt(&str, "%s (%d)", new_name, counter++);
+        while (dbi->project.rename(db, item->project_id, str_cstr(str)) != 0);
+        gtk_editable_set_text(GTK_EDITABLE(editable), str_cstr(str));
+        strlist_set_cstr(&item->columns, COLUMN_NAME, str_cstr(str));
+        str_deinit(str);
+    }
 }
 static void setup_listitem_cb(
     GtkListItemFactory* factory, GtkListItem* list_item, gpointer user_data)
 {
-    GtkWidget* label = gtk_label_new(NULL);
-    (void)factory, (void)user_data;
+    GtkWidget* label;
+    enum column col = (enum column)(uintptr_t)user_data;
+    (void)factory;
 
+    if (col == COLUMN_NAME)
+        label = gtk_editable_label_new("");
+    else
+        label = gtk_label_new("");
     gtk_list_item_set_child(list_item, label);
 }
 static void bind_listitem_cb(
@@ -262,10 +410,99 @@ static void bind_listitem_cb(
     enum column col            = (enum column)(uintptr_t)user_data;
     GtkWidget* label           = gtk_list_item_get_child(list_item);
     DPSFGProjectListItem* item = gtk_list_item_get_item(list_item);
+    const char* text           = strlist_cstr(item->columns, col);
     (void)factory;
 
-    gtk_label_set_label(GTK_LABEL(label), strlist_cstr(item->columns, col));
+    if (col == COLUMN_NAME)
+        gtk_editable_set_text(GTK_EDITABLE(label), text);
+    else
+        gtk_label_set_text(GTK_LABEL(label), text);
+
+    if (col == COLUMN_NAME)
+    {
+        g_signal_connect(
+            label,
+            "notify::editing",
+            G_CALLBACK(editable_done_editing_cb),
+            list_item);
+    }
 }
+static void unbind_listitem_cb(
+    GtkListItemFactory* factory, GtkListItem* list_item, gpointer user_data)
+{
+    enum column col  = (enum column)(uintptr_t)user_data;
+    GtkWidget* label = gtk_list_item_get_child(list_item);
+    (void)factory;
+
+    if (col == COLUMN_NAME)
+        g_signal_handlers_disconnect_by_data(label, list_item);
+}
+static gboolean
+shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    DPSFGProjectBrowser* self      = user_data;
+    const struct db_interface* dbi = self->dbi;
+    struct db* db                  = self->db;
+    int project_id                 = self->current_project_id;
+    (void)widget, (void)unused;
+
+    self->current_project_id = -1;
+    dbi->graph_data.delete(db, project_id);
+    dbi->plugin_data.delete(db, project_id);
+
+    if (project_id != SCRATCH_PROJECT_ID)
+    {
+        if (dbi->project.delete(db, project_id) == 0)
+            dpsfg_project_list_remove_by_id(self->project_list, project_id);
+    }
+
+    /* Force reload of scratch project */
+    if (project_id < 0 || project_id == SCRATCH_PROJECT_ID)
+    {
+        self->current_project_id = SCRATCH_PROJECT_ID;
+        g_signal_emit(
+            self,
+            project_browser_signals[SIGNAL_PROJECT_SELECTED],
+            0,
+            SCRATCH_PROJECT_ID);
+    }
+
+    return TRUE;
+}
+static void setup_global_shortcuts(DPSFGProjectBrowser* self)
+{
+    GtkEventController* controller;
+    GtkShortcutTrigger* trigger;
+    GtkShortcutAction* action;
+    GtkShortcut* shortcut;
+    int i;
+
+    struct
+    {
+        guint keyval;
+        GdkModifierType modifiers;
+        gboolean (*callback)(GtkWidget*, GVariant*, gpointer);
+    } table[] = {
+        /* clang-format off */
+        {GDK_KEY_Delete, GDK_NO_MODIFIER_MASK, shortcut_delete_cb},
+        /* clang-format on */
+    };
+
+    controller = gtk_shortcut_controller_new();
+    gtk_shortcut_controller_set_scope(
+        GTK_SHORTCUT_CONTROLLER(controller), GTK_SHORTCUT_SCOPE_LOCAL);
+    gtk_widget_add_controller(GTK_WIDGET(self), controller);
+
+    for (i = 0; i != G_N_ELEMENTS(table); ++i)
+    {
+        trigger  = gtk_keyval_trigger_new(table[i].keyval, table[i].modifiers);
+        action   = gtk_callback_action_new(table[i].callback, self, NULL);
+        shortcut = gtk_shortcut_new(trigger, action);
+        gtk_shortcut_controller_add_shortcut(
+            GTK_SHORTCUT_CONTROLLER(controller), shortcut);
+    }
+}
+
 static void dpsfg_project_browser_init(DPSFGProjectBrowser* self)
 {
     GtkListItemFactory* item_factory;
@@ -278,7 +515,7 @@ static void dpsfg_project_browser_init(DPSFGProjectBrowser* self)
     track_mem(self, sizeof *self, "DPSFGProjectBrowser");
 
     self->current_project_id = -1;
-    self->project_list       = dpsfg_project_list_new();
+    self->project_list       = dpsfg_project_list_new(self);
     self->selection_model =
         gtk_single_selection_new(G_LIST_MODEL(self->project_list));
 
@@ -296,6 +533,11 @@ static void dpsfg_project_browser_init(DPSFGProjectBrowser* self)
         item_factory,                                                          \
         "bind",                                                                \
         G_CALLBACK(bind_listitem_cb),                                          \
+        (gpointer)(uintptr_t)COLUMN_##caps);                                   \
+    g_signal_connect(                                                          \
+        item_factory,                                                          \
+        "unbind",                                                              \
+        G_CALLBACK(unbind_listitem_cb),                                        \
         (gpointer)(uintptr_t)COLUMN_##caps);                                   \
     column = gtk_column_view_column_new(str, item_factory);                    \
     gtk_column_view_append_column(GTK_COLUMN_VIEW(column_view), column);       \
@@ -322,6 +564,8 @@ static void dpsfg_project_browser_init(DPSFGProjectBrowser* self)
     gtk_box_append(GTK_BOX(vbox), scroll);
 
     gtk_box_append(GTK_BOX(self), vbox);
+
+    setup_global_shortcuts(self);
 
     g_signal_connect(
         self->selection_model,
@@ -368,35 +612,16 @@ static void dpsfg_project_browser_class_init(DPSFGProjectBrowserClass* class)
         1,
         G_TYPE_INT);
 }
-GtkWidget* dpsfg_project_browser_new(void)
+GtkWidget*
+dpsfg_project_browser_new(const struct db_interface* dbi, struct db* db)
 {
-    return g_object_new(DPSFG_TYPE_PROJECT_BROWSER, NULL);
+    DPSFGProjectBrowser* self = g_object_new(DPSFG_TYPE_PROJECT_BROWSER, NULL);
+    self->dbi                 = dbi;
+    self->db                  = db;
+    return GTK_WIDGET(self);
 }
-static int project_list_on_row(
-    int id,
-#define X(str, caps, name) const char *name,
-    COLUMNS_LIST
-#undef X
-    void* user_data)
-{
-    DPSFGProjectListItem* item;
-    DPSFGProjectBrowser* self = user_data;
-
-    if (id == 1) /* scratch project is always at id=1 */
-        return 0;
-
-    item = dpsfg_project_list_item_new(
-        id
-#define X(str, caps, name) , name
-            COLUMNS_LIST
-#undef X
-    );
-    dpsfg_project_list_append(self->project_list, item);
-    return 0;
-}
-void dpsfg_project_browser_reload_from_db(
-    DPSFGProjectBrowser* self, const struct db_interface* dbi, struct db* db)
+void dpsfg_project_browser_reload_from_db(DPSFGProjectBrowser* self)
 {
     dpsfg_project_list_clear(self->project_list);
-    dbi->project.list_with_separate_date_time(db, project_list_on_row, self);
+    self->dbi->project.list(self->db, project_list_on_row, self);
 }

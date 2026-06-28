@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS plugin_data (
     UNIQUE(project_id, plugin_name), -- Can only have one blob of storage per plugin per project
     FOREIGN KEY (project_id) REFERENCES projects(id)
 );
+-- Create the 'scratch' project. This is important so that the first real
+-- project id starts counting at 2 and not at 1.
+INSERT OR IGNORE INTO projects (id, name) VALUES (1, 'Scratch');
 }
 
 %downgrade 0 {
@@ -97,10 +100,19 @@ DROP TABLE IF EXISTS projects;
 
 %query project,new(const char* name) {
     type insert-new
-    table projects
+    stmt {
+        INSERT INTO projects (name)
+        VALUES (?)
+        RETURNING
+            id,
+            name ,
+            DATE(timestamp, 'unixepoch', 'localtime'),
+            TIME(timestamp, 'unixepoch', 'localtime')
+    }
+    callback int id, const char* date, const char* time, const char* name
     return id
 }
-%query project,list_with_separate_date_time() {
+%query project,list() {
     type select-all
     table projects
     stmt {
@@ -113,21 +125,64 @@ DROP TABLE IF EXISTS projects;
     }
     callback int id, const char* date, const char* time, const char* name
 }
-%query project,save_graph_data(int project_id, const void* data) {
+%query project,select(int project_id) {
+    type select-first
+    table projects
+    stmt {
+        SELECT
+            id,
+            name ,
+            DATE(timestamp, 'unixepoch', 'localtime'),
+            TIME(timestamp, 'unixepoch', 'localtime')
+        FROM projects
+        WHERE id = ?;
+    }
+    bind project_id
+    callback int id, const char* date, const char* time, const char* name
+}
+%query project,rename(int id, const char* name) {
+    type update name
+    table projects
+}
+%query project,delete(int id) {
+    type delete
+    table projects
+}
+
+%query graph_data,save(int project_id, const void* data) {
     type upsert
     table graph_data
 }
-%query project,load_graph_data(int project_id) {
+%query graph_data,load(int project_id) {
     type select-first
     table graph_data
     callback const void* data
 }
-%query project,save_plugin_data(int project_id, const char* plugin_name, const void* data) {
+%query graph_data,move(int from_project_id, int to_project_id) {
     type upsert
-    table plugin_data
+    stmt { UPDATE graph_data SET project_id=? WHERE project_id=? }
+    bind to_project_id, from_project_id
 }
-%query project,load_plugin_data(int project_id, const char* plugin_name) {
+%query graph_data,delete(int project_id) {
+    type delete
+    table graph_data
+}
+
+%query plugin_data,load(int project_id, const char* plugin_name) {
     type select-first
     table plugin_data
     callback const void* data
+}
+%query plugin_data,save(int project_id, const char* plugin_name, const void* data) {
+    type upsert
+    table plugin_data
+}
+%query plugin_data,move(int from_project_id, int to_project_id) {
+    type upsert
+    stmt { UPDATE plugin_data SET project_id=? WHERE project_id=? }
+    bind to_project_id, from_project_id
+}
+%query plugin_data,delete(int project_id) {
+    type delete
+    table plugin_data
 }

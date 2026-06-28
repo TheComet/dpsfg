@@ -311,6 +311,14 @@ static void notify_expr_changed(
     i->expr->on_limit_expr(ctx, pipeline->lim_pool, pipeline->lim_expr);
     i->expr->on_tf_expr(ctx, pipeline->tf_pool, &pipeline->tf_expr);
 }
+static void notify_substitutions_changed(
+    const struct dpsfg_plugin_interface* i, struct plugin_ctx* ctx)
+{
+    if (i->substitutions == NULL)
+        return;
+
+    i->substitutions->on_changed(ctx);
+}
 static void notify_parameters_changed(
     const struct dpsfg_plugin_interface* i, struct plugin_ctx* ctx)
 {
@@ -356,6 +364,7 @@ void math_pipeline_notify_plugins(
                 !is_source_plugin)
             {
                 notify_expr_changed(pipeline, plugin_iface, plugin_ctx);
+                notify_substitutions_changed(plugin_iface, plugin_ctx);
                 notify_parameters_changed(plugin_iface, plugin_ctx);
             }
         /* fallthrough */

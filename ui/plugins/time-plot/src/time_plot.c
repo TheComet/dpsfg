@@ -24,9 +24,9 @@ static void draw_mag_cb(
     cairo_t*        cr,
     int             width,
     int             height,
-    gpointer        user_pointer)
+    gpointer        user_data)
 {
-    TimePlot* plot = user_pointer;
+    TimePlot* plot = user_data;
     (void)area, (void)width, (void)height;
 
     if (plot->tf != NULL)
@@ -176,23 +176,23 @@ static void draw_mag_cb(
 }
 
 /* -------------------------------------------------------------------------- */
-static void on_impulse_toggled(GtkCheckButton* button, gpointer user_pointer)
+static void on_impulse_toggled(GtkCheckButton* button, gpointer user_data)
 {
-    TimePlot* self = user_pointer;
+    TimePlot* self = user_data;
     self->enable_impulse =
         gtk_check_button_get_active(GTK_CHECK_BUTTON(button)) ? 1 : 0;
     gtk_widget_queue_draw(self->drawing_area);
 }
-static void on_step_toggled(GtkCheckButton* button, gpointer user_pointer)
+static void on_step_toggled(GtkCheckButton* button, gpointer user_data)
 {
-    TimePlot* self = user_pointer;
+    TimePlot* self = user_data;
     self->enable_step =
         gtk_check_button_get_active(GTK_CHECK_BUTTON(button)) ? 1 : 0;
     gtk_widget_queue_draw(self->drawing_area);
 }
-static void on_ramp_toggled(GtkCheckButton* button, gpointer user_pointer)
+static void on_ramp_toggled(GtkCheckButton* button, gpointer user_data)
 {
-    TimePlot* self = user_pointer;
+    TimePlot* self = user_data;
     self->enable_ramp =
         gtk_check_button_get_active(GTK_CHECK_BUTTON(button)) ? 1 : 0;
     gtk_widget_queue_draw(self->drawing_area);
