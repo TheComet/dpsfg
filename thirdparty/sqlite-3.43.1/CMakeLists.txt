@@ -9,6 +9,8 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
     set (DEBUG_OPTION ON)
 endif ()
 
+list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
 option (SQLITE_ALLOCA "Use alloca() memory allocator in a few situations where it is appropriate. This results in a slightly smaller and faster binary. The SQLITE_USE_ALLOCA compile-time only works, of course, on systems that support alloca()." ON)
 option (SQLITE_API_ARMOR "Activate extra code for detecting misuse of the SQLite API" ${DEBUG_OPTION})
 option (SQLITE_AUTOINIT "For backwards compatibility with older versions of SQLite that lack the sqlite3_initialize() interface, the sqlite3_initialize() interface is called automatically upon entry to certain key interfaces such as sqlite3_open(), sqlite3_vfs_register(), and sqlite3_mprintf(). The overhead of invoking sqlite3_initialize() automatically in this way may be omitted by building SQLite with the SQLITE_OMIT_AUTOINIT C-preprocessor macro. When built using SQLITE_OMIT_AUTOINIT, SQLite will not automatically initialize itself and the application is required to invoke sqlite3_initialize() directly prior to beginning use of the SQLite library." OFF)

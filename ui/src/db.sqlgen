@@ -70,8 +70,8 @@ void db_deinit(void)
 %upgrade 1 {
 CREATE TABLE IF NOT EXISTS projects (
     id              INTEGER PRIMARY KEY NOT NULL,
+    timestamp       BIGINT NOT NULL DEFAULT (UNIXEPOCH()),
     name            TEXT NOT NULL,
-    timestamp       DATE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(name)
 );
 CREATE TABLE IF NOT EXISTS graph_data (
@@ -100,15 +100,18 @@ DROP TABLE IF EXISTS projects;
     table projects
     return id
 }
-%query project,new_or_get(const char* name) {
-    type insert-or-get
+%query project,list_with_separate_date_time() {
+    type select-all
     table projects
-    return id
-}
-%query project,get(const char* name) {
-    type select-first
-    table projects
-    return id
+    stmt {
+        SELECT
+            id,
+            name ,
+            DATE(timestamp, 'unixepoch', 'localtime'),
+            TIME(timestamp, 'unixepoch', 'localtime')
+        FROM projects;
+    }
+    callback int id, const char* date, const char* time, const char* name
 }
 %query project,save_graph_data(int project_id, const void* data) {
     type upsert

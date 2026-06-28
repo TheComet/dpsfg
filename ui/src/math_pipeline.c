@@ -1,4 +1,5 @@
 #include "csfg/graph/graph.h"
+#include "csfg/io/io.h"
 #include "csfg/numeric/tf.h"
 #include "csfg/platform/mfile.h"
 #include "csfg/symbolic/expr.h"
@@ -88,6 +89,45 @@ void math_pipeline_deinit(struct math_pipeline* pl)
     csfg_path_vec_deinit(pl->paths);
     csfg_graph_deinit(&pl->graph);
     csfg_rulebook_deinit(&pl->rulebook);
+}
+
+/* -------------------------------------------------------------------------- */
+void math_pipeline_clear(struct math_pipeline* pl)
+{
+    csfg_var_table_clear(&pl->parameters);
+    csfg_var_table_clear(&pl->substitutions);
+    csfg_graph_clear(&pl->graph);
+    pl->node_in  = -1;
+    pl->node_out = -1;
+
+    /* Flush the pipeline to clear the rest of the data */
+    math_pipeline_update(pl, MATH_PIPELINE_GRAPH_CHANGED);
+}
+
+/* -------------------------------------------------------------------------- */
+int math_pipeline_load(struct math_pipeline* pl, struct deserializer* des)
+{
+    return csfg_io_load(
+        des,
+        &pl->substitutions,
+        &pl->parameters,
+        &pl->graph,
+        &pl->node_in,
+        &pl->node_out,
+        "binary");
+}
+
+/* -------------------------------------------------------------------------- */
+int math_pipeline_save(const struct math_pipeline* pl, struct serializer** ser)
+{
+    return csfg_io_save(
+        ser,
+        &pl->substitutions,
+        &pl->parameters,
+        &pl->graph,
+        pl->node_in,
+        pl->node_out,
+        "binary");
 }
 
 /* -------------------------------------------------------------------------- */

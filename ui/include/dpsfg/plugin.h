@@ -81,9 +81,11 @@ struct dpsfg_graph_interface
     /*! Called when a new graph is created or loaded by the main application.
      * The pointer remains valid up until on_clear() is called, so it is safe
      * to store the pointer internally for later use. This function is
-     * guaranteed to be called before on_structure_changed(). If a plugin makes
-     * any modifications to the graph, it should call
-     * graph_structure_changed(). @see plugin_notify_interface */
+     * guaranteed to be called before on_structure_changed().
+     *
+     * If a plugin makes any modifications to the graph, it should make use of
+     * @see plugin_notify_interface, specifically graph_structure_changed() and
+     * graph_layout_changed(). */
     void (*on_set)(
         struct plugin_ctx* ctx,
         struct csfg_graph* graph,

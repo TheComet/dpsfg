@@ -2,7 +2,6 @@
 #include "csfg/io/deserialize.h"
 #include "csfg/io/io.h"
 #include "csfg/io/serialize.h"
-#include "csfg/platform/mfile.h"
 #include "csfg/util/log.h"
 #include "csfg/util/tracker.h"
 #include "csfg/util/vec.h"
@@ -87,6 +86,8 @@ struct app_ctx
 
     GtkWidget* paned1;
     GtkWidget* paned2;
+
+    int active_project_id;
 };
 
 /* Implement the opaque pointer from plugin.h. This is passed in when plugins
@@ -361,128 +362,6 @@ static gboolean set_initial_pane_widths(gpointer user_data)
 }
 
 /* -------------------------------------------------------------------------- */
-static void activate(GtkApplication* app, gpointer user_data)
-{
-    GtkWidget* window;
-    GtkWidget* project_browser;
-    GtkWidget* center_area;
-    GtkWidget* property_pane_container;
-    GtkWidget* property_pane_scrolled_window;
-
-    struct plugin* plugin;
-    struct on_plugin_ctx on_plugin_ctx;
-    struct app_ctx* ctx = user_data;
-
-    window = gtk_application_window_new(app);
-    gtk_window_set_title(GTK_WINDOW(window), "DPSFG");
-    gtk_window_set_default_size(GTK_WINDOW(window), 1280, 720);
-    setup_global_shortcuts(window);
-
-    property_pane_scrolled_window = gtk_scrolled_window_new();
-    gtk_scrolled_window_set_policy(
-        GTK_SCROLLED_WINDOW(property_pane_scrolled_window),
-        GTK_POLICY_NEVER,
-        GTK_POLICY_AUTOMATIC);
-
-    property_pane_container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    gtk_scrolled_window_set_child(
-        GTK_SCROLLED_WINDOW(property_pane_scrolled_window),
-        property_pane_container);
-
-    center_area     = plugin_view_new();
-    project_browser = dpsfg_project_browser_new();
-
-    ctx->paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    gtk_paned_set_start_child(GTK_PANED(ctx->paned2), center_area);
-    gtk_paned_set_end_child(
-        GTK_PANED(ctx->paned2), property_pane_scrolled_window);
-    gtk_paned_set_resize_start_child(GTK_PANED(ctx->paned2), TRUE);
-    gtk_paned_set_resize_end_child(GTK_PANED(ctx->paned2), FALSE);
-
-    ctx->paned1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    gtk_paned_set_start_child(GTK_PANED(ctx->paned1), project_browser);
-    gtk_paned_set_end_child(GTK_PANED(ctx->paned1), ctx->paned2);
-    gtk_paned_set_resize_start_child(GTK_PANED(ctx->paned1), FALSE);
-    gtk_paned_set_resize_end_child(GTK_PANED(ctx->paned1), TRUE);
-
-    g_idle_add(set_initial_pane_widths, ctx);
-
-    gtk_window_set_child(GTK_WINDOW(window), ctx->paned1);
-    gtk_window_maximize(GTK_WINDOW(window));
-    gtk_widget_set_visible(window, 1);
-
-    on_plugin_ctx.plugins              = ctx->plugins;
-    on_plugin_ctx.center_area          = GTK_NOTEBOOK(center_area);
-    on_plugin_ctx.property_pane        = GTK_BOX(property_pane_container);
-    on_plugin_ctx.plugin_callbacks_ctx = ctx->plugin_callbacks_ctx;
-    plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
-
-    vec_for_each (*ctx->plugins, plugin)
-    {
-        if (plugin->lib.i->graph)
-            plugin->lib.i->graph->on_set(
-                plugin->ctx,
-                &ctx->pipeline.graph,
-                ctx->pipeline.node_in,
-                ctx->pipeline.node_out);
-        if (plugin->lib.i->substitutions)
-            plugin->lib.i->substitutions->on_set(
-                plugin->ctx, &ctx->pipeline.substitutions);
-        if (plugin->lib.i->parameters)
-            plugin->lib.i->parameters->on_set(
-                plugin->ctx, &ctx->pipeline.parameters);
-    }
-
-    graph_structure_changed_cb(
-        ctx->plugin_callbacks_ctx,
-        NULL,
-        ctx->pipeline.node_in,
-        ctx->pipeline.node_out);
-}
-
-/* -------------------------------------------------------------------------- */
-static void save_graph(
-    const struct db_interface* dbi,
-    struct db* db,
-    int project_id,
-    const struct math_pipeline* pl,
-    const struct plugin_vec* plugins)
-{
-    struct serializer* ser;
-    const struct plugin* plugin;
-
-    serializer_init(&ser);
-
-    if (csfg_io_save(
-            &ser,
-            &pl->substitutions,
-            &pl->parameters,
-            &pl->graph,
-            pl->node_in,
-            pl->node_out,
-            "binary") != 0)
-        goto serialize_failed;
-    dbi->project.save_graph_data(db, project_id, vec_data(ser), vec_count(ser));
-
-    vec_for_each (plugins, plugin)
-    {
-        if (plugin->lib.i->io == NULL)
-            continue;
-        serializer_clear(ser);
-        if (plugin->lib.i->io->on_save(plugin->ctx, &ser) != 0 ||
-            vec_count(ser) == 0)
-            continue;
-        dbi->project.save_plugin_data(
-            db,
-            project_id,
-            plugin->lib.i->info->name,
-            vec_data(ser),
-            vec_count(ser));
-    }
-
-serialize_failed:
-    serializer_deinit(ser);
-}
 static void save_graphviz(const struct math_pipeline* pl)
 {
     struct serializer* ser;
@@ -537,17 +416,6 @@ fopen_failed:
 serialize_failed:
     return;
 }
-static void save_pipeline(
-    const struct db_interface* dbi,
-    struct db* db,
-    int project_id,
-    const struct math_pipeline* pl,
-    const struct plugin_vec* plugins)
-{
-    save_graph(dbi, db, project_id, pl, plugins);
-    save_graphviz(pl);
-    save_latex(pl);
-}
 
 /* -------------------------------------------------------------------------- */
 static int
@@ -555,14 +423,7 @@ load_pipeline_graph_data_on_row(const void* data, int data_len, void* user_data)
 {
     struct math_pipeline* pl = user_data;
     struct deserializer des  = deserializer(data, data_len);
-    return csfg_io_load(
-        &des,
-        &pl->substitutions,
-        &pl->parameters,
-        &pl->graph,
-        &pl->node_in,
-        &pl->node_out,
-        "binary");
+    return math_pipeline_load(pl, &des);
 }
 static int load_pipeline_plugin_data_on_row(
     const void* data, int data_len, void* user_data)
@@ -571,29 +432,218 @@ static int load_pipeline_plugin_data_on_row(
     struct deserializer des = deserializer(data, data_len);
     return plugin->lib.i->io->on_load(plugin->ctx, &des);
 }
-static int load_pipeline(
+static int load_from_db(
     const struct db_interface* dbi,
     struct db* db,
     int project_id,
-    struct math_pipeline* pl,
+    struct math_pipeline* pipeline,
     struct plugin_vec* plugins)
 {
     struct plugin* plugin;
 
     if (dbi->project.load_graph_data(
-            db, project_id, load_pipeline_graph_data_on_row, pl) != 0)
+            db, project_id, load_pipeline_graph_data_on_row, pipeline) != 0)
+    {
         return -1;
+    }
 
     vec_for_each (plugins, plugin)
         if (plugin->lib.i->io != NULL)
-            dbi->project.load_plugin_data(
+        {
+            if (dbi->project.load_plugin_data(
+                    db,
+                    project_id,
+                    plugin->lib.i->info->name,
+                    load_pipeline_plugin_data_on_row,
+                    plugin) != 0)
+                return -1;
+        }
+
+    return 0;
+}
+static int save_to_db(
+    const struct db_interface* dbi,
+    struct db* db,
+    int project_id,
+    struct math_pipeline* pipeline,
+    struct plugin_vec* plugins)
+{
+    struct serializer* ser;
+    struct plugin* plugin;
+
+    serializer_init(&ser);
+
+    if (math_pipeline_save(pipeline, &ser) != 0)
+        goto serialize_failed;
+    dbi->project.save_graph_data(db, project_id, vec_data(ser), vec_count(ser));
+
+    vec_for_each (plugins, plugin)
+    {
+        if (plugin->lib.i->io == NULL)
+            continue;
+
+        serializer_clear(ser);
+        if (plugin->lib.i->io->on_save(plugin->ctx, &ser) != 0 ||
+            vec_count(ser) == 0)
+            continue;
+
+        if (dbi->project.save_plugin_data(
                 db,
                 project_id,
                 plugin->lib.i->info->name,
-                load_pipeline_plugin_data_on_row,
-                plugin);
+                vec_data(ser),
+                vec_count(ser)) != 0)
+            goto serialize_failed;
+    }
 
+    serializer_deinit(ser);
     return 0;
+
+serialize_failed:
+    serializer_deinit(ser);
+    return -1;
+}
+static void on_project_selected(
+    DPSFGProjectBrowser* project_browser, int project_id, gpointer user_data)
+{
+    struct app_ctx* ctx = user_data;
+    (void)project_browser;
+
+    load_from_db(ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
+    math_pipeline_update(&ctx->pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+    notify_plugins(
+        *ctx->plugins, NULL, &ctx->pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+    ctx->active_project_id = project_id;
+}
+static void on_project_deselected(
+    DPSFGProjectBrowser* project_browser, int project_id, gpointer user_data)
+{
+    struct app_ctx* ctx = user_data;
+    (void)project_browser;
+
+    save_to_db(ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
+    math_pipeline_clear(&ctx->pipeline);
+    notify_plugins(
+        *ctx->plugins, NULL, &ctx->pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+    ctx->active_project_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void activate(GtkApplication* app, gpointer user_data)
+{
+    GtkWidget* window;
+    GtkWidget* project_browser;
+    GtkWidget* center_area;
+    GtkWidget* property_pane_container;
+    GtkWidget* property_pane_scrolled_window;
+
+    struct plugin* plugin;
+    struct on_plugin_ctx on_plugin_ctx;
+    struct app_ctx* ctx = user_data;
+
+    window = gtk_application_window_new(app);
+    gtk_window_set_title(GTK_WINDOW(window), "DPSFG");
+    gtk_window_set_default_size(GTK_WINDOW(window), 1280, 720);
+    setup_global_shortcuts(window);
+
+    property_pane_scrolled_window = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(
+        GTK_SCROLLED_WINDOW(property_pane_scrolled_window),
+        GTK_POLICY_NEVER,
+        GTK_POLICY_AUTOMATIC);
+
+    property_pane_container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+    gtk_scrolled_window_set_child(
+        GTK_SCROLLED_WINDOW(property_pane_scrolled_window),
+        property_pane_container);
+
+    center_area     = plugin_view_new();
+    project_browser = dpsfg_project_browser_new();
+
+    ctx->paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_paned_set_start_child(GTK_PANED(ctx->paned2), center_area);
+    gtk_paned_set_end_child(
+        GTK_PANED(ctx->paned2), property_pane_scrolled_window);
+    gtk_paned_set_resize_start_child(GTK_PANED(ctx->paned2), TRUE);
+    gtk_paned_set_resize_end_child(GTK_PANED(ctx->paned2), FALSE);
+
+    ctx->paned1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_paned_set_start_child(GTK_PANED(ctx->paned1), project_browser);
+    gtk_paned_set_end_child(GTK_PANED(ctx->paned1), ctx->paned2);
+    gtk_paned_set_resize_start_child(GTK_PANED(ctx->paned1), FALSE);
+    gtk_paned_set_resize_end_child(GTK_PANED(ctx->paned1), TRUE);
+
+    g_idle_add(set_initial_pane_widths, ctx);
+
+    g_signal_connect(
+        project_browser,
+        "project-deselected",
+        G_CALLBACK(on_project_deselected),
+        ctx);
+    g_signal_connect(
+        project_browser,
+        "project-selected",
+        G_CALLBACK(on_project_selected),
+        ctx);
+
+    on_plugin_ctx.plugins              = ctx->plugins;
+    on_plugin_ctx.center_area          = GTK_NOTEBOOK(center_area);
+    on_plugin_ctx.property_pane        = GTK_BOX(property_pane_container);
+    on_plugin_ctx.plugin_callbacks_ctx = ctx->plugin_callbacks_ctx;
+    plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
+
+    vec_for_each (*ctx->plugins, plugin)
+    {
+        if (plugin->lib.i->graph)
+            plugin->lib.i->graph->on_set(
+                plugin->ctx,
+                &ctx->pipeline.graph,
+                ctx->pipeline.node_in,
+                ctx->pipeline.node_out);
+        if (plugin->lib.i->substitutions)
+            plugin->lib.i->substitutions->on_set(
+                plugin->ctx, &ctx->pipeline.substitutions);
+        if (plugin->lib.i->parameters)
+            plugin->lib.i->parameters->on_set(
+                plugin->ctx, &ctx->pipeline.parameters);
+    }
+
+    dpsfg_project_browser_reload_from_db(
+        DPSFG_PROJECT_BROWSER(project_browser), ctx->dbi, ctx->db);
+
+    gtk_window_set_child(GTK_WINDOW(window), ctx->paned1);
+    gtk_window_maximize(GTK_WINDOW(window));
+    gtk_widget_set_visible(window, 1);
+}
+
+/* -------------------------------------------------------------------------- */
+static void shutdown(GtkApplication* app, gpointer user_data)
+{
+    struct plugin* plugin;
+    struct app_ctx* ctx = user_data;
+    (void)app;
+
+    if (ctx->active_project_id != -1)
+        save_to_db(
+            ctx->dbi,
+            ctx->db,
+            ctx->active_project_id,
+            &ctx->pipeline,
+            *ctx->plugins);
+
+    vec_for_each (*ctx->plugins, plugin)
+    {
+        if (plugin->lib.i->graph)
+            plugin->lib.i->graph->on_clear(plugin->ctx);
+        if (plugin->lib.i->substitutions)
+            plugin->lib.i->substitutions->on_clear(plugin->ctx);
+        if (plugin->lib.i->parameters)
+            plugin->lib.i->parameters->on_clear(plugin->ctx);
+    }
+
+    vec_for_each (*ctx->plugins, plugin)
+        stop_plugin(plugin);
+    plugin_vec_clear(*ctx->plugins);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -602,7 +652,6 @@ int main(int argc, char** argv)
     struct args args;
     struct app_ctx app_ctx;
     struct plugin_notify_context callbacks_ctx;
-    struct plugin* plugin;
     struct plugin_vec* plugins;
     GtkApplication* app;
     int status = EXIT_FAILURE;
@@ -643,21 +692,17 @@ int main(int argc, char** argv)
     app_ctx.plugin_callbacks_ctx = &callbacks_ctx;
 
     math_pipeline_init(&app_ctx.pipeline);
-    load_pipeline(
-        app_ctx.dbi, app_ctx.db, 1, &app_ctx.pipeline, *app_ctx.plugins);
+    app_ctx.active_project_id = -1;
 
     app = gtk_application_new(
         "ch.thecomet.dpsfg-ui", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), &app_ctx);
+    g_signal_connect(app, "shutdown", G_CALLBACK(shutdown), &app_ctx);
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 
-    save_pipeline(
-        app_ctx.dbi, app_ctx.db, 1, &app_ctx.pipeline, *app_ctx.plugins);
     math_pipeline_deinit(&app_ctx.pipeline);
 
-    vec_for_each (plugins, plugin)
-        stop_plugin(plugin);
     plugin_vec_deinit(plugins);
 
 migrate_db_failed:

@@ -328,28 +328,12 @@ static int load(
     switch (version)
     {
         case 0x00:
-            result = load_0(
+            return load_0(
                 des, substitutions, parameters, graph, node_in, node_out);
-            break;
-
-        default:
-            result = log_err(
-                "Unsupported format version: %d.%d\n",
-                version >> 8,
-                version & 0xFF);
     }
 
-    if (deserializer_err(des))
-        result = log_err("Reached EOF while reading SFG binary\n");
-
-    if (result != 0)
-    {
-        csfg_var_table_clear(substitutions);
-        csfg_var_table_clear(parameters);
-        csfg_graph_clear(graph);
-        *node_in  = -1;
-        *node_out = -1;
-    }
+    return log_err(
+        "Unsupported format version: %d.%d\n", version >> 8, version & 0xFF);
 
     return result;
 }

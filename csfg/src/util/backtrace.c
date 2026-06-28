@@ -65,7 +65,7 @@ static int bt_full_print(
     const char* function)
 {
     int off;
-    char buf[MAX_COL_WIDTH];
+    char buf[MAX_COL_WIDTH + 1];
     struct bt_columns* col = data;
 
     int file = snprintf(NULL, 0, "%s:%d", filename, lineno);
