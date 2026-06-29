@@ -125,21 +125,6 @@ DROP TABLE IF EXISTS projects;
     }
     callback int id, const char* date, const char* time, const char* name
 }
-%query project,select(int project_id) {
-    type select-first
-    table projects
-    stmt {
-        SELECT
-            id,
-            name ,
-            DATE(timestamp, 'unixepoch', 'localtime'),
-            TIME(timestamp, 'unixepoch', 'localtime')
-        FROM projects
-        WHERE id = ?;
-    }
-    bind project_id
-    callback int id, const char* date, const char* time, const char* name
-}
 %query project,rename(int id, const char* name) {
     type update name
     table projects
@@ -168,14 +153,14 @@ DROP TABLE IF EXISTS projects;
     table graph_data
 }
 
+%query plugin_data,save(int project_id, const char* plugin_name, const void* data) {
+    type upsert
+    table plugin_data
+}
 %query plugin_data,load(int project_id, const char* plugin_name) {
     type select-first
     table plugin_data
     callback const void* data
-}
-%query plugin_data,save(int project_id, const char* plugin_name, const void* data) {
-    type upsert
-    table plugin_data
 }
 %query plugin_data,move(int from_project_id, int to_project_id) {
     type upsert

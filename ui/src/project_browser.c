@@ -3,6 +3,7 @@
 #include "csfg/util/tracker.h"
 #include "csfg/util/vec.h"
 #include "dpsfg/db.h"
+#include "dpsfg/editable_label.h"
 #include "dpsfg/project_browser.h"
 
 #define COLUMNS_LIST                                                           \
@@ -302,20 +303,18 @@ static void selection_changed_cb(
     (void)self, (void)position_hint, (void)n_items;
     handle_list_or_selection_changed(project_browser);
 }
-static void editable_done_editing_cb(
-    GtkEditableLabel* editable, GParamSpec* pspec, gpointer user_data)
+static void editable_label_text_changed_cb(
+    DPSFGEditableLabel* editable, GParamSpec* pspec, gpointer user_data)
 {
     GtkListItem* list_item               = user_data;
     DPSFGProjectListItem* item           = gtk_list_item_get_item(list_item);
     DPSFGProjectBrowser* project_browser = item->project_browser;
-    const char* current_name = strlist_cstr(item->columns, COLUMN_NAME);
-    const char* new_name     = gtk_editable_get_text(GTK_EDITABLE(editable));
+    const char* current_name       = strlist_cstr(item->columns, COLUMN_NAME);
+    const char* new_name           = dpsfg_editable_label_get_text(editable);
     const struct db_interface* dbi = project_browser->dbi;
     struct db* db                  = project_browser->db;
     (void)pspec;
 
-    if (gtk_editable_label_get_editing(editable) == TRUE)
-        return;
     if (strcmp(current_name, new_name) == 0)
         return;
     if (strcmp(new_name, SCRATCH_PROJECT_NAME) == 0)
@@ -323,7 +322,7 @@ static void editable_done_editing_cb(
     if (!*new_name)
     {
         /* Restore the original text */
-        gtk_editable_set_text(GTK_EDITABLE(editable), current_name);
+        dpsfg_editable_label_set_text(editable, current_name);
         return;
     }
 
@@ -350,7 +349,7 @@ static void editable_done_editing_cb(
         }
 
         /* Restore the original text on the "Scratch" project */
-        gtk_editable_set_text(GTK_EDITABLE(editable), SCRATCH_PROJECT_NAME);
+        dpsfg_editable_label_set_text(editable, SCRATCH_PROJECT_NAME);
 
         /* The "Scratch" project has probably not saved all of its data to the
          * db yet. By selecting the new project, we emit the selection signals,
@@ -386,7 +385,7 @@ static void editable_done_editing_cb(
         do
             str_fmt(&str, "%s (%d)", new_name, counter++);
         while (dbi->project.rename(db, item->project_id, str_cstr(str)) != 0);
-        gtk_editable_set_text(GTK_EDITABLE(editable), str_cstr(str));
+        dpsfg_editable_label_set_text(editable, str_cstr(str));
         strlist_set_cstr(&item->columns, COLUMN_NAME, str_cstr(str));
         str_deinit(str);
     }
@@ -399,7 +398,7 @@ static void setup_listitem_cb(
     (void)factory;
 
     if (col == COLUMN_NAME)
-        label = gtk_editable_label_new("");
+        label = dpsfg_editable_label_new();
     else
         label = gtk_label_new("");
     gtk_list_item_set_child(list_item, label);
@@ -414,7 +413,7 @@ static void bind_listitem_cb(
     (void)factory;
 
     if (col == COLUMN_NAME)
-        gtk_editable_set_text(GTK_EDITABLE(label), text);
+        dpsfg_editable_label_set_text(DPSFG_EDITABLE_LABEL(label), text);
     else
         gtk_label_set_text(GTK_LABEL(label), text);
 
@@ -422,8 +421,8 @@ static void bind_listitem_cb(
     {
         g_signal_connect(
             label,
-            "notify::editing",
-            G_CALLBACK(editable_done_editing_cb),
+            "text-changed",
+            G_CALLBACK(editable_label_text_changed_cb),
             list_item);
     }
 }

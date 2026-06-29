@@ -32,6 +32,7 @@ add_executable (dpsfg-ui
 
     "src/args.c"
     "src/dynlib.c"
+    "src/editable_label.c"
     "src/fs.c"
     "src/math_pipeline.c"
     "src/plugin_loader.c"
