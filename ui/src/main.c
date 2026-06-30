@@ -98,7 +98,7 @@ struct plugin_notify_context
 };
 
 /* -------------------------------------------------------------------------- */
-static void notify_plugins(
+static void notify_plugins_about_change(
     const struct plugin_vec* plugins,
     const struct plugin_ctx* source_plugin,
     const struct math_pipeline* pipeline,
@@ -130,7 +130,7 @@ static void graph_structure_changed_cb(
     pipeline->node_out = node_out;
 
     math_pipeline_update(pipeline, MATH_PIPELINE_GRAPH_CHANGED);
-    notify_plugins(
+    notify_plugins_about_change(
         *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
 static void graph_layout_changed_cb(
@@ -138,7 +138,7 @@ static void graph_layout_changed_cb(
 {
     struct app_ctx* app            = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
-    notify_plugins(
+    notify_plugins_about_change(
         *app->plugins, source_plugin, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
 }
 static void substitutions_changed_cb(
@@ -147,7 +147,7 @@ static void substitutions_changed_cb(
     struct app_ctx* ctx            = cb->app;
     struct math_pipeline* pipeline = &ctx->pipeline;
     math_pipeline_update(pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
-    notify_plugins(
+    notify_plugins_about_change(
         *ctx->plugins,
         source_plugin,
         pipeline,
@@ -159,7 +159,7 @@ static void parameters_changed_cb(
     struct app_ctx* app            = cb->app;
     struct math_pipeline* pipeline = &app->pipeline;
     math_pipeline_update(pipeline, MATH_PIPELINE_PARAMETERS_CHANGED);
-    notify_plugins(
+    notify_plugins_about_change(
         *app->plugins,
         source_plugin,
         pipeline,
@@ -449,7 +449,6 @@ static int load_from_db(
 
     vec_for_each (plugins, plugin)
         if (plugin->lib.i->io != NULL)
-        {
             if (dbi->plugin_data.load(
                     db,
                     project_id,
@@ -457,7 +456,6 @@ static int load_from_db(
                     load_pipeline_plugin_data_on_row,
                     plugin) != 0)
                 return -1;
-        }
 
     return 0;
 }
@@ -503,17 +501,70 @@ serialize_failed:
     serializer_deinit(ser);
     return -1;
 }
+static int load_project(
+    const struct db_interface* dbi,
+    struct db* db,
+    int project_id,
+    struct math_pipeline* pipeline,
+    struct plugin_vec* plugins)
+{
+    struct plugin* plugin;
+
+    math_pipeline_clear(pipeline);
+    if (load_from_db(dbi, db, project_id, pipeline, plugins) == 0)
+        vec_for_each (plugins, plugin)
+        {
+            if (plugin->lib.i->graph)
+                plugin->lib.i->graph->on_load(
+                    plugin->ctx,
+                    &pipeline->graph,
+                    pipeline->node_in,
+                    pipeline->node_out);
+            if (plugin->lib.i->substitutions)
+                plugin->lib.i->substitutions->on_load(
+                    plugin->ctx, &pipeline->substitutions);
+            if (plugin->lib.i->parameters)
+                plugin->lib.i->parameters->on_load(
+                    plugin->ctx, &pipeline->parameters);
+        }
+
+    math_pipeline_update(pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+    notify_plugins_about_change(
+        plugins, NULL, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+
+    return 0;
+}
+static int unload_project(
+    const struct db_interface* dbi,
+    struct db* db,
+    int project_id,
+    struct math_pipeline* pipeline,
+    struct plugin_vec* plugins)
+{
+    int rc;
+    struct plugin* plugin;
+
+    vec_for_each (plugins, plugin)
+    {
+        if (plugin->lib.i->graph)
+            plugin->lib.i->graph->on_unload(plugin->ctx);
+        if (plugin->lib.i->substitutions)
+            plugin->lib.i->substitutions->on_unload(plugin->ctx);
+        if (plugin->lib.i->parameters)
+            plugin->lib.i->parameters->on_unload(plugin->ctx);
+    }
+
+    rc = save_to_db(dbi, db, project_id, pipeline, plugins);
+    math_pipeline_clear(pipeline);
+
+    return rc;
+}
 static void on_project_selected(
     DPSFGProjectBrowser* project_browser, int project_id, gpointer user_data)
 {
     struct app_ctx* ctx = user_data;
     (void)project_browser;
-
-    math_pipeline_clear(&ctx->pipeline);
-    load_from_db(ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
-    math_pipeline_update(&ctx->pipeline, MATH_PIPELINE_GRAPH_CHANGED);
-    notify_plugins(
-        *ctx->plugins, NULL, &ctx->pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+    load_project(ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
     ctx->active_project_id = project_id;
 }
 static void on_project_deselected(
@@ -521,11 +572,8 @@ static void on_project_deselected(
 {
     struct app_ctx* ctx = user_data;
     (void)project_browser;
-
-    save_to_db(ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
-    math_pipeline_clear(&ctx->pipeline);
-    notify_plugins(
-        *ctx->plugins, NULL, &ctx->pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+    unload_project(
+        ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
     ctx->active_project_id = -1;
 }
 
@@ -538,7 +586,6 @@ static void activate(GtkApplication* app, gpointer user_data)
     GtkWidget* property_pane_container;
     GtkWidget* property_pane_scrolled_window;
 
-    struct plugin* plugin;
     struct on_plugin_ctx on_plugin_ctx;
     struct app_ctx* ctx = user_data;
 
@@ -593,22 +640,6 @@ static void activate(GtkApplication* app, gpointer user_data)
     on_plugin_ctx.plugin_callbacks_ctx = ctx->plugin_callbacks_ctx;
     plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
 
-    vec_for_each (*ctx->plugins, plugin)
-    {
-        if (plugin->lib.i->graph)
-            plugin->lib.i->graph->on_set(
-                plugin->ctx,
-                &ctx->pipeline.graph,
-                ctx->pipeline.node_in,
-                ctx->pipeline.node_out);
-        if (plugin->lib.i->substitutions)
-            plugin->lib.i->substitutions->on_set(
-                plugin->ctx, &ctx->pipeline.substitutions);
-        if (plugin->lib.i->parameters)
-            plugin->lib.i->parameters->on_set(
-                plugin->ctx, &ctx->pipeline.parameters);
-    }
-
     dpsfg_project_browser_reload_from_db(
         DPSFG_PROJECT_BROWSER(project_browser));
 
@@ -625,22 +656,12 @@ static void shutdown(GtkApplication* app, gpointer user_data)
     (void)app;
 
     if (ctx->active_project_id != -1)
-        save_to_db(
+        unload_project(
             ctx->dbi,
             ctx->db,
             ctx->active_project_id,
             &ctx->pipeline,
             *ctx->plugins);
-
-    vec_for_each (*ctx->plugins, plugin)
-    {
-        if (plugin->lib.i->graph)
-            plugin->lib.i->graph->on_clear(plugin->ctx);
-        if (plugin->lib.i->substitutions)
-            plugin->lib.i->substitutions->on_clear(plugin->ctx);
-        if (plugin->lib.i->parameters)
-            plugin->lib.i->parameters->on_clear(plugin->ctx);
-    }
 
     vec_for_each (*ctx->plugins, plugin)
         stop_plugin(plugin);

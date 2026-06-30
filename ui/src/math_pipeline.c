@@ -364,7 +364,6 @@ void math_pipeline_notify_plugins(
                 !is_source_plugin)
             {
                 notify_expr_changed(pipeline, plugin_iface, plugin_ctx);
-                notify_substitutions_changed(plugin_iface, plugin_ctx);
                 notify_parameters_changed(plugin_iface, plugin_ctx);
             }
         /* fallthrough */

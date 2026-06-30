@@ -40,9 +40,9 @@ int str_ensure_capacity(struct str** str, int capacity)
     {
         if (str_impl_realloc((struct str_impl**)str, capacity + 1) != 0)
             return -1;
-        impl = (struct str_impl*)*str;
+        impl          = (struct str_impl*)*str;
         impl->data[0] = '\0';
-        impl->count = 1;
+        impl->count   = 1;
         return 0;
     }
 
@@ -81,15 +81,15 @@ char* str_data(struct str* str)
 int str_append_char(struct str** str, char c)
 {
     struct str_impl* impl;
-    int              len = str_len(*str);
+    int len = str_len(*str);
 
     if (str_ensure_capacity(str, len + 1) != 0)
         return -1;
     impl = (struct str_impl*)*str;
 
-    impl->data[len] = c;
+    impl->data[len]     = c;
     impl->data[len + 1] = '\0';
-    impl->count = len + 2;
+    impl->count         = len + 2;
 
     return 0;
 }
@@ -98,8 +98,8 @@ int str_append_char(struct str** str, char c)
 int str_append_cstr(struct str** str, const char* cstr)
 {
     struct str_impl* impl;
-    int              len = str_len(*str);
-    int              clen = (int)strlen(cstr);
+    int len  = str_len(*str);
+    int clen = (int)strlen(cstr);
 
     if (str_ensure_capacity(str, len + clen) != 0)
         return -1;
@@ -107,7 +107,7 @@ int str_append_cstr(struct str** str, const char* cstr)
 
     memcpy(impl->data + len, cstr, clen);
     impl->data[len + clen] = '\0';
-    impl->count = len + clen + 1;
+    impl->count            = len + clen + 1;
 
     return 0;
 }
@@ -124,7 +124,9 @@ int str_append_int(struct str** str, int value)
 int str_append_float(struct str** str, double value)
 {
     char* p;
-    char  buf[12];
+    char
+        buf[17 /*significant*/ + 4 /*fraction*/ + 1 /*sign*/ + 1 /*decimal*/ +
+            1 /*null*/];
     sprintf(buf, "%.4f", (float)value);
 
     /* Strip trailing 0's */
@@ -162,7 +164,7 @@ void str_clear(struct str* str)
     if (impl == NULL)
         return;
     impl->data[0] = '\0';
-    impl->count = 1;
+    impl->count   = 1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -172,7 +174,7 @@ void str_set_len(struct str* str, int new_len)
     assert(new_len >= 0 && new_len <= vec_capacity(impl) - 1);
 
     impl->data[new_len] = '\0';
-    impl->count = new_len + 1;
+    impl->count         = new_len + 1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -186,7 +188,7 @@ int str_set(struct str** str, const char* data, int len)
 
     memcpy(impl->data, data, len);
     impl->data[len] = '\0';
-    impl->count = len + 1;
+    impl->count     = len + 1;
 
     return 0;
 }
@@ -300,9 +302,9 @@ int str_fmt(struct str** str, const char* fmt, ...)
 /* -------------------------------------------------------------------------- */
 int str_set_path_cstr(struct str** str, const char* path)
 {
-    int              i;
+    int i;
     struct str_impl* impl;
-    int              len = (int)strlen(path);
+    int len = (int)strlen(path);
 
     if (str_ensure_capacity(str, len) != 0)
         return -1;
@@ -310,7 +312,7 @@ int str_set_path_cstr(struct str** str, const char* path)
 
     memcpy(impl->data, path, len);
     impl->data[len] = '\0';
-    impl->count = len + 1;
+    impl->count     = len + 1;
 
     for (i = 0; i != len; ++i)
         if (impl->data[i] == BAD_SEP)
@@ -323,8 +325,8 @@ int str_set_path_cstr(struct str** str, const char* path)
 int str_join_path(struct str** str, struct strview path)
 {
     struct str_impl* impl;
-    int              len = str_len(*str);
-    int              sep_len = 1;
+    int len     = str_len(*str);
+    int sep_len = 1;
 
     if (str_ensure_capacity(str, len + path.len + sep_len) != 0)
         return -1;
@@ -340,7 +342,7 @@ int str_join_path(struct str** str, struct strview path)
     len += path.len;
 
     impl->data[len] = '\0';
-    impl->count = len + 1;
+    impl->count     = len + 1;
 
     return 0;
 }
@@ -355,8 +357,8 @@ int str_join_path_cstr(struct str** str, const char* path)
 int str_join_path_prepend(struct str** str, struct strview path)
 {
     struct str_impl* impl;
-    int              len = str_len(*str);
-    int              sep_len = 1;
+    int len     = str_len(*str);
+    int sep_len = 1;
 
     if (is_sep(path.data[path.off + path.len - 1]))
         sep_len = 0;
@@ -369,7 +371,7 @@ int str_join_path_prepend(struct str** str, struct strview path)
     memmove(impl->data + path.len + sep_len, impl->data, len + 1);
     memcpy(impl->data, path.data, path.len);
     impl->data[path.len] = SEP;
-    impl->count = len + sep_len + path.len + 1;
+    impl->count          = len + sep_len + path.len + 1;
 
     return 0;
 }
@@ -414,7 +416,7 @@ const char* cstr_ext(const char* path)
 /* -------------------------------------------------------------------------- */
 int cstr_ends_with(const char* cstr, const char* suffix)
 {
-    int cstr_len = (int)strlen(cstr);
+    int cstr_len   = (int)strlen(cstr);
     int suffix_len = (int)strlen(suffix);
 
     if (cstr_len < suffix_len)

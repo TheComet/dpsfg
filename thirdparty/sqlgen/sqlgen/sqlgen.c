@@ -979,8 +979,8 @@ struct function
 {
     struct function* next;
     struct str_view name;
+    struct str_view params;
     struct str_view body;
-    struct arg* args;
 };
 
 static struct function*
@@ -1601,57 +1601,21 @@ parse(struct parser* p, struct root* root, struct cfg* cfg)
                 }
 
                 /* Parse parameter list */
-            expect_next_func_param:
-                switch (scan_next_token(p))
                 {
-                    case ')': break;
-                    case ',':
-                        if (func->args == NULL)
-                            return print_error(p, "Error: Expected parameter after \"(\"\n");
-                        if (scan_next_token(p) != TOK_LABEL)
-                            return print_error(p, "Error: Expected parameter after \",\"\n");
-                        /* fallthrough */
-                    case TOK_LABEL: {
-                        struct str_view arg_type, arg_name;
-                        struct arg* arg;
-
-                        /* Special case, struct -> expect another label */
-                        if (cstr_eq_str("struct", arg_type, p->data))
-                        {
-                            if (scan_next_token(p) != TOK_LABEL)
-                                return print_error(p, "Error: Missing struct name after \"struct\"\n");
-                            arg_type.len = p->value.str.off + p->value.str.len - arg_type.off;
-                        }
-                        /* Special case, const -> expect another label */
-                        if (cstr_eq_str("const", arg_type, p->data))
-                        {
-                            if (scan_next_token(p) != TOK_LABEL)
-                                return print_error(p, "Error: const qualifier without type\n");
-                            arg_type.len = p->value.str.off + p->value.str.len - arg_type.off;
-                        }
-
-                        if (scan_next_token(p) != TOK_LABEL)
-                            return print_error(p, "Error: struct without name\n");
-                        arg_name = p->value.str;
-
-                        arg = arg_alloc(arg_type, arg_name, p->data);
-                        if (arg == NULL)
-                            return print_error(p, "Unsupported C type\n");
-                        if (func->args == NULL)
-                            func->args = arg;
-                        else
-                        {
-                            struct arg* args = func->args;
-                            while (args->next)
-                                args = args->next;
-                            args->next = arg;
-                        }
-
-                        goto expect_next_func_param;
-                    } break;
-
-                    default:
-                        return print_error(p, "Error: Expected parameter list\n");
+                    int depth = 1;
+                    func->params.off = p->head;
+                    for (; p->head != p->len; p->head++) {
+                        if (p->data[p->head] == ')')
+                            depth--;
+                        if (p->data[p->head] == '(')
+                            depth++;
+                        if (depth == 0)
+                            break;
+                    }
+                    if (p->head == p->len)
+                        return print_error(p, "Error: Failed to find end of function parameter list\n");
+                    func->params.len = p->head - func->params.off;
+                    p->head++;
                 }
 
                 if (scan_block(p, 1) != TOK_STRING)
@@ -3054,11 +3018,8 @@ gen_header(const struct root* root, const char* data, const char* file_name,
         mstream_fmt(&ms, "    int (*%S)(struct %S* ctx",
                 f->name, data,
                 PREFIX(root->prefix, data));
-        for (a = f->args; a; a = a->next)
-        {
-            mstream_cstr(&ms, ", ");
-            mstream_fmt(&ms, "%S %S", a->type, data, a->name, data);
-        }
+        if (f->params.len > 0)
+            mstream_fmt(&ms, ", %S", f->params, data);
         mstream_cstr(&ms, ");" NL);
     }
 
@@ -3083,11 +3044,8 @@ gen_header(const struct root* root, const char* data, const char* file_name,
             mstream_fmt(&ms, "        int (*%S)(struct %S* ctx",
                     f->name, data,
                     PREFIX(root->prefix, data));
-            for (a = f->args; a; a = a->next)
-            {
-                mstream_cstr(&ms, ", ");
-                mstream_fmt(&ms, "%S %S", a->type, data, a->name, data);
-            }
+            if (f->params.len > 0)
+                mstream_fmt(&ms, ", %S", f->params, data);
             mstream_cstr(&ms, ");" NL);
         }
 
@@ -3214,8 +3172,8 @@ gen_source(const struct root* root, const char* data, const char* file_name,
     {
         mstream_fmt(&ms, "static int" NL "%S(struct %S* ctx", f->name, data,
                 PREFIX(root->prefix, data));
-        for (a = f->args; a; a = a->next)
-            mstream_fmt(&ms, ", %S %S", a->type, data, a->name, data);
+        if (f->params.len > 0)
+            mstream_fmt(&ms, ", %S", f->params, data);
         mstream_cstr(&ms, ")" NL "{" NL);
         mstream_fmt(&ms, NL "%S" NL, f->body, data);
         mstream_cstr(&ms, NL "}" NL NL);
@@ -3228,8 +3186,8 @@ gen_source(const struct root* root, const char* data, const char* file_name,
                     g->name, data,
                     f->name, data,
                     PREFIX(root->prefix, data));
-            for (a = f->args; a; a = a->next)
-                mstream_fmt(&ms, ", %S %S", a->type, data, a->name, data);
+            if (f->params.len > 0)
+                mstream_fmt(&ms, ", %S", f->params, data);
             mstream_cstr(&ms, ")" NL "{" NL);
             mstream_fmt(&ms, NL "%S" NL, f->body, data);
             mstream_cstr(&ms, NL "}" NL NL);

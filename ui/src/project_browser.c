@@ -445,26 +445,22 @@ shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     int project_id                 = self->current_project_id;
     (void)widget, (void)unused;
 
-    self->current_project_id = -1;
-    dbi->graph_data.delete(db, project_id);
-    dbi->plugin_data.delete(db, project_id);
-
     if (project_id != SCRATCH_PROJECT_ID)
     {
-        if (dbi->project.delete(db, project_id) == 0)
+        self->current_project_id = -1;
+        if (dbi->project.recycle(db, project_id) == 0)
             dpsfg_project_list_remove_by_id(self->project_list, project_id);
+        return TRUE;
     }
 
     /* Force reload of scratch project */
-    if (project_id < 0 || project_id == SCRATCH_PROJECT_ID)
-    {
-        self->current_project_id = SCRATCH_PROJECT_ID;
-        g_signal_emit(
-            self,
-            project_browser_signals[SIGNAL_PROJECT_SELECTED],
-            0,
-            SCRATCH_PROJECT_ID);
-    }
+    dbi->graph_data.delete(db, project_id);
+    dbi->plugin_data.delete(db, project_id);
+    g_signal_emit(
+        self,
+        project_browser_signals[SIGNAL_PROJECT_SELECTED],
+        0,
+        SCRATCH_PROJECT_ID);
 
     return TRUE;
 }

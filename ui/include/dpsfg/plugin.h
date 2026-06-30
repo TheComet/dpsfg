@@ -78,23 +78,26 @@ struct dpsfg_ui_pane_interface
  */
 struct dpsfg_graph_interface
 {
-    /*! Called when a new graph is created or loaded by the main application.
-     * The pointer remains valid up until on_clear() is called, so it is safe
-     * to store the pointer internally for later use. This function is
-     * guaranteed to be called before on_structure_changed().
+    /*! Called when a new graph is loaded by the main application. This happens
+     * whenever a new project is selected and loaded. The pointer remains valid
+     * up until on_unload() is called, so it is safe to store the pointer
+     * internally for later use. This function is guaranteed to be called
+     * before on_structure_changed().
      *
      * If a plugin makes any modifications to the graph, it should make use of
      * @see plugin_notify_interface, specifically graph_structure_changed() and
      * graph_layout_changed(). */
-    void (*on_set)(
+    void (*on_load)(
         struct plugin_ctx* ctx,
         struct csfg_graph* graph,
         int node_in,
         int node_out);
 
-    /*! Called when the graph is deallocated by the main application. A plugin
-     * should clear any references to the graph pointer passed by on_set(). */
-    void (*on_clear)(struct plugin_ctx* ctx);
+    /*! Called when the graph is deallocated by the main application. This
+     * happens whenever a different project is selected, thus, unloading the
+     * current project. A plugin should clear any references to the graph
+     * pointer passed by on_set(). */
+    void (*on_unload)(struct plugin_ctx* ctx);
 
     /*! Called whenever the graph's structure is changed. This function is
      * triggered by calls to graph_structure_changed(). Note that the main
@@ -144,7 +147,7 @@ struct dpsfg_expr_interface
 };
 
 /*!
- * There are two variable tables used at different stages in the pipeline, that
+ * There are two variable tables used at different stages in the pipeline that
  * share very similar interfaces but have different purposes:
  *   1) Substitutions table
  *   2) Parameters table
@@ -164,34 +167,41 @@ struct dpsfg_expr_interface
 struct dpsfg_substitutions_interface
 {
     /*! Called when a new substitutions table is created by the main
-     * application. Initially, it will be empty. The main application does not
-     * perform any insertions or deletions. This is handled by plugins. The
-     * pointer remains valid up until on_clear() is called, so it is safe to
-     * store the pointer internally for later use. This function is guaranteed
-     * to be called before on_changed(). */
-    void (*on_set)(
+     * application. This happens whenever a new project is selected and loaded.
+     * The pointer remains valid up until on_unload() is called, so it is safe
+     * to store the pointer internally for later use. This function is
+     * guaranteed to be called before on_changed(). */
+    void (*on_load)(
         struct plugin_ctx* ctx, struct csfg_var_table* substitutions);
 
     /*! Called when the substitutions table is deallocated by the main
-     * application. A plugin should clear any references to the table pointer
-     * passed in by on_set(). */
-    void (*on_clear)(struct plugin_ctx* ctx);
+     * application. This happens whenever a different project is selected,
+     * thus, unloading the current project. A plugin should clear any
+     * references to the table pointer passed in by on_load(). */
+    void (*on_unload)(struct plugin_ctx* ctx);
 
+    /*! Called if another plugin and/or the main application makes a change to
+     * the substitutions table. This occurs in response to
+     * substitutions_changed() */
     void (*on_changed)(struct plugin_ctx* ctx);
 };
 struct dpsfg_parameters_interface
 {
     /*! Called when a new parameters table is created by the main application.
-     * The pointer remains valid up until on_clear() is called, so it is safe
-     * to store the pointer internally for later use. This function is
-     * guaranteed to be called before on_xxx_changed(). */
-    void (*on_set)(struct plugin_ctx* ctx, struct csfg_var_table* parameters);
+     * This happens whenever a new project is selected and loaded. The pointer
+     * remains valid up until on_unload() is called, so it is safe to store the
+     * pointer internally for later use. This function is guaranteed to be
+     * called before on_changed(). */
+    void (*on_load)(struct plugin_ctx* ctx, struct csfg_var_table* parameters);
 
     /*! Called when the parameters table is deallocated by the main
-     * application. A plugin should clear any references to the table pointer
-     * passed in by on_set(). */
-    void (*on_clear)(struct plugin_ctx* ctx);
+     * application. This happens whenever a different project is selected,
+     * thus, unloading the current project. A plugin should clear any
+     * references to the table pointer passed in by on_load(). */
+    void (*on_unload)(struct plugin_ctx* ctx);
 
+    /*! Called if another plugin and/or the main application makes a change to
+     * the parameters table. This occurs in response to parameters_changed() */
     void (*on_changed)(struct plugin_ctx* ctx);
 };
 

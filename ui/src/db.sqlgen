@@ -74,6 +74,11 @@ CREATE TABLE IF NOT EXISTS projects (
     name            TEXT NOT NULL,
     UNIQUE(name)
 );
+CREATE TABLE IF NOT EXISTS recycled_projects (
+    project_id      INTEGER NOT NULL CHECK (project_id > 0),
+    timestamp       BIGINT NOT NULL,
+    name            TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS graph_data (
     project_id      INTEGER NOT NULL CHECK (project_id > 0),
     data            BLOB,
@@ -95,6 +100,7 @@ INSERT OR IGNORE INTO projects (id, name) VALUES (1, 'Scratch');
 %downgrade 0 {
 DROP TABLE IF EXISTS plugin_data;
 DROP TABLE IF EXISTS graph_data;
+DROP TABLE IF EXISTS recycled_projects;
 DROP TABLE IF EXISTS projects;
 }
 
@@ -132,6 +138,20 @@ DROP TABLE IF EXISTS projects;
 %query project,delete(int id) {
     type delete
     table projects
+}
+%function project,recycle(int id) {
+    if (recycled_project_copy_from(ctx, id) == 0)
+        return project_delete(ctx, id);
+    return -1;
+}
+
+%query recycled_project,copy_from(int project_id) {
+    type insert-new
+    stmt {
+        INSERT INTO recycled_projects (project_id, timestamp, name)
+        SELECT id, timestamp, name FROM projects WHERE id = ?;
+    }
+    bind project_id
 }
 
 %query graph_data,save(int project_id, const void* data) {

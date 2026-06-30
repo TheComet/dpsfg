@@ -24,12 +24,12 @@ static void ui_center_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 }
 
 /* -------------------------------------------------------------------------- */
-static void graph_on_set(
+static void graph_on_load(
     struct plugin_ctx* ctx, struct csfg_graph* g, int node_in, int node_out)
 {
     graph_editor_set_graph(ctx->graph_editor, g, node_in, node_out);
 }
-static void graph_on_clear(struct plugin_ctx* ctx)
+static void graph_on_unload(struct plugin_ctx* ctx)
 {
     graph_editor_clear_graph(ctx->graph_editor);
 }
@@ -67,8 +67,8 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 static struct dpsfg_ui_center_interface ui_center = {
     ui_center_create, ui_center_destroy};
 static struct dpsfg_graph_interface graph = {
-    graph_on_set,
-    graph_on_clear,
+    graph_on_load,
+    graph_on_unload,
     graph_on_structure_changed,
     graph_on_layout_changed};
 
