@@ -67,15 +67,18 @@ void edge_attr_deinit(struct edge_attr* ea)
 }
 
 /* -------------------------------------------------------------------------- */
-static int
-find_farthest_node_in_direction(const GraphEditor* editor, double dx, double dy)
+static int find_farthest_node_in_direction(
+    const struct csfg_graph* graph, double dx, double dy)
 {
     int idx, new_active_node;
     const struct csfg_node* n;
     double x, y;
 
+    if (graph == NULL)
+        return -1;
+
     new_active_node = -1;
-    csfg_graph_enumerate_nodes (editor->graph, idx, n)
+    csfg_graph_enumerate_nodes (graph, idx, n)
     {
         if (new_active_node == -1)
         {
@@ -99,21 +102,24 @@ find_farthest_node_in_direction(const GraphEditor* editor, double dx, double dy)
 
 /* -------------------------------------------------------------------------- */
 static int find_closest_node_in_direction(
-    const GraphEditor* editor,
+    const struct csfg_graph* graph,
+    int active_node_id,
     double dirx,
     double diry,
     double current_x,
     double current_y)
 {
-    int idx, new_active_node;
+    int idx;
     const struct csfg_node* n;
     double dx, dy;
     double new_dist, dist = 100000. * 100000.;
 
-    new_active_node = editor->active_node_id;
-    csfg_graph_enumerate_nodes (editor->graph, idx, n)
+    if (graph == NULL)
+        return -1;
+
+    csfg_graph_enumerate_nodes (graph, idx, n)
     {
-        if (n->id == editor->active_node_id)
+        if (n->id == active_node_id)
             continue;
 
         dx       = current_x - n->x;
@@ -122,67 +128,72 @@ static int find_closest_node_in_direction(
         if (new_dist < dist)
         {
             if (dirx > 0 && n->x > current_x)
-                dist = new_dist, new_active_node = n->id;
+                dist = new_dist, active_node_id = n->id;
             if (dirx < 0 && n->x < current_x)
-                dist = new_dist, new_active_node = n->id;
+                dist = new_dist, active_node_id = n->id;
             if (diry > 0 && n->y > current_y)
-                dist = new_dist, new_active_node = n->id;
+                dist = new_dist, active_node_id = n->id;
             if (diry < 0 && n->y < current_y)
-                dist = new_dist, new_active_node = n->id;
+                dist = new_dist, active_node_id = n->id;
         }
     }
 
-    return new_active_node;
+    return active_node_id;
 }
 
 /* -------------------------------------------------------------------------- */
-static int
-find_farthest_edge_in_direction(const GraphEditor* editor, double dx, double dy)
+static int find_farthest_edge_in_direction(
+    const struct csfg_graph* graph, int active_edge_id, double dx, double dy)
 {
-    int idx, new_active_edge;
+    int idx;
     const struct csfg_edge* e;
     double x, y;
 
-    new_active_edge = -1;
-    csfg_graph_enumerate_edges (editor->graph, idx, e)
+    if (graph == NULL)
+        return -1;
+
+    csfg_graph_enumerate_edges (graph, idx, e)
     {
-        if (new_active_edge == -1)
+        if (active_edge_id == -1)
         {
             x = e->x, y = e->y;
-            new_active_edge = e->id;
+            active_edge_id = e->id;
             continue;
         }
 
         if (dx > 0.0 && e->x > x)
-            x = e->x, new_active_edge = e->id;
+            x = e->x, active_edge_id = e->id;
         if (dx < 0.0 && e->x < x)
-            x = e->x, new_active_edge = e->id;
+            x = e->x, active_edge_id = e->id;
         if (dy > 0.0 && e->y > y)
-            y = e->y, new_active_edge = e->id;
+            y = e->y, active_edge_id = e->id;
         if (dy < 0.0 && e->y < y)
-            y = e->y, new_active_edge = e->id;
+            y = e->y, active_edge_id = e->id;
     }
 
-    return new_active_edge;
+    return active_edge_id;
 }
 
 /* -------------------------------------------------------------------------- */
 static int find_closest_edge_in_direction(
-    const GraphEditor* editor,
+    const struct csfg_graph* graph,
+    int active_edge_id,
     double dirx,
     double diry,
     double current_x,
     double current_y)
 {
-    int idx, new_active_edge;
+    int idx;
     const struct csfg_edge* e;
     double dx, dy;
     double new_dist, dist = 100000. * 100000.;
 
-    new_active_edge = editor->active_edge_id;
-    csfg_graph_enumerate_edges (editor->graph, idx, e)
+    if (graph == NULL)
+        return -1;
+
+    csfg_graph_enumerate_edges (graph, idx, e)
     {
-        if (e->id == editor->active_edge_id)
+        if (e->id == active_edge_id)
             continue;
 
         dx       = current_x - e->x;
@@ -191,17 +202,17 @@ static int find_closest_edge_in_direction(
         if (new_dist < dist)
         {
             if (dirx > 0 && e->x > current_x)
-                dist = new_dist, new_active_edge = e->id;
+                dist = new_dist, active_edge_id = e->id;
             if (dirx < 0 && e->x < current_x)
-                dist = new_dist, new_active_edge = e->id;
+                dist = new_dist, active_edge_id = e->id;
             if (diry > 0 && e->y > current_y)
-                dist = new_dist, new_active_edge = e->id;
+                dist = new_dist, active_edge_id = e->id;
             if (diry < 0 && e->y < current_y)
-                dist = new_dist, new_active_edge = e->id;
+                dist = new_dist, active_edge_id = e->id;
         }
     }
 
-    return new_active_edge;
+    return active_edge_id;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -242,9 +253,7 @@ static int calc_circle(
 
     double vx1 = (x2 - x1), vy1 = (y2 - y1);
     double vx2 = (x3 - x1), vy2 = (y3 - y1);
-
     double cross = (vx1 * vy2 - vy1 * vx2);
-
     return cross > 0 ? 1 : -1;
 }
 
@@ -256,6 +265,9 @@ drag_edge_with_node(struct csfg_graph* g, int n_id, double new_x, double new_y)
     struct csfg_edge* e;
     double cx, cy, radius;
     int n_idx, orientation;
+
+    if (g == NULL)
+        return;
 
     csfg_graph_enumerate_nodes (g, n_idx, n)
         if (n->id == n_id)
@@ -292,6 +304,8 @@ drag_edge_with_node(struct csfg_graph* g, int n_id, double new_x, double new_y)
 static struct csfg_node* find_node(struct csfg_graph* g, int node_id)
 {
     struct csfg_node* n;
+    if (g == NULL)
+        return NULL;
     csfg_graph_for_each_node (g, n)
         if (n->id == node_id)
             return n;
@@ -302,6 +316,8 @@ static struct csfg_node* find_node(struct csfg_graph* g, int node_id)
 static struct csfg_edge* find_edge(struct csfg_graph* g, int edge_id)
 {
     struct csfg_edge* e;
+    if (g == NULL)
+        return NULL;
     csfg_graph_for_each_edge (g, e)
         if (e->id == edge_id)
             return e;
@@ -310,7 +326,7 @@ static struct csfg_edge* find_edge(struct csfg_graph* g, int edge_id)
 
 /* -------------------------------------------------------------------------- */
 static void
-next_active_node_in_direction(GraphEditor* editor, double dx, double dy)
+select_next_active_node_in_direction(GraphEditor* editor, double dx, double dy)
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
@@ -319,14 +335,14 @@ next_active_node_in_direction(GraphEditor* editor, double dx, double dy)
     e = find_edge(editor->graph, editor->active_edge_id);
 
     if (n != NULL)
-        editor->active_node_id =
-            find_closest_node_in_direction(editor, dx, dy, n->x, n->y);
+        editor->active_node_id = find_closest_node_in_direction(
+            editor->graph, editor->active_node_id, dx, dy, n->x, n->y);
     else if (e != NULL)
-        editor->active_node_id =
-            find_closest_node_in_direction(editor, dx, dy, e->x, e->y);
+        editor->active_node_id = find_closest_node_in_direction(
+            editor->graph, editor->active_node_id, dx, dy, e->x, e->y);
     else
         editor->active_node_id =
-            find_farthest_node_in_direction(editor, dx, dy);
+            find_farthest_node_in_direction(editor->graph, dx, dy);
 
     if (editor->active_node_id > -1)
         editor->active_edge_id = -1;
@@ -334,7 +350,7 @@ next_active_node_in_direction(GraphEditor* editor, double dx, double dy)
 
 /* -------------------------------------------------------------------------- */
 static void
-next_active_edge_in_direction(GraphEditor* editor, double dx, double dy)
+select_next_active_edge_in_direction(GraphEditor* editor, double dx, double dy)
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
@@ -343,14 +359,14 @@ next_active_edge_in_direction(GraphEditor* editor, double dx, double dy)
     e = find_edge(editor->graph, editor->active_edge_id);
 
     if (e != NULL)
-        editor->active_edge_id =
-            find_closest_edge_in_direction(editor, dx, dy, e->x, e->y);
+        editor->active_edge_id = find_closest_edge_in_direction(
+            editor->graph, editor->active_edge_id, dx, dy, e->x, e->y);
     else if (n != NULL)
-        editor->active_edge_id =
-            find_closest_edge_in_direction(editor, dx, dy, n->x, n->y);
+        editor->active_edge_id = find_closest_edge_in_direction(
+            editor->graph, editor->active_edge_id, dx, dy, n->x, n->y);
     else
-        editor->active_edge_id =
-            find_farthest_edge_in_direction(editor, dx, dy);
+        editor->active_edge_id = find_farthest_edge_in_direction(
+            editor->graph, editor->active_edge_id, dx, dy);
 
     if (editor->active_edge_id > -1)
         editor->active_node_id = -1;
@@ -401,7 +417,9 @@ shortcut_edge_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     switch (editor->mode)
     {
-        case MODE_NORMAL: next_active_edge_in_direction(editor, -1, 0); break;
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(editor, -1, 0);
+            break;
         case MODE_MOVE:
             move_active_edge_in_direction(editor, -1, 0);
             move_active_node_in_direction(editor, -1, 0);
@@ -417,7 +435,9 @@ shortcut_edge_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     switch (editor->mode)
     {
-        case MODE_NORMAL: next_active_edge_in_direction(editor, 1, 0); break;
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(editor, 1, 0);
+            break;
         case MODE_MOVE:
             move_active_edge_in_direction(editor, 1, 0);
             move_active_node_in_direction(editor, 1, 0);
@@ -433,7 +453,9 @@ shortcut_edge_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     switch (editor->mode)
     {
-        case MODE_NORMAL: next_active_edge_in_direction(editor, 0, -1); break;
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(editor, 0, -1);
+            break;
         case MODE_MOVE:
             move_active_edge_in_direction(editor, 0, -1);
             move_active_node_in_direction(editor, 0, -1);
@@ -449,7 +471,9 @@ shortcut_edge_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     switch (editor->mode)
     {
-        case MODE_NORMAL: next_active_edge_in_direction(editor, 0, 1); break;
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(editor, 0, 1);
+            break;
         case MODE_MOVE:
             move_active_edge_in_direction(editor, 0, 1);
             move_active_node_in_direction(editor, 0, 1);
@@ -467,7 +491,9 @@ shortcut_node_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     switch (editor->mode)
     {
-        case MODE_NORMAL: next_active_node_in_direction(editor, -1, 0); break;
+        case MODE_NORMAL:
+            select_next_active_node_in_direction(editor, -1, 0);
+            break;
         case MODE_MOVE:
             move_active_node_in_direction(editor, -1, 0);
             move_active_edge_in_direction(editor, -1, 0);
@@ -483,7 +509,9 @@ shortcut_node_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     switch (editor->mode)
     {
-        case MODE_NORMAL: next_active_node_in_direction(editor, 1, 0); break;
+        case MODE_NORMAL:
+            select_next_active_node_in_direction(editor, 1, 0);
+            break;
         case MODE_MOVE:
             move_active_node_in_direction(editor, 1, 0);
             move_active_edge_in_direction(editor, 1, 0);
@@ -499,7 +527,9 @@ shortcut_node_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     switch (editor->mode)
     {
-        case MODE_NORMAL: next_active_node_in_direction(editor, 0, -1); break;
+        case MODE_NORMAL:
+            select_next_active_node_in_direction(editor, 0, -1);
+            break;
         case MODE_MOVE:
             move_active_node_in_direction(editor, 0, -1);
             move_active_edge_in_direction(editor, 0, -1);
@@ -515,7 +545,9 @@ shortcut_node_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     switch (editor->mode)
     {
-        case MODE_NORMAL: next_active_node_in_direction(editor, 0, 1); break;
+        case MODE_NORMAL:
+            select_next_active_node_in_direction(editor, 0, 1);
+            break;
         case MODE_MOVE:
             move_active_node_in_direction(editor, 0, 1);
             move_active_edge_in_direction(editor, 0, 1);
@@ -549,6 +581,7 @@ static int is_near_any_other_node(
     const struct csfg_node* exclude_node)
 {
     const struct csfg_node* n;
+    CSFG_DEBUG_ASSERT(g != NULL);
     csfg_graph_for_each_node (g, n)
     {
         double dx = x - n->x;
@@ -570,6 +603,7 @@ static int is_near_any_other_edge(
     const struct csfg_edge* exclude_edge)
 {
     const struct csfg_edge* e;
+    CSFG_DEBUG_ASSERT(g != NULL);
     csfg_graph_for_each_edge (g, e)
     {
         double dx = x - e->x;
@@ -589,6 +623,7 @@ static void auto_position_node_grid(
 {
     const double row_end =
         (int)ceil(sqrt(total_node_count)) * DEFAULT_NODE_SPACING;
+    CSFG_DEBUG_ASSERT(g != NULL);
 
     n->x = 0.0;
     n->y = 0.0;
@@ -610,6 +645,7 @@ static void auto_position_node_near(
     double near_x,
     double near_y)
 {
+    CSFG_DEBUG_ASSERT(g != NULL);
     n->x = near_x;
     n->y = near_y;
     while (is_near_any_other_node(n->x, n->y, g, n))
@@ -623,6 +659,8 @@ static void auto_position_edge(
     const struct csfg_node* from,
     const struct csfg_node* to)
 {
+    CSFG_DEBUG_ASSERT(g != NULL);
+
     e->x = (from->x + to->x) / 2;
     e->y = (from->y + to->y) / 2;
 
@@ -660,6 +698,8 @@ create_new_edge(GraphEditor* editor, int n_id_selected, int n_id_active)
     int n_idx_selected, n_idx_active, expr, e_idx;
 
     if (n_id_selected == -1 || n_id_active == -1)
+        return -1;
+    if (editor->graph == NULL)
         return -1;
 
     csfg_graph_enumerate_nodes (editor->graph, n_idx_selected, n_selected)
@@ -699,6 +739,9 @@ static int create_new_node(GraphEditor* editor, int n_id_prev)
     const struct csfg_node* n_prev;
     int n_idx;
 
+    if (editor->graph == NULL)
+        return -1;
+
     n_idx      = csfg_graph_add_node(editor->graph, "V1");
     n          = csfg_graph_get_node(editor->graph, n_idx);
     na         = node_attr_hmap_emplace_new(&editor->node_attrs, n->id);
@@ -721,6 +764,9 @@ static void notify_graph_changed(GraphEditor* editor)
 {
     int node_in_idx, node_out_idx;
     const struct csfg_node* n;
+
+    if (editor->graph == NULL)
+        return;
 
     csfg_graph_enumerate_nodes (editor->graph, node_in_idx, n)
         if (n->id == editor->node_in_id)
@@ -773,6 +819,9 @@ static int delete_edge(GraphEditor* editor, int edge_id)
     int e_idx;
     struct csfg_edge* e;
 
+    if (editor->graph == NULL)
+        return -1;
+
     csfg_graph_enumerate_edges (editor->graph, e_idx, e)
         if (e->id == edge_id)
             break;
@@ -793,6 +842,9 @@ static int delete_node(GraphEditor* editor, int node_id)
     struct csfg_edge* e;
     int e_idx, n_idx;
     int next_active_node_id = -1;
+
+    if (editor->graph == NULL)
+        return -1;
 
     /* Prefer following edges pointing to us */
     csfg_graph_enumerate_edges (editor->graph, e_idx, e)
@@ -834,7 +886,8 @@ static int delete_node(GraphEditor* editor, int node_id)
 
     /* Fall back to searching for the right-most node in the graph */
     if (next_active_node_id == -1)
-        next_active_node_id = find_farthest_node_in_direction(editor, 1, 0);
+        next_active_node_id =
+            find_farthest_node_in_direction(editor->graph, 1, 0);
 
     return next_active_node_id;
 }
@@ -887,9 +940,7 @@ shortcut_set_in_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-
     editor->node_in_id = editor->active_node_id;
-
     notify_graph_changed(editor);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
@@ -901,9 +952,7 @@ static gboolean shortcut_set_out_node_cb(
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-
     editor->node_out_id = editor->active_node_id;
-
     notify_graph_changed(editor);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
@@ -960,9 +1009,6 @@ static void start_editing_active_node_or_edge(GraphEditor* editor)
     const struct csfg_edge* e;
     const struct node_attr* na;
     const struct edge_attr* ea;
-
-    n = find_node(editor->graph, editor->active_node_id);
-    e = find_edge(editor->graph, editor->active_edge_id);
 
     if ((n = find_node(editor->graph, editor->active_node_id)) != NULL)
     {
