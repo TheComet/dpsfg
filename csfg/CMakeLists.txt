@@ -152,6 +152,7 @@ if (CSFG_TESTS)
         "tests/test_expr_insert_substitutions.cpp"
         "tests/test_expr_next_chain_permutation.cpp"
         "tests/test_expr_rotate_chain.cpp"
+        "tests/test_expr_simplify.cpp"
         "tests/test_expr_zip_chains.cpp"
         "tests/test_rulebook_parse.cpp"
         "tests/test_rulebook_run.cpp"

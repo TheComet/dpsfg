@@ -235,7 +235,8 @@ static int mathomatic_equation_to_expr_recurse(
     struct csfg_expr_pool** pool,
     const struct token_vec* eq,
     int* idx,
-    int level)
+    int level,
+    int div_flip_flop)
 {
     int (*make_op)(struct csfg_expr_pool**, int, int);
     int expr = -1;
@@ -248,7 +249,7 @@ static int mathomatic_equation_to_expr_recurse(
                 CSFG_DEBUG_ASSERT(expr == -1);
                 if (tok->level > level)
                     expr = mathomatic_equation_to_expr_recurse(
-                        pool, eq, idx, level + 1);
+                        pool, eq, idx, level + 1, div_flip_flop);
                 else
                 {
                     ++*idx;
@@ -259,7 +260,7 @@ static int mathomatic_equation_to_expr_recurse(
                 CSFG_DEBUG_ASSERT(expr == -1);
                 if (tok->level > level)
                     expr = mathomatic_equation_to_expr_recurse(
-                        pool, eq, idx, level + 1);
+                        pool, eq, idx, level + 1, div_flip_flop);
                 else
                 {
                     expr = csfg_expr_new(pool, CSFG_EXPR_VAR, -1, -1);
@@ -275,18 +276,22 @@ static int mathomatic_equation_to_expr_recurse(
                     return expr;
                 switch (tok->token.operatr)
                 {
-                    case PLUS  : make_op = csfg_expr_add; break;
-                    case TIMES : make_op = csfg_expr_mul; break;
-                    case POWER : make_op = csfg_expr_pow; break;
-                    case MINUS : make_op = csfg_expr_sub; break;
-                    case DIVIDE: make_op = csfg_expr_div; break;
-                    default    : CSFG_DEBUG_ASSERT(0); return -1;
+                    case PLUS : make_op = csfg_expr_add; break;
+                    case TIMES: make_op = csfg_expr_mul; break;
+                    case POWER: make_op = csfg_expr_pow; break;
+                    case MINUS: make_op = csfg_expr_sub; break;
+                    case DIVIDE:
+                        make_op = div_flip_flop ? csfg_expr_mul : csfg_expr_div;
+                        div_flip_flop = 1 - div_flip_flop;
+                        break;
+                    default: CSFG_DEBUG_ASSERT(0); return -1;
                 }
                 ++*idx;
                 expr = make_op(
                     pool,
                     expr,
-                    mathomatic_equation_to_expr_recurse(pool, eq, idx, level));
+                    mathomatic_equation_to_expr_recurse(
+                        pool, eq, idx, level, div_flip_flop));
                 break;
         }
     } while (*idx != vec_count(eq));
@@ -297,7 +302,7 @@ static int mathomatic_equation_to_expr(
     struct csfg_expr_pool** pool, const struct token_vec* eq)
 {
     int idx = 0;
-    return mathomatic_equation_to_expr_recurse(pool, eq, &idx, 1);
+    return mathomatic_equation_to_expr_recurse(pool, eq, &idx, 1, 0);
 }
 
 /* -------------------------------------------------------------------------- */
