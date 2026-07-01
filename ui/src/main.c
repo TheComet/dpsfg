@@ -441,21 +441,25 @@ static int load_from_db(
 {
     struct plugin* plugin;
 
-    if (dbi->graph_data.load(
+    if (dbi->graph_data.exists(db, project_id) &&
+        dbi->graph_data.load(
             db, project_id, load_pipeline_graph_data_on_row, pipeline) != 0)
     {
         return -1;
     }
 
     vec_for_each (plugins, plugin)
-        if (plugin->lib.i->io != NULL)
+        if (plugin->lib.i->io != NULL &&
+            dbi->plugin_data.exists(db, project_id, plugin->lib.i->info->name))
             if (dbi->plugin_data.load(
                     db,
                     project_id,
                     plugin->lib.i->info->name,
                     load_pipeline_plugin_data_on_row,
                     plugin) != 0)
+            {
                 return -1;
+            }
 
     return 0;
 }

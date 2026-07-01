@@ -158,6 +158,10 @@ DROP TABLE IF EXISTS projects;
     type upsert
     table graph_data
 }
+%query graph_data,exists(int project_id) {
+    type exists
+    table graph_data
+}
 %query graph_data,load(int project_id) {
     type select-first
     table graph_data
@@ -175,6 +179,10 @@ DROP TABLE IF EXISTS projects;
 
 %query plugin_data,save(int project_id, const char* plugin_name, const void* data) {
     type upsert
+    table plugin_data
+}
+%query plugin_data,exists(int project_id, const char* plugin_name) {
+    type exists
     table plugin_data
 }
 %query plugin_data,load(int project_id, const char* plugin_name) {
