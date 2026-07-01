@@ -291,13 +291,13 @@ static int io_on_save(struct plugin_ctx* ctx, struct serializer** ser)
 static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
 {
     uint16_t version = deserialize_lu16(des);
+    if (deserializer_err(des))
+        return 0;
 
     switch (version)
     {
         case 0x0000: {
             const char* text = deserialize_cstr(des);
-            if (deserializer_err(des))
-                return -1;
             g_signal_handler_block(
                 ctx->text_buffer, ctx->on_text_buffer_changed_handler_id);
             gtk_text_buffer_set_text(ctx->text_buffer, text, -1);

@@ -1,6 +1,5 @@
 #include "csfg/graph/graph.h"
 #include "csfg/symbolic/expr.h"
-#include "csfg/util/hmap.h"
 #include "csfg/util/str.h"
 #include "dpsfg/plugin.h"
 #include "graph-editor/graph_editor.h"
@@ -16,21 +15,8 @@ enum mode
     MODE_MOVE
 };
 
-struct node_attr
-{
-    double radius;
-};
-
-struct edge_attr
-{
-    struct str* expr_str;
-};
-
-HMAP_DECLARE(static, node_attr_hmap, int, struct node_attr, 16)
-HMAP_DEFINE(static, node_attr_hmap, int, struct node_attr, 16)
-
-HMAP_DECLARE(static, edge_attr_hmap, int, struct edge_attr, 16)
-HMAP_DEFINE(static, edge_attr_hmap, int, struct edge_attr, 16)
+HMAP_DEFINE(extern, node_attr_hmap, int, struct node_attr, 16)
+HMAP_DEFINE(extern, edge_attr_hmap, int, struct edge_attr, 16)
 
 struct _GraphEditor
 {
@@ -75,7 +61,7 @@ struct _GraphEditor
 G_DEFINE_DYNAMIC_TYPE(GraphEditor, graph_editor, GTK_TYPE_BOX)
 
 /* -------------------------------------------------------------------------- */
-static void edge_attr_deinit(struct edge_attr* ea)
+void edge_attr_deinit(struct edge_attr* ea)
 {
     str_deinit(ea->expr_str);
 }
@@ -1671,7 +1657,7 @@ static void graph_editor_finalize(GObject* obj)
     struct edge_attr* ea;
 
     hmap_for_each (self->edge_attrs, idx, id, ea)
-        edge_attr_deinit(ea);
+        (void)id, edge_attr_deinit(ea);
 
     edge_attr_hmap_deinit(self->edge_attrs);
     node_attr_hmap_deinit(self->node_attrs);
@@ -1790,4 +1776,30 @@ void graph_editor_rebuild_graph(GraphEditor* editor, int node_in, int node_out)
 void graph_editor_redraw_graph(GraphEditor* editor)
 {
     gtk_widget_queue_draw(editor->drawing_area);
+}
+
+/* -------------------------------------------------------------------------- */
+struct edge_attr_hmap* graph_editor_take_edge_attributes(GraphEditor* editor)
+{
+    struct edge_attr_hmap* edge_attrs = editor->edge_attrs;
+    editor->edge_attrs                = NULL;
+    return edge_attrs;
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_editor_set_edge_attributes(
+    GraphEditor* editor, struct edge_attr_hmap* edge_attrs)
+{
+    int i, id;
+    struct edge_attr* ea;
+
+    if (editor->edge_attrs != NULL)
+        hmap_for_each (editor->edge_attrs, i, id, ea)
+        {
+            (void)id, (void)ea;
+            edge_attr_deinit(edge_attr_hmap_erase_slot(editor->edge_attrs, i));
+        }
+    edge_attr_hmap_deinit(editor->edge_attrs);
+
+    editor->edge_attrs = edge_attrs;
 }

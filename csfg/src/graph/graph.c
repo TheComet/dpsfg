@@ -9,28 +9,28 @@ VEC_DEFINE(csfg_edge_vec, struct csfg_edge, 16)
 static int node_init(struct csfg_node* n, int id, const char* name)
 {
     n->id = id;
-    n->x = 0;
-    n->y = 0;
+    n->x  = 0;
+    n->y  = 0;
     str_init(&n->name);
     return str_set_cstr(&n->name, name);
 }
 
 /* -------------------------------------------------------------------------- */
 static void edge_init(
-    struct csfg_edge*      e,
-    int                    id,
-    int                    n_idx_from,
-    int                    n_idx_to,
+    struct csfg_edge* e,
+    int id,
+    int n_idx_from,
+    int n_idx_to,
     struct csfg_expr_pool* pool,
-    int                    expr)
+    int expr)
 {
-    e->id = id;
+    e->id         = id;
     e->n_idx_from = n_idx_from;
-    e->n_idx_to = n_idx_to;
-    e->x = 0;
-    e->y = 0;
-    e->pool = pool;
-    e->expr = expr;
+    e->n_idx_to   = n_idx_to;
+    e->x          = 0;
+    e->y          = 0;
+    e->pool       = pool;
+    e->expr       = expr;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -62,12 +62,14 @@ void csfg_graph_clear(struct csfg_graph* g)
     vec_for_each (g->edges, e)
         csfg_expr_pool_deinit(e->pool);
     csfg_edge_vec_clear(g->edges);
+
+    g->id_counter = 0;
 }
 
 /* -------------------------------------------------------------------------- */
 int csfg_graph_add_node(struct csfg_graph* g, const char* name)
 {
-    int               n_idx = vec_count(g->nodes);
+    int n_idx           = vec_count(g->nodes);
     struct csfg_node* n = csfg_node_vec_emplace(&g->nodes);
     if (n == NULL)
         return -1;
@@ -80,13 +82,13 @@ int csfg_graph_add_node(struct csfg_graph* g, const char* name)
 
 /* -------------------------------------------------------------------------- */
 int csfg_graph_add_edge(
-    struct csfg_graph*     g,
-    int                    n_idx_from,
-    int                    n_idx_to,
+    struct csfg_graph* g,
+    int n_idx_from,
+    int n_idx_to,
     struct csfg_expr_pool* pool,
-    int                    expr)
+    int expr)
 {
-    int               e_idx = vec_count(g->edges);
+    int e_idx           = vec_count(g->edges);
     struct csfg_edge* e = csfg_edge_vec_emplace(&g->edges);
     if (e == NULL)
         return -1;
@@ -99,7 +101,7 @@ int csfg_graph_add_edge(
 int csfg_graph_add_edge_parse_expr(
     struct csfg_graph* g, int n_idx_from, int n_idx_to, struct strview text)
 {
-    int                    expr, edge;
+    int expr, edge;
     struct csfg_expr_pool* pool;
 
     csfg_expr_pool_init(&pool);
@@ -135,7 +137,7 @@ void csfg_graph_gc(struct csfg_graph* g)
 {
     struct csfg_node* n;
     struct csfg_edge* e;
-    int               n_idx, e_idx;
+    int n_idx, e_idx;
 
     csfg_graph_enumerate_edges (g, e_idx, e)
     {
