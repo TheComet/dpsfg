@@ -236,20 +236,6 @@ static int project_list_on_row(
     return 0;
 }
 
-static void
-column_view_activate_cb(GtkColumnView* self, guint position, gpointer user_data)
-{
-    GtkSelectionModel* selection_model = gtk_column_view_get_model(self);
-    GListModel* model =
-        gtk_multi_selection_get_model(GTK_MULTI_SELECTION(selection_model));
-    GtkTreeListRow* row =
-        gtk_tree_list_model_get_row(GTK_TREE_LIST_MODEL(model), position);
-
-    gtk_tree_list_row_set_expanded(row, !gtk_tree_list_row_get_expanded(row));
-
-    g_object_unref(row);
-    (void)user_data;
-}
 static void handle_list_or_selection_changed(DPSFGProjectBrowser* self)
 {
     guint position   = gtk_single_selection_get_selected(self->selection_model);
@@ -306,8 +292,7 @@ static void selection_changed_cb(
 static void editable_label_text_changed_cb(
     DPSFGEditableLabel* editable, GParamSpec* pspec, gpointer user_data)
 {
-    GtkListItem* list_item               = user_data;
-    DPSFGProjectListItem* item           = gtk_list_item_get_item(list_item);
+    DPSFGProjectListItem* item           = user_data;
     DPSFGProjectBrowser* project_browser = item->project_browser;
     const char* current_name       = strlist_cstr(item->columns, COLUMN_NAME);
     const char* new_name           = dpsfg_editable_label_get_text(editable);
@@ -397,10 +382,10 @@ static void setup_listitem_cb(
     enum column col = (enum column)(uintptr_t)user_data;
     (void)factory;
 
-    if (col == COLUMN_NAME)
-        label = dpsfg_editable_label_new();
-    else
+    if (col != COLUMN_NAME)
         label = gtk_label_new("");
+    else
+        label = dpsfg_editable_label_new();
     gtk_list_item_set_child(list_item, label);
 }
 static void bind_listitem_cb(
@@ -412,29 +397,28 @@ static void bind_listitem_cb(
     const char* text           = strlist_cstr(item->columns, col);
     (void)factory;
 
-    if (col == COLUMN_NAME)
-        dpsfg_editable_label_set_text(DPSFG_EDITABLE_LABEL(label), text);
-    else
+    if (col != COLUMN_NAME)
         gtk_label_set_text(GTK_LABEL(label), text);
-
-    if (col == COLUMN_NAME)
+    else
     {
+        dpsfg_editable_label_set_text(DPSFG_EDITABLE_LABEL(label), text);
         g_signal_connect(
             label,
             "text-changed",
             G_CALLBACK(editable_label_text_changed_cb),
-            list_item);
+            item);
     }
 }
 static void unbind_listitem_cb(
     GtkListItemFactory* factory, GtkListItem* list_item, gpointer user_data)
 {
-    enum column col  = (enum column)(uintptr_t)user_data;
-    GtkWidget* label = gtk_list_item_get_child(list_item);
+    enum column col            = (enum column)(uintptr_t)user_data;
+    GtkWidget* label           = gtk_list_item_get_child(list_item);
+    DPSFGProjectListItem* item = gtk_list_item_get_item(list_item);
     (void)factory;
 
     if (col == COLUMN_NAME)
-        g_signal_handlers_disconnect_by_data(label, list_item);
+        g_signal_handlers_disconnect_by_data(label, item);
 }
 static gboolean
 shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
@@ -619,4 +603,5 @@ void dpsfg_project_browser_reload_from_db(DPSFGProjectBrowser* self)
 {
     dpsfg_project_list_clear(self->project_list);
     self->dbi->project.list(self->db, project_list_on_row, self);
+    handle_list_or_selection_changed(self);
 }
