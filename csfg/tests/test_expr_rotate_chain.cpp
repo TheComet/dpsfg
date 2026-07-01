@@ -36,7 +36,6 @@ struct NAME : public TestWithParam<TestParam>, public ExprHelper
 {
     void SetUp() override { csfg_expr_pool_init(&p); }
     void TearDown() override { csfg_expr_pool_deinit(p); }
-
     struct csfg_expr_pool* p;
 };
 

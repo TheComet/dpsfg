@@ -39,7 +39,7 @@ struct NAME : public Test, public ExprHelper
     struct csfg_var_table vt;
 };
 
-TEST_F(NAME, converge)
+TEST_F(NAME, multiple_limits)
 {
     /*
      * a*y + b*x*y |        b*y |         b
@@ -64,13 +64,4 @@ TEST_F(NAME, converge)
     ASSERT_EQ(vec_count(tf.den), 1);
     ASSERT_TRUE(CoeffEq(tf_pool, tf.num, 0, 1.0, "b"));
     ASSERT_TRUE(CoeffEq(tf_pool, tf.den, 0, 1.0, "d"));
-}
-
-TEST_F(NAME, bug1)
-{
-    /*
-     *          G1*z2*A           |           G1
-     * -------------------------  |       = ------
-     * 1 - (z2*A*G2) - (z2*A*s*C) |A->oo    
-     */
 }
