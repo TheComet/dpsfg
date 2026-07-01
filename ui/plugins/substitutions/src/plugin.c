@@ -255,6 +255,8 @@ static void substitutions_on_load(
     struct plugin_ctx* ctx, struct csfg_var_table* substitutions)
 {
     ctx->substitutions_table = substitutions;
+    if (gtk_text_buffer_get_char_count(ctx->text_buffer) == 0)
+        set_text_buffer_from_substitutions_table(ctx);
 }
 static void substitutions_on_unload(struct plugin_ctx* ctx)
 {
