@@ -5,7 +5,11 @@
 #include "csfg/util/mem.h"
 #include "dpsfg-plugin.h"
 #include <ctype.h>
-#include <gtk/gtk.h>
+
+#if defined(PLUGIN_MICROUI)
+#else
+#    include <gtk/gtk.h>
+#endif
 
 struct plugin_ctx
 {
@@ -18,9 +22,11 @@ struct plugin_ctx
     /* reference to app's substitutions table */
     struct csfg_var_table* substitutions_table;
 
+#if !defined(PLUGIN_MICROUI)
     GtkWidget* pole_zero_plot;
     GtkTextBuffer* text_buffer;
     gulong on_text_buffer_changed_handler_id;
+#endif
 };
 
 enum token
@@ -170,6 +176,7 @@ next_token:
 /* -------------------------------------------------------------------------- */
 static void set_text_buffer_from_substitutions_table(struct plugin_ctx* ctx)
 {
+#if !defined(PLUGIN_MICROUI)
     GtkTextIter end;
     int16_t slot;
     const struct str* name;
@@ -197,11 +204,15 @@ static void set_text_buffer_from_substitutions_table(struct plugin_ctx* ctx)
 
     g_signal_handler_unblock(
         ctx->text_buffer, ctx->on_text_buffer_changed_handler_id);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
 static int set_substitutions_table_from_text_buffer(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    return 0;
+#else
     gchar* text;
     GtkTextIter start, end;
     int rc;
@@ -217,9 +228,11 @@ static int set_substitutions_table_from_text_buffer(struct plugin_ctx* ctx)
     g_free(text);
 
     return rc;
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
+#if !defined(PLUGIN_MICROUI)
 static void on_text_buffer_changed(GtkTextBuffer* buffer, gpointer user_data)
 {
     struct plugin_ctx* ctx = user_data;
@@ -231,8 +244,13 @@ static void on_text_buffer_changed(GtkTextBuffer* buffer, gpointer user_data)
     if (set_substitutions_table_from_text_buffer(ctx) == 0)
         ctx->notify_interface->substitutions_changed(ctx->notify_ctx, ctx);
 }
+#endif
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx;
+    return NULL;
+#else
     ctx->pole_zero_plot = gtk_text_view_new();
     ctx->text_buffer =
         gtk_text_view_get_buffer(GTK_TEXT_VIEW(ctx->pole_zero_plot));
@@ -241,11 +259,16 @@ static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
         ctx->text_buffer, "changed", G_CALLBACK(on_text_buffer_changed), ctx);
 
     return GTK_WIDGET(g_object_ref_sink(ctx->pole_zero_plot));
+#endif
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)ui;
+#else
     ctx->text_buffer = NULL;
     g_object_unref(ui);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -253,8 +276,10 @@ static void substitutions_on_load(
     struct plugin_ctx* ctx, struct csfg_var_table* substitutions)
 {
     ctx->substitutions_table = substitutions;
+#if !defined(PLUGIN_MICROUI)
     if (gtk_text_buffer_get_char_count(ctx->text_buffer) == 0)
         set_text_buffer_from_substitutions_table(ctx);
+#endif
 }
 static void substitutions_on_unload(struct plugin_ctx* ctx)
 {
@@ -268,6 +293,9 @@ static void substitutions_on_changed(struct plugin_ctx* ctx)
 /* -------------------------------------------------------------------------- */
 static int io_on_save(struct plugin_ctx* ctx, struct serializer** ser)
 {
+#if defined(PLUGIN_MICROUI)
+    return 0;
+#else
     gchar* text;
     GtkTextIter start, end;
     int err = 0;
@@ -287,9 +315,13 @@ static int io_on_save(struct plugin_ctx* ctx, struct serializer** ser)
         ctx->text_buffer, ctx->on_text_buffer_changed_handler_id);
 
     return err;
+#endif
 }
 static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
 {
+#if defined(PLUGIN_MICROUI)
+    return 0;
+#else
     uint16_t version = deserialize_lu16(des);
     if (deserializer_err(des))
         return 0;
@@ -307,6 +339,7 @@ static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
         }
     }
     return 0;
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -321,7 +354,9 @@ static struct plugin_ctx* create(
     ctx->notify_ctx       = notify_ctx;
     str_init(&ctx->str);
     ctx->substitutions_table = NULL;
+#if !defined(PLUGIN_MICROUI)
     ctx->on_text_buffer_changed_handler_id = -1;
+#endif
     return ctx;
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)

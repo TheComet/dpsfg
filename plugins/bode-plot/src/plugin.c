@@ -4,19 +4,31 @@
 
 struct plugin_ctx
 {
+#if defined(PLUGIN_MICROUI)
+#else
     BodePlot* bode_plot;
+#endif
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx;
+    return NULL;
+#else
     ctx->bode_plot = bode_plot_new();
     return GTK_WIDGET(g_object_ref_sink(ctx->bode_plot));
+#endif
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)ui;
+#else
     (void)ctx;
     g_object_unref(ui);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -28,7 +40,11 @@ static struct plugin_ctx* create(
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     (void)notify_interface, (void)notify_ctx;
 
+#if defined(PLUGIN_MICROUI)
+  (void)type_module;
+#else
     bode_plot_register_type_internal(type_module);
+#endif
 
     return ctx;
 }
@@ -41,7 +57,10 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 /* -------------------------------------------------------------------------- */
 static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     bode_plot_set_tf(ctx->bode_plot, tf);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */

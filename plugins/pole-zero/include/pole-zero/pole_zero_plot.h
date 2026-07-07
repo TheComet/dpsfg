@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(PLUGIN_MICROUI)
+#else
 #include <gtk/gtk.h>
 
 struct csfg_tf;
@@ -11,3 +13,4 @@ G_DECLARE_FINAL_TYPE(
 void          pole_zero_plot_register_type_internal(GTypeModule* type_module);
 PoleZeroPlot* pole_zero_plot_new(void);
 void pole_zero_plot_set_tf(PoleZeroPlot* plot, const struct csfg_tf* tf);
+#endif

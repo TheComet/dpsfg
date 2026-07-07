@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(PLUGIN_MICROUI)
+#else
 #include <gtk/gtk.h>
 
 #define PLUGIN_TYPE_MATH_VIEWER (math_viewer_get_type())
@@ -16,3 +18,4 @@ void math_viewer_set_tf(
     MathViewer*                  viewer,
     const struct csfg_expr_pool* pool,
     const struct csfg_tf_expr*   tf);
+#endif

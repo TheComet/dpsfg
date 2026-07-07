@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(PLUGIN_MICROUI)
+#else
 #include <gtk/gtk.h>
 
 struct csfg_tf;
@@ -14,3 +16,4 @@ void      time_plot_set_tf(TimePlot* plot, const struct csfg_tf* tf);
 void time_plot_set_impulse(TimePlot* plot, const struct csfg_pfd_poly* pfd);
 void time_plot_set_step(TimePlot* plot, const struct csfg_pfd_poly* pfd);
 void time_plot_set_ramp(TimePlot* plot, const struct csfg_pfd_poly* pfd);
+#endif

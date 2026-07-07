@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(PLUGIN_MICROUI)
+#else
 #include <gtk/gtk.h>
 
 struct csfg_tf;
@@ -10,3 +12,4 @@ G_DECLARE_FINAL_TYPE(BodePlot, bode_plot, PLUGIN, BODE_PLOT, GtkBox)
 void      bode_plot_register_type_internal(GTypeModule* type_module);
 BodePlot* bode_plot_new(void);
 void      bode_plot_set_tf(BodePlot* plot, const struct csfg_tf* tf);
+#endif

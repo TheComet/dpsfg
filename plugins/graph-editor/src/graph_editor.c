@@ -38,6 +38,7 @@ struct graph_model
     enum mode mode;
 };
 
+#if !defined(PLUGIN_MICROUI)
 struct _GraphEditor
 {
     GtkBox parent_instance;
@@ -65,6 +66,7 @@ struct _GraphEditor
 };
 
 G_DEFINE_DYNAMIC_TYPE(GraphEditor, graph_editor, GTK_TYPE_BOX)
+#endif
 
 /* -------------------------------------------------------------------------- */
 void edge_attr_deinit(struct edge_attr* ea)
@@ -813,6 +815,7 @@ void rebuild_graph(struct graph_model* model, int node_in, int node_out)
 }
 
 /* -------------------------------------------------------------------------- */
+#if !defined(PLUGIN_MICROUI)
 static void finish_editing(GtkEntry* entry, gpointer user_data)
 {
     int n_idx;
@@ -914,8 +917,10 @@ static void start_editing_active_node_or_edge(GraphEditor* editor)
 
     model->mode = MODE_NORMAL;
 }
+#endif
 
 /* -------------------------------------------------------------------------- */
+#if !defined(PLUGIN_MICROUI)
 static gboolean
 shortcut_node_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
@@ -1339,8 +1344,10 @@ static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
             button, "clicked", G_CALLBACK(buttons[i].callback), editor);
     }
 }
+#endif
 
 /* -------------------------------------------------------------------------- */
+#if !defined(PLUGIN_MICROUI)
 static void draw_grid(
     cairo_t* cr, double pan_x, double pan_y, int width, int height, double zoom)
 {
@@ -1987,3 +1994,4 @@ void graph_editor_clear_attrs(GraphEditor* editor)
         }
     edge_attr_hmap_clear(editor->model.edge_attrs);
 }
+#endif

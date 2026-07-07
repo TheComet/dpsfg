@@ -11,45 +11,68 @@ struct plugin_ctx
     struct plugin_notify_context* notify_ctx;
     struct edge_attr_hmap* edge_attrs;
 
+#if !defined(PLUGIN_MICROUI)
     GraphEditor* graph_editor;
     GtkWidget* pole_zero_plot;
+#endif
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_center_create(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx;
+    return NULL;
+#else
     ctx->graph_editor =
         graph_editor_new(ctx, ctx->notify_interface, ctx->notify_ctx);
     return GTK_WIDGET(g_object_ref_sink(ctx->graph_editor));
+#endif
 }
 static void ui_center_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)ui;
+#else
     (void)ctx;
     g_object_unref(ui);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
 static void graph_on_load(
     struct plugin_ctx* ctx, struct csfg_graph* g, int node_in, int node_out)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     graph_editor_set_edge_attributes(ctx->graph_editor, ctx->edge_attrs);
     graph_editor_set_graph(ctx->graph_editor, g, node_in, node_out);
+#endif
     ctx->edge_attrs = NULL;
 }
 static void graph_on_unload(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     ctx->edge_attrs = graph_editor_take_edge_attributes(ctx->graph_editor);
     graph_editor_clear_graph(ctx->graph_editor);
+#endif
 }
 static void
 graph_on_structure_changed(struct plugin_ctx* ctx, int node_in, int node_out)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     graph_editor_clear_attrs(ctx->graph_editor);
     graph_editor_rebuild_graph(ctx->graph_editor, node_in, node_out);
+#endif
 }
 static void graph_on_layout_changed(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     graph_editor_redraw_graph(ctx->graph_editor);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -123,7 +146,11 @@ static struct plugin_ctx* create(
     ctx->notify_ctx        = notify_ctx;
     edge_attr_hmap_init(&ctx->edge_attrs);
 
+#if defined(PLUGIN_MICROUI)
+    (void)type_module;
+#else
     graph_editor_register_type_internal(type_module);
+#endif
 
     return ctx;
 }

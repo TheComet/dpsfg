@@ -43,6 +43,9 @@ function (dpsfg_add_plugin NAME)
                 PLUGIN_BUILDING
                 "PLUGIN_VERSION=((${PROJECT_VERSION_MAJOR}<<24) | (${PROJECT_VERSION_MINOR}<<16) | (${PROJECT_VERSION_PATCH}<<8))"
                 "PLUGIN_API=${PLUGIN_API}")
+        if (DPSFG_MICROUI)
+            target_compile_definitions (${TARGET_NAME} PRIVATE PLUGIN_MICROUI)
+        endif ()
         target_compile_options (${TARGET_NAME}
             PRIVATE
                 # -Wno-unused-function is for the various VEC_DEFINE macros

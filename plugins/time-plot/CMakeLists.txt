@@ -4,8 +4,19 @@ project ("time-plot"
     VERSION 0.0.1
     LANGUAGES C)
 
-find_package (GTK4 REQUIRED COMPONENTS
-    gtk glib cairo pango pangocairo harfbuzz gdk-pixbuf graphene)
+if (NOT DPSFG_MICROUI)
+    find_package (GTK4 REQUIRED COMPONENTS
+        gtk glib cairo pango pangocairo harfbuzz gdk-pixbuf graphene)
+    set (GTK_LIBS
+        GTK4::glib
+        GTK4::cairo
+        GTK4::pango
+        GTK4::pangocairo
+        GTK4::harfbuzz
+        GTK4::gdk-pixbuf
+        GTK4::graphene
+        GTK4::gtk)
+endif ()
 
 include (DPSFGPlugin)
 dpsfg_add_plugin ("time-plot"
@@ -18,11 +29,5 @@ dpsfg_add_plugin ("time-plot"
     LIBS
         DPSFG::plugin
         DPSFG::csfg
-        GTK4::glib
-        GTK4::cairo
-        GTK4::pango
-        GTK4::pangocairo
-        GTK4::harfbuzz
-        GTK4::gdk-pixbuf
-        GTK4::graphene
-        GTK4::gtk)
+        ${GTK_LIBS})
+

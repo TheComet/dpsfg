@@ -4,19 +4,32 @@
 
 struct plugin_ctx
 {
+#if defined(PLUGIN_MICROUI)
+    int todo;
+#else
     PoleZeroPlot* pole_zero_plot;
+#endif
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx;
+    return NULL;
+#else
     ctx->pole_zero_plot = pole_zero_plot_new();
     return GTK_WIDGET(g_object_ref_sink(ctx->pole_zero_plot));
+#endif
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)ui;
+#else
     (void)ctx;
     g_object_unref(ui);
+#endif
 }
 static struct dpsfg_ui_pane_interface ui_pane = {
     ui_pane_create, ui_pane_destroy};
@@ -24,7 +37,10 @@ static struct dpsfg_ui_pane_interface ui_pane = {
 /* -------------------------------------------------------------------------- */
 static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     pole_zero_plot_set_tf(ctx->pole_zero_plot, tf);
+#endif
 }
 static void on_impulse_response_changed(
     struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
@@ -56,7 +72,11 @@ static struct plugin_ctx* create(
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     (void)notify_interface, (void)notify_ctx;
 
+#if defined(PLUGIN_MICROUI)
+    (void)type_module;
+#else
     pole_zero_plot_register_type_internal(type_module);
+#endif
 
     return ctx;
 }

@@ -1,6 +1,7 @@
 #include "csfg/numeric/tf.h"
 #include "pole-zero/pole_zero_plot.h"
 
+#if !defined(PLUGIN_MICROUI)
 struct _PoleZeroPlot
 {
     GtkBox parent_instance;
@@ -187,3 +188,4 @@ void pole_zero_plot_set_tf(PoleZeroPlot* plot, const struct csfg_tf* tf)
     plot->tf = tf;
     gtk_widget_queue_draw(plot->drawing_area);
 }
+#endif

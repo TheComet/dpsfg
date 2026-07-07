@@ -10,6 +10,7 @@ project ("dpsfg" LANGUAGES)
 
 option (DPSFG_TESTS "Build unit tests" ON)
 option (DPSFG_ASAN "Compile with address sanitizer" OFF)
+option (DPSFG_MICROUI "Use microui instead of GTK" ON)
 
 if (DPSFG_ASAN)
     add_compile_options (
@@ -32,7 +33,11 @@ add_subdirectory ("thirdparty/mathomatic")
 add_subdirectory ("thirdparty/sqlite-3.43.1")
 add_subdirectory ("thirdparty/sqlgen/sqlgen")
 add_subdirectory ("csfg")
-add_subdirectory ("ui-gtk")
+if (DPSFG_MICROUI)
+  add_subdirectory ("ui-micro")
+else ()
+  add_subdirectory ("ui-gtk")
+endif ()
 add_subdirectory ("plugins")
 add_subdirectory ("doc/report")
 

@@ -3,6 +3,7 @@
 #include "csfg/util/str.h"
 #include "math-viewer/math_viewer.h"
 
+#if !defined(PLUGIN_MICROUI)
 struct _MathViewer
 {
     GtkBox parent_instance;
@@ -182,3 +183,4 @@ void math_viewer_set_tf(
     viewer->expr = -1;
     gtk_widget_queue_draw(viewer->drawing_area);
 }
+#endif

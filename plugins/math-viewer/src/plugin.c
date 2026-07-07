@@ -4,16 +4,24 @@
 
 struct plugin_ctx
 {
+#if defined(PLUGIN_MICROUI)
+    int todo;
+#else
     GtkWidget* top_level;
     MathViewer* graph_expr_viewer;
     MathViewer* substituted_expr_viewer;
     MathViewer* limit_expr_viewer;
     MathViewer* tf_viewer;
+#endif
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx;
+    return NULL;
+#else
     ctx->graph_expr_viewer       = math_viewer_new();
     ctx->substituted_expr_viewer = math_viewer_new();
     ctx->limit_expr_viewer       = math_viewer_new();
@@ -38,11 +46,16 @@ static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
         gtk_label_new("Graph Expression"));
 
     return GTK_WIDGET(g_object_ref_sink(ctx->top_level));
+#endif
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)ui;
+#else
     (void)ctx;
     g_object_unref(ui);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -53,7 +66,11 @@ static struct plugin_ctx* create(
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     (void)notify_interface, (void)notify_ctx;
+#if defined(PLUGIN_MICROUI)
+    (void)type_module;
+#else
     math_viewer_register_type_internal(type_module);
+#endif
     return ctx;
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
@@ -66,24 +83,36 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 static void on_graph_expr(
     struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     math_viewer_set_expr(ctx->graph_expr_viewer, pool, expr);
+#endif
 }
 static void on_substituted_expr(
     struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     math_viewer_set_expr(ctx->substituted_expr_viewer, pool, expr);
+#endif
 }
 static void on_limit_expr(
     struct plugin_ctx* ctx, const struct csfg_expr_pool* pool, int expr)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     math_viewer_set_expr(ctx->limit_expr_viewer, pool, expr);
+#endif
 }
 static void on_graph_tf(
     struct plugin_ctx* ctx,
     const struct csfg_expr_pool* pool,
     const struct csfg_tf_expr* tf)
 {
+#if defined(PLUGIN_MICROUI)
+#else
     math_viewer_set_tf(ctx->tf_viewer, pool, tf);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,6 +1,7 @@
 #include "csfg/numeric/tf.h"
 #include "time-plot/time_plot.h"
 
+#if !defined(PLUGIN_MICROUI)
 struct _TimePlot
 {
     GtkBox     parent_instance;
@@ -286,3 +287,4 @@ void time_plot_set_ramp(TimePlot* plot, const struct csfg_pfd_poly* pfd)
     plot->pfd_ramp = pfd;
     gtk_widget_queue_draw(plot->drawing_area);
 }
+#endif

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "csfg/util/hmap.h"
-#include <gtk/gtk.h>
 
 struct node_attr
 {
@@ -17,6 +16,10 @@ void edge_attr_deinit(struct edge_attr* ea);
 
 HMAP_DECLARE(extern, node_attr_hmap, int, struct node_attr, 16)
 HMAP_DECLARE(extern, edge_attr_hmap, int, struct edge_attr, 16)
+
+#if defined(PLUGIN_MICROUI)
+#else
+#include <gtk/gtk.h>
 
 #define PLUGIN_TYPE_GRAPH_EDITOR (graph_editor_get_type())
 G_DECLARE_FINAL_TYPE(GraphEditor, graph_editor, PLUGIN, GRAPH_EDITOR, GtkBox)
@@ -42,3 +45,4 @@ struct edge_attr_hmap* graph_editor_take_edge_attributes(GraphEditor* editor);
 void graph_editor_set_edge_attributes(
     GraphEditor* editor, struct edge_attr_hmap* edge_attrs);
 void graph_editor_clear_attrs(GraphEditor* editor);
+#endif

@@ -4,20 +4,32 @@
 
 struct plugin_ctx
 {
+#if defined(PLUGIN_MICROUI)
+#else
     TimePlot* time_plot;
+#endif
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx;
+    return NULL;
+#else
     ctx->time_plot = time_plot_new();
     return GTK_WIDGET(g_object_ref_sink(ctx->time_plot));
+#endif
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
     (void)ctx;
+#if defined(PLUGIN_MICROUI)
+    (void)ui;
+#else
     g_object_unref(ui);
     ctx->time_plot = NULL;
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -29,7 +41,11 @@ static struct plugin_ctx* create(
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
     (void)notify_interface, (void)notify_ctx;
 
+#if defined(PLUGIN_MICROUI)
+    (void)type_module;
+#else
     time_plot_register_type_internal(type_module);
+#endif
 
     return ctx;
 }
@@ -42,22 +58,38 @@ static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 /* -------------------------------------------------------------------------- */
 static void on_tf_changed(struct plugin_ctx* ctx, const struct csfg_tf* tf)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)tf;
+#else
     time_plot_set_tf(ctx->time_plot, tf);
+#endif
 }
 static void on_impulse_response_changed(
     struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)pfd_terms;
+#else
     time_plot_set_impulse(ctx->time_plot, pfd_terms);
+#endif
 }
 static void on_step_response_changed(
     struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)pfd_terms;
+#else
     time_plot_set_step(ctx->time_plot, pfd_terms);
+#endif
 }
 static void on_ramp_response_changed(
     struct plugin_ctx* ctx, const struct csfg_pfd_poly* pfd_terms)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)pfd_terms;
+#else
     time_plot_set_ramp(ctx->time_plot, pfd_terms);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */

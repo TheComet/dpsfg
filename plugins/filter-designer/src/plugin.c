@@ -35,10 +35,12 @@ struct plugin_ctx
     int order;
     unsigned we_are_in_control : 1;
 
+#if !defined(PLUGIN_MICROUI)
     GtkWidget* stack;
 #    define X(member, name, create_func) GtkWidget* member;
     FILTERS_LIST
 #    undef X
+#endif
 };
 
 /* -------------------------------------------------------------------------- */
@@ -144,6 +146,7 @@ fail:
 }
 
 /* -------------------------------------------------------------------------- */
+#if !defined(PLUGIN_MICROUI)
 static void on_lp1_generate_clicked(GtkButton* button, gpointer user_data)
 {
     struct plugin_ctx* ctx = user_data;
@@ -212,8 +215,10 @@ on_filter_selected(GtkDropDown* dropdown, GParamSpec* pspec, gpointer user_data)
     FILTERS_LIST
 #    undef X
 }
+#endif
 
 /* -------------------------------------------------------------------------- */
+#if !defined(PLUGIN_MICROUI)
 static GtkWidget* create_low_order_filter_ui(
     struct plugin_ctx* ctx, GCallback on_generate_graph_callback)
 {
@@ -269,8 +274,13 @@ static GtkWidget* create_butterworth_ui(struct plugin_ctx* ctx)
 
     return grid;
 }
+#endif
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx;
+    return NULL;
+#else
     GtkWidget* dropdown;
     GtkWidget* top;
 
@@ -297,11 +307,16 @@ static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
         dropdown, "notify::selected-item", G_CALLBACK(on_filter_selected), ctx);
 
     return g_object_ref_sink(top);
+#endif
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)ui;
+#else
     (void)ctx;
     g_object_unref(ui);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,6 +1,7 @@
 #include "bode-plot/bode_plot.h"
 #include "csfg/numeric/tf.h"
 
+#if !defined(PLUGIN_MICROUI)
 struct _BodePlot
 {
     GtkBox parent_instance;
@@ -166,3 +167,4 @@ void bode_plot_set_tf(BodePlot* plot, const struct csfg_tf* tf)
     gtk_widget_queue_draw(plot->drawing_area_mag);
     gtk_widget_queue_draw(plot->drawing_area_phase);
 }
+#endif

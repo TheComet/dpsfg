@@ -2,8 +2,12 @@
 #include "csfg/symbolic/var_table.h"
 #include "csfg/util/mem.h"
 #include "dpsfg-plugin.h"
-#include <gtk/gtk.h>
 #include <math.h>
+
+#if defined(PLUGIN_MICROUI)
+#else
+#    include <gtk/gtk.h>
+#endif
 
 struct tweak
 {
@@ -11,11 +15,14 @@ struct tweak
     struct csfg_var_table* vt;
     struct str* name;
 
+#if defined(PLUGIN_MICROUI)
+#else
     GtkWidget* label;
     GtkAdjustment* scale_adj;
     GtkWidget* scale;
     GtkAdjustment* spin_adj;
     GtkWidget* spin_button;
+#endif
 };
 
 HMAP_DECLARE_STR(extern, tweak_hmap, struct tweak, 16)
@@ -23,9 +30,10 @@ HMAP_DEFINE_STR(extern, tweak_hmap, struct tweak, 16)
 
 static void notify_parameters_changed(struct plugin_ctx* ctx);
 
+#if defined(PLUGIN_MICROUI)
+#else
 static void on_scale_adj_changed(GtkAdjustment* adj, gpointer user_data);
-static void
-on_butterworth_order_changed(GtkAdjustment* adj, gpointer user_data);
+static void on_butterworth_order_changed(GtkAdjustment* adj, gpointer user_data);
 
 /* -------------------------------------------------------------------------- */
 static void remove_row_containing(GtkGrid* grid, GtkWidget* target)
@@ -109,7 +117,7 @@ static void maybe_expand_bounds(struct tweak* s, double L)
     double upper = gtk_adjustment_get_upper(s->scale_adj);
     double span  = upper - lower;
 
-#if 0
+#    if 0
     if (L < lower + s->expand_margin)
     {
         /* expand to the left */
@@ -126,8 +134,9 @@ static void maybe_expand_bounds(struct tweak* s, double L)
         gtk_adjustment_set_lower(s->adj, new_lower);
         gtk_adjustment_set_upper(s->adj, new_upper);
     }
-#endif
+#    endif
 }
+#endif
 
 struct plugin_ctx
 {
@@ -148,10 +157,13 @@ update_tweak(struct tweak* tweak, const struct csfg_var_table_entry* entry)
     double log_max = log(value * 10.0);
     double log_val = log(value);
 
+#if defined(PLUGIN_MICROUI)
+#else
     gtk_adjustment_configure(
         tweak->scale_adj, log_val, log_min, log_max, 0.0, 0.0, 0.0);
     gtk_adjustment_configure(
         tweak->spin_adj, value, -DBL_MAX, DBL_MAX, step, 0.0, 0.0);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -172,7 +184,9 @@ static void rebuild_ui(struct plugin_ctx* ctx)
             continue;
         }
 
+#if !defined(PLUGIN_MICROUI)
         remove_row_containing(GTK_GRID(ctx->grid), tweak->label);
+#endif
         str_deinit(tweak->name);
         tweak_hmap_erase_slot(ctx->tweaks, slot);
     }
@@ -194,6 +208,7 @@ static void rebuild_ui(struct plugin_ctx* ctx)
         str_init(&tweak->name);
         str_set_str(&tweak->name, name);
 
+#if !defined(PLUGIN_MICROUI)
         tweak->label = gtk_label_new(str_cstr(name));
         gtk_widget_set_halign(tweak->label, GTK_ALIGN_END);
         gtk_label_set_xalign(GTK_LABEL(tweak->label), 1.0);
@@ -210,9 +225,11 @@ static void rebuild_ui(struct plugin_ctx* ctx)
         gtk_grid_attach(GTK_GRID(ctx->grid), tweak->label, 0, row, 1, 1);
         gtk_grid_attach(GTK_GRID(ctx->grid), tweak->scale, 1, row, 1, 1);
         gtk_grid_attach(GTK_GRID(ctx->grid), tweak->spin_button, 2, row, 1, 1);
+#endif
 
         update_tweak(tweak, entry);
 
+#if !defined(PLUGIN_MICROUI)
         g_signal_connect(
             tweak->scale_adj,
             "value-changed",
@@ -223,6 +240,7 @@ static void rebuild_ui(struct plugin_ctx* ctx)
             "value-changed",
             G_CALLBACK(on_butterworth_order_changed),
             tweak);
+#endif
 
         row++;
     }
@@ -231,6 +249,10 @@ static void rebuild_ui(struct plugin_ctx* ctx)
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx;
+    return NULL;
+#else
     ctx->grid = gtk_grid_new();
     // gtk_grid_set_row_spacing(GTK_GRID(ctx->grid), 12);
     gtk_grid_set_column_spacing(GTK_GRID(ctx->grid), 16);
@@ -240,9 +262,13 @@ static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
     gtk_widget_set_margin_end(ctx->grid, 12);
 
     return GTK_WIDGET(g_object_ref_sink(ctx->grid));
+#endif
 }
 static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 {
+#if defined(PLUGIN_MICROUI)
+    (void)ctx, (void)ui;
+#else
     int slot;
     const struct str* name;
     struct tweak* tweak;
@@ -252,6 +278,7 @@ static void ui_pane_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
     tweak_hmap_clear(ctx->tweaks);
 
     g_object_unref(ui);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
