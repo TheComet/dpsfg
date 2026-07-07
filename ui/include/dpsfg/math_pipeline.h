@@ -20,8 +20,6 @@ enum math_pipeline_state
 
 struct math_pipeline
 {
-    struct csfg_rulebook rulebook;
-
     struct csfg_graph graph;
     struct csfg_path_vec* paths;
     struct csfg_path_vec* loops;
@@ -29,14 +27,11 @@ struct math_pipeline
 
     struct csfg_var_table substitutions;
 
-    struct csfg_expr_pool* graph_pool;
-    struct csfg_expr_pool* subs_pool;
-    struct csfg_expr_pool* lim_pool;
+    struct csfg_expr_pool* pool;
+    struct csfg_expr_pool* prev_pool;
     int graph_expr;
     int subs_expr;
     int lim_expr;
-
-    struct csfg_expr_pool* tf_pool;
     struct csfg_tf_expr tf_expr;
 
     struct csfg_var_table parameters;
@@ -47,7 +42,7 @@ struct math_pipeline
     struct csfg_pfd_poly* pfd_ramp;
 };
 
-int math_pipeline_init(struct math_pipeline* pl);
+void math_pipeline_init(struct math_pipeline* pl);
 void math_pipeline_deinit(struct math_pipeline* pl);
 void math_pipeline_clear(struct math_pipeline* pl);
 int math_pipeline_load(struct math_pipeline* pl, struct deserializer* des);

@@ -9,9 +9,76 @@ extern "C" {
 
 #define NAME test_poly_expr_add
 
+namespace {
+
+struct Coeff
+{
+    double factor;
+    const char* expr;
+};
+
+struct TestParam
+{
+    std::vector<Coeff> input1;
+    std::vector<Coeff> input2;
+    std::vector<Coeff> expected_output;
+};
+
+const struct TestParam TEST_PARAMETERS[] = {
+    { {{0, ""}},  {{0, ""}},        {{0, ""}}},
+    {{{0, "a"}},  {{0, ""}},        {{0, ""}}},
+    { {{0, ""}}, {{0, "b"}},        {{0, ""}}},
+    {{{0, "a"}}, {{0, "b"}},        {{0, ""}}},
+
+    { {{1, ""}},  {{1, ""}},        {{2, ""}}},
+    {{{1, "a"}},  {{1, ""}},     {{1, "a+1"}}},
+    { {{1, ""}}, {{1, "b"}},     {{1, "1+b"}}},
+    {{{1, "a"}}, {{1, "b"}},     {{1, "a+b"}}},
+
+    { {{1, ""}},  {{3, ""}},        {{4, ""}}},
+    {{{1, "a"}},  {{3, ""}},     {{1, "a+3"}}},
+    { {{1, ""}}, {{3, "b"}},   {{1, "1+3*b"}}},
+    {{{1, "a"}}, {{3, "b"}},   {{1, "a+3*b"}}},
+
+    { {{5, ""}},  {{1, ""}},        {{6, ""}}},
+    {{{5, "a"}},  {{1, ""}},   {{1, "5*a+1"}}},
+    { {{5, ""}}, {{1, "b"}},     {{1, "5+b"}}},
+    {{{5, "a"}}, {{1, "b"}},   {{1, "5*a+b"}}},
+
+    { {{5, ""}},  {{3, ""}},        {{8, ""}}},
+    {{{5, "a"}},  {{3, ""}},   {{1, "5*a+3"}}},
+    { {{5, ""}}, {{3, "b"}},   {{1, "5+3*b"}}},
+    {{{5, "a"}}, {{3, "b"}}, {{1, "5*a+3*b"}}},
+};
+
+std::ostream& operator<<(std::ostream& os, const std::vector<Coeff>& p)
+{
+    int n = 0;
+    for (const Coeff& c : p)
+    {
+        os << c.factor;
+        if (*c.expr)
+            os << "+" << c.expr;
+        if (n == 1)
+            os << "s";
+        if (n > 1)
+            os << "s^" << n;
+        n++;
+    }
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const struct TestParam& p)
+{
+    os << p.input1 << " * " << p.input2 << " = " << p.expected_output;
+    return os;
+}
+
+} // namespace
+
 using namespace testing;
 
-struct NAME : public Test, public ExprHelper
+struct NAME : public TestWithParam<TestParam>, public ExprHelper
 {
     void SetUp() override
     {
@@ -34,222 +101,30 @@ struct NAME : public Test, public ExprHelper
     struct csfg_expr_pool* pool;
 };
 
-TEST_F(NAME, add_0_0)
+INSTANTIATE_TEST_SUITE_P(, NAME, ValuesIn(TEST_PARAMETERS));
+
+TEST_P(NAME, test)
 {
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(0.0, -1));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(0.0, -1));
+    for (const Coeff& c : GetParam().input1)
+    {
+        int expr = *c.expr ? csfg_expr_parse(&pool, cstr_view(c.expr)) : -1;
+        csfg_poly_expr_push(&p1, csfg_coeff_expr(c.factor, expr));
+    }
+    for (const Coeff& c : GetParam().input2)
+    {
+        int expr = *c.expr ? csfg_expr_parse(&pool, cstr_view(c.expr)) : -1;
+        csfg_poly_expr_push(&p2, csfg_coeff_expr(c.factor, expr));
+    }
 
     ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
 
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 0.0));
-}
-
-TEST_F(NAME, add_0a_0)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(0.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(0.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 0.0));
-}
-
-TEST_F(NAME, add_0_0b)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(0.0, -1));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(0.0, csfg_expr_var(&pool, cstr_view("a"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 0.0));
-}
-
-TEST_F(NAME, add_0a_0b)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(0.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(0.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 0.0));
-}
-
-TEST_F(NAME, add_1_1)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(1.0, -1));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 2.0));
-}
-
-TEST_F(NAME, add_1a_1)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "a+1"));
-}
-
-TEST_F(NAME, add_1_1b)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(1.0, -1));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "1+b"));
-}
-
-TEST_F(NAME, add_1a_1b)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "a+b"));
-}
-
-TEST_F(NAME, add_1_3)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(1.0, -1));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 4.0));
-}
-
-TEST_F(NAME, add_1a_3)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "a+3"));
-}
-
-TEST_F(NAME, add_1_3b)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(1.0, -1));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(3.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "1+3*b"));
-}
-
-TEST_F(NAME, add_1a_3b)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(3.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "a+3*b"));
-}
-
-TEST_F(NAME, add_2_1)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(2.0, -1));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 3.0));
-}
-
-TEST_F(NAME, add_2a_1)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(2.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(1.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2*a+1"));
-}
-
-TEST_F(NAME, add_2_1b)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(2.0, -1));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2+b"));
-}
-
-TEST_F(NAME, add_2a_1b)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(2.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(1.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2*a+b"));
-}
-
-TEST_F(NAME, add_2_3)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(2.0, -1));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 5.0));
-}
-
-TEST_F(NAME, add_2a_3)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(2.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(&p2, csfg_coeff_expr(3.0, -1));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2*a+3"));
-}
-
-TEST_F(NAME, add_2_3b)
-{
-    csfg_poly_expr_push(&p1, csfg_coeff_expr(2.0, -1));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(3.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2+3*b"));
-}
-
-TEST_F(NAME, add_2a_3b)
-{
-    csfg_poly_expr_push(
-        &p1, csfg_coeff_expr(2.0, csfg_expr_var(&pool, cstr_view("a"))));
-    csfg_poly_expr_push(
-        &p2, csfg_coeff_expr(3.0, csfg_expr_var(&pool, cstr_view("b"))));
-
-    ASSERT_EQ(csfg_poly_expr_add(&pool, &out, p1, p2), 0);
-
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 1.0, "2*a+3*b"));
+    int n = 0;
+    for (const Coeff& c : GetParam().expected_output)
+    {
+        if (*c.expr)
+            ASSERT_TRUE(CoeffEq(pool, out, n, c.factor, c.expr)) << n;
+        else
+            ASSERT_TRUE(CoeffEq(pool, out, n, c.factor)) << n;
+        n++;
+    }
 }

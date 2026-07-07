@@ -41,3 +41,4 @@ void graph_editor_redraw_graph(GraphEditor* editor);
 struct edge_attr_hmap* graph_editor_take_edge_attributes(GraphEditor* editor);
 void graph_editor_set_edge_attributes(
     GraphEditor* editor, struct edge_attr_hmap* edge_attrs);
+void graph_editor_clear_attrs(GraphEditor* editor);

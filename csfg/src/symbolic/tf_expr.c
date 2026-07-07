@@ -6,80 +6,78 @@
 #include <math.h>
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_to_rational(
-    const struct csfg_expr_pool* in_pool,
-    int in_expr,
-    struct strview main_var,
-    struct csfg_expr_pool** tf_pool,
-    struct csfg_tf_expr* r)
+static int csfg_expr_to_rational_recurse(
+    struct csfg_tf_expr* tf,
+    struct csfg_expr_pool** pool,
+    int expr,
+    const char* variable)
 {
     int left, right, k;
     struct strview var;
     struct csfg_coeff_expr* coeff;
+    enum csfg_expr_type type;
     double value;
 
     struct csfg_tf_expr r1, r2;
     csfg_tf_expr_init(&r1);
     csfg_tf_expr_init(&r2);
 
-    CSFG_DEBUG_ASSERT(vec_count(r->num) == 0);
-    CSFG_DEBUG_ASSERT(vec_count(r->den) == 0);
+    CSFG_DEBUG_ASSERT(vec_count(tf->num) == 0);
+    CSFG_DEBUG_ASSERT(vec_count(tf->den) == 0);
 
-    left  = in_pool->nodes[in_expr].child[0];
-    right = in_pool->nodes[in_expr].child[1];
+    type  = (*pool)->nodes[expr].type;
+    left  = (*pool)->nodes[expr].child[0];
+    right = (*pool)->nodes[expr].child[1];
 
-    switch ((enum csfg_expr_type)in_pool->nodes[in_expr].type)
+    switch (type)
     {
         case CSFG_EXPR_GC : assert(0); break;
         case CSFG_EXPR_LIT: {
-            double value = in_pool->nodes[in_expr].value.lit;
-            if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(value, -1)) != 0)
+            double value = (*pool)->nodes[expr].value.lit;
+            if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(value, -1)) != 0)
                 return -1;
-            if (csfg_poly_expr_push(&r->den, csfg_coeff_expr(1.0, -1)) != 0)
+            if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1)) != 0)
                 return -1;
             break;
         }
 
-        case CSFG_EXPR_INF: {
-            int n = csfg_expr_dup_shallow_from(tf_pool, in_pool, in_expr);
-            if (n < 0)
+        case CSFG_EXPR_IMAG:
+        case CSFG_EXPR_INF : {
+            if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(1.0, expr)) != 0)
                 return -1;
-            if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(1.0, n)) != 0)
-                return -1;
-            if (csfg_poly_expr_push(&r->den, csfg_coeff_expr(1.0, -1)) != 0)
+            if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1)) != 0)
                 return -1;
             break;
         }
 
         case CSFG_EXPR_VAR: {
-            int var_idx = in_pool->nodes[in_expr].value.var_idx;
-            var         = strlist_view(in_pool->var_names, var_idx);
-            if (strview_eq(var, main_var))
+            int var_idx = (*pool)->nodes[expr].value.var_idx;
+            var         = strlist_view((*pool)->var_names, var_idx);
+            if (strview_eq_cstr(var, variable))
             {
                 /* 0 + 1*s */
-                if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(0.0, -1)) != 0)
+                if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(0.0, -1)) !=
+                    0)
                     return -1;
-                if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(1.0, -1)) != 0)
+                if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(1.0, -1)) !=
+                    0)
                     return -1;
             }
             else
             {
-                int n;
-                n = csfg_expr_dup_shallow_from(tf_pool, in_pool, in_expr);
-                if (n < 0)
-                    return -1;
-                if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(1.0, n)) != 0)
+                if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(1.0, expr)) !=
+                    0)
                     return -1;
             }
-            if (csfg_poly_expr_push(&r->den, csfg_coeff_expr(1.0, -1)) != 0)
+            if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1)) != 0)
                 return -1;
             break;
         }
 
         case CSFG_EXPR_NEG: {
-            if (csfg_expr_to_rational(in_pool, left, main_var, tf_pool, r) != 0)
+            if (csfg_expr_to_rational(tf, pool, left, variable) != 0)
                 return -1;
-            vec_for_each (r->num, coeff)
+            vec_for_each (tf->num, coeff)
                 coeff->factor *= -1;
             break;
         }
@@ -93,35 +91,33 @@ int csfg_expr_to_rational(
              */
 
             /* lhs */
-            rc = csfg_expr_to_rational(in_pool, left, main_var, tf_pool, &r1);
+            rc = csfg_expr_to_rational(&r1, pool, left, variable);
             if (rc != 0)
                 return -1;
 
             /* rhs */
-            rc = csfg_expr_to_rational(in_pool, right, main_var, tf_pool, &r2);
+            rc = csfg_expr_to_rational(&r2, pool, right, variable);
             if (rc != 0)
                 return -1;
 
             /* N1*D2 */
-            rc = csfg_poly_expr_mul(tf_pool, &r->num, r1.num, r2.den);
+            rc = csfg_poly_expr_mul(pool, &tf->num, r1.num, r2.den);
             if (rc != 0)
                 return -1;
 
             /* N2*D1 */
-            csfg_poly_expr_clear(r1.num);
-            rc = csfg_poly_expr_mul(tf_pool, &r1.num, r2.num, r1.den);
+            rc = csfg_poly_expr_mul(pool, &r1.num, r2.num, r1.den);
             if (rc != 0)
                 return -1;
 
             /* N1*D2 + N2*D1 */
-            csfg_poly_expr_swap(&r->num, &r2.num);
-            csfg_poly_expr_clear(r->num);
-            rc = csfg_poly_expr_add(tf_pool, &r->num, r1.num, r2.num);
+            csfg_poly_expr_swap(&tf->num, &r2.num);
+            rc = csfg_poly_expr_add(pool, &tf->num, r1.num, r2.num);
             if (rc != 0)
                 return -1;
 
             /* D1*D2 */
-            rc = csfg_poly_expr_mul(tf_pool, &r->den, r1.den, r2.den);
+            rc = csfg_poly_expr_mul(pool, &tf->den, r1.den, r2.den);
             if (rc != 0)
                 return -1;
             break;
@@ -136,22 +132,22 @@ int csfg_expr_to_rational(
              */
 
             /* lhs */
-            rc = csfg_expr_to_rational(in_pool, left, main_var, tf_pool, &r1);
+            rc = csfg_expr_to_rational(&r1, pool, left, variable);
             if (rc != 0)
                 return -1;
 
             /* rhs */
-            rc = csfg_expr_to_rational(in_pool, right, main_var, tf_pool, &r2);
+            rc = csfg_expr_to_rational(&r2, pool, right, variable);
             if (rc != 0)
                 return -1;
 
             /* N1*N2 */
-            rc = csfg_poly_expr_mul(tf_pool, &r->num, r1.num, r2.num);
+            rc = csfg_poly_expr_mul(pool, &tf->num, r1.num, r2.num);
             if (rc != 0)
                 return -1;
 
             /* D1*D2 */
-            rc = csfg_poly_expr_mul(tf_pool, &r->den, r1.den, r2.den);
+            rc = csfg_poly_expr_mul(pool, &tf->den, r1.den, r2.den);
             if (rc != 0)
                 return -1;
             break;
@@ -165,71 +161,69 @@ int csfg_expr_to_rational(
              * |--| = ---- = -----
              * \D1/   D1^k   N1^-k
              */
-            if (in_pool->nodes[right].type != CSFG_EXPR_LIT)
+            if ((*pool)->nodes[right].type != CSFG_EXPR_LIT)
                 return -1;
 
-            value = in_pool->nodes[right].value.lit;
+            value = (*pool)->nodes[right].value.lit;
             k     = (int)round(value);
             if (fabs(value - (double)k) >= 0.0000001)
                 return -1;
 
             if (k == 0) /* a^0 = 1 */
             {
-                if (csfg_poly_expr_push(&r->num, csfg_coeff_expr(1.0, -1)) != 0)
+                if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(1.0, -1)) !=
+                    0)
                     return -1;
-                if (csfg_poly_expr_push(&r->den, csfg_coeff_expr(1.0, -1)) != 0)
+                if (csfg_poly_expr_push(&tf->den, csfg_coeff_expr(1.0, -1)) !=
+                    0)
                     return -1;
                 break;
             }
 
             if (k > 0)
             {
-                rc = csfg_expr_to_rational(
-                    in_pool, left, main_var, tf_pool, &r1);
+                rc = csfg_expr_to_rational(&r1, pool, left, variable);
                 if (rc != 0)
                     return -1;
 
-                if (csfg_poly_expr_copy(&r->num, r1.num) != 0)
+                if (csfg_poly_expr_copy(&tf->num, r1.num) != 0)
                     return -1;
-                if (csfg_poly_expr_copy(&r->den, r1.den) != 0)
+                if (csfg_poly_expr_copy(&tf->den, r1.den) != 0)
                     return -1;
                 while (--k > 0)
                 {
-                    csfg_tf_expr_clear(&r2);
-                    rc = csfg_poly_expr_mul(tf_pool, &r2.num, r->num, r1.num);
+                    rc = csfg_poly_expr_mul(pool, &r2.num, tf->num, r1.num);
                     if (rc != 0)
                         return -1;
-                    rc = csfg_poly_expr_mul(tf_pool, &r2.den, r->den, r1.den);
+                    rc = csfg_poly_expr_mul(pool, &r2.den, tf->den, r1.den);
                     if (rc != 0)
                         return -1;
-                    csfg_poly_expr_swap(&r->num, &r2.num);
-                    csfg_poly_expr_swap(&r->den, &r2.den);
+                    csfg_poly_expr_swap(&tf->num, &r2.num);
+                    csfg_poly_expr_swap(&tf->den, &r2.den);
                 }
             }
             else if (k < 0)
             {
-                rc = csfg_expr_to_rational(
-                    in_pool, left, main_var, tf_pool, &r2);
+                rc = csfg_expr_to_rational(&r2, pool, left, variable);
                 if (rc != 0)
                     return -1;
 
                 csfg_poly_expr_swap(&r2.num, &r1.den);
                 csfg_poly_expr_swap(&r2.den, &r1.num);
-                if (csfg_poly_expr_copy(&r->num, r1.num) != 0)
+                if (csfg_poly_expr_copy(&tf->num, r1.num) != 0)
                     return -1;
-                if (csfg_poly_expr_copy(&r->den, r1.den) != 0)
+                if (csfg_poly_expr_copy(&tf->den, r1.den) != 0)
                     return -1;
                 while (++k < 0)
                 {
-                    csfg_tf_expr_clear(&r2);
-                    rc = csfg_poly_expr_mul(tf_pool, &r2.num, r->num, r1.num);
+                    rc = csfg_poly_expr_mul(pool, &r2.num, tf->num, r1.num);
                     if (rc != 0)
                         return -1;
-                    rc = csfg_poly_expr_mul(tf_pool, &r2.den, r->den, r1.den);
+                    rc = csfg_poly_expr_mul(pool, &r2.den, tf->den, r1.den);
                     if (rc != 0)
                         return -1;
-                    csfg_poly_expr_swap(&r->num, &r2.num);
-                    csfg_poly_expr_swap(&r->den, &r2.den);
+                    csfg_poly_expr_swap(&tf->num, &r2.num);
+                    csfg_poly_expr_swap(&tf->den, &r2.den);
                 }
             }
             break;
@@ -241,22 +235,27 @@ int csfg_expr_to_rational(
 
     return 0;
 }
+int csfg_expr_to_rational(
+    struct csfg_tf_expr* tf,
+    struct csfg_expr_pool** pool,
+    int expr,
+    const char* variable)
+{
+    csfg_tf_expr_clear(tf);
+    return csfg_expr_to_rational_recurse(tf, pool, expr, variable);
+}
 
 /* -------------------------------------------------------------------------- */
 int csfg_expr_to_rational_limit(
-    const struct csfg_expr_pool* in_pool,
-    int in_expr,
-    struct strview variable,
-    struct csfg_expr_pool** tf_pool,
-    struct csfg_tf_expr* tf)
+    struct csfg_tf_expr* tf,
+    struct csfg_expr_pool** pool,
+    int expr,
+    const char* variable)
 {
     int rc, num_idx, den_idx;
     const struct csfg_coeff_expr* c;
 
-    CSFG_DEBUG_ASSERT(vec_count(tf->num) == 0);
-    CSFG_DEBUG_ASSERT(vec_count(tf->den) == 0);
-
-    rc = csfg_expr_to_rational(in_pool, in_expr, variable, tf_pool, tf);
+    rc = csfg_expr_to_rational(tf, pool, expr, variable);
     if (rc != 0)
         return -1;
 
@@ -279,7 +278,7 @@ int csfg_expr_to_rational_limit(
     else if (den_idx < 0) /* Denominator has factor 0 */
     {
         double factor = vec_get(tf->num, num_idx)->factor < 0.0 ? -1.0 : 1.0;
-        int inf       = csfg_expr_inf(tf_pool);
+        int inf       = csfg_expr_inf(pool);
         if (inf < 0)
             return -1;
         csfg_tf_expr_clear(tf);
@@ -299,7 +298,7 @@ int csfg_expr_to_rational_limit(
     else if (num_idx > den_idx) /* Numerator diverges to inf */
     {
         double factor = vec_get(tf->num, num_idx)->factor < 0.0 ? -1.0 : 1.0;
-        int inf       = csfg_expr_inf(tf_pool);
+        int inf       = csfg_expr_inf(pool);
         if (inf < 0)
             return -1;
         csfg_tf_expr_clear(tf);
@@ -329,81 +328,81 @@ int csfg_expr_to_rational_limit(
 
 /* -------------------------------------------------------------------------- */
 int csfg_expr_to_rational_limits(
-    const struct csfg_expr_pool* in_pool,
-    int in_expr,
-    const struct csfg_var_table* vt,
-    struct csfg_expr_pool** tf_pool,
-    struct csfg_tf_expr* tf)
+    struct csfg_tf_expr* tf,
+    struct csfg_expr_pool** pool,
+    int expr,
+    const struct csfg_var_table* vt)
 {
     int slot, tmp_expr;
     struct str* key;
     struct csfg_var_table_entry* entry;
-    struct csfg_expr_pool* tmp_pool;
-
-    CSFG_DEBUG_ASSERT(vec_count(tf->num) == 0);
-    CSFG_DEBUG_ASSERT(vec_count(tf->den) == 0);
-
-    csfg_expr_pool_init(&tmp_pool);
 
     tmp_expr = -1;
     hmap_for_each (vt->map, slot, key, entry)
     {
-        struct strview var_name = str_view(key);
+        const char* var_name = str_cstr(key);
         if (entry->pool->nodes[entry->expr].type != CSFG_EXPR_INF)
             continue;
 
         if (vec_count(tf->num) > 0)
         {
-            tmp_expr = csfg_rational_to_expr(tf, *tf_pool, &tmp_pool);
+            tmp_expr = csfg_rational_to_expr(tf, pool, var_name);
             if (tmp_expr < 0)
-                goto fail;
+                return -1;
             csfg_tf_expr_clear(tf);
-            if (csfg_expr_to_rational_limit(
-                    tmp_pool, tmp_expr, var_name, tf_pool, tf) != 0)
-                goto fail;
+            if (csfg_expr_to_rational_limit(tf, pool, tmp_expr, var_name) != 0)
+                return -1;
         }
         else
         {
-            if (csfg_expr_to_rational_limit(
-                    in_pool, in_expr, var_name, tf_pool, tf) != 0)
-                goto fail;
+            if (csfg_expr_to_rational_limit(tf, pool, expr, var_name) != 0)
+                return -1;
         }
     }
 
-    csfg_expr_pool_deinit(tmp_pool);
     return 0;
-
-fail:
-    csfg_expr_pool_deinit(tmp_pool);
-    return -1;
 }
 
 /* -------------------------------------------------------------------------- */
 int csfg_poly_expr_to_expr(
     const struct csfg_poly_expr* poly,
-    const struct csfg_expr_pool* coeff_pool,
-    struct csfg_expr_pool** expr_pool)
+    struct csfg_expr_pool** pool,
+    const char* variable)
 {
     const struct csfg_coeff_expr* c;
-    int expr = -1;
-    vec_for_each (poly, c)
+    int n, coeff_expr, expr = -1;
+    vec_enumerate (poly, n, c)
     {
-        int coeff_expr;
         if (c->factor == 0.0)
             continue;
 
+        /* Convert term into an expression, including factor */
         if (c->expr < 0)
-            coeff_expr = csfg_expr_lit(expr_pool, c->factor);
+            coeff_expr = csfg_expr_lit(pool, c->factor);
         else
             coeff_expr = csfg_expr_mul(
-                expr_pool,
-                csfg_expr_dup_recurse_from(expr_pool, coeff_pool, c->expr),
-                csfg_expr_lit(expr_pool, c->factor));
+                pool,
+                csfg_expr_dup_recurse(pool, c->expr),
+                csfg_expr_lit(pool, c->factor));
 
-        if (expr == -1)
+        /* Multiply by polynomial variable */
+        if (n == 1)
+            coeff_expr = csfg_expr_mul(
+                pool, coeff_expr, csfg_expr_var(pool, cstr_view(variable)));
+        if (n > 1)
+            coeff_expr = csfg_expr_mul(
+                pool,
+                coeff_expr,
+                csfg_expr_pow(
+                    pool,
+                    csfg_expr_var(pool, cstr_view(variable)),
+                    csfg_expr_lit(pool, n)));
+
+        /* Add to previous term, if any */
+        if (expr < 0)
             expr = coeff_expr;
         else
-            expr = csfg_expr_add(expr_pool, expr, coeff_expr);
+            expr = csfg_expr_add(pool, expr, coeff_expr);
 
         if (expr < 0)
             return -1;
@@ -415,13 +414,13 @@ int csfg_poly_expr_to_expr(
 /* -------------------------------------------------------------------------- */
 int csfg_rational_to_expr(
     const struct csfg_tf_expr* tf,
-    const struct csfg_expr_pool* tf_pool,
-    struct csfg_expr_pool** expr_pool)
+    struct csfg_expr_pool** pool,
+    const char* variable)
 {
     return csfg_expr_div(
-        expr_pool,
-        csfg_poly_expr_to_expr(tf->num, tf_pool, expr_pool),
-        csfg_poly_expr_to_expr(tf->den, tf_pool, expr_pool));
+        pool,
+        csfg_poly_expr_to_expr(tf->num, pool, variable),
+        csfg_poly_expr_to_expr(tf->den, pool, variable));
 }
 
 VEC_DEFINE(csfg_expr_vec, int, 8)

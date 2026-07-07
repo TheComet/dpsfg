@@ -22,7 +22,7 @@ HMAP_DEFINE_STR(extern, tweak_hmap, struct tweak, 16)
 
 static void notify_parameters_changed(struct plugin_ctx* ctx);
 static void on_scale_adj_changed(GtkAdjustment* adj, gpointer user_data);
-static void on_spin_adj_changed(GtkAdjustment* adj, gpointer user_data);
+static void on_butterworth_order_changed(GtkAdjustment* adj, gpointer user_data);
 
 /* -------------------------------------------------------------------------- */
 static void remove_row_containing(GtkGrid* grid, GtkWidget* target)
@@ -59,21 +59,21 @@ static void on_scale_adj_changed(GtkAdjustment* adj, gpointer user_data)
     int digits     = rounded >= 1.0 ? 0 : -(int)rounded + 1.0;
 
     g_signal_handlers_block_by_func(
-        tweak->spin_adj, G_CALLBACK(on_spin_adj_changed), tweak);
+        tweak->spin_adj, G_CALLBACK(on_butterworth_order_changed), tweak);
     {
         gtk_adjustment_configure(
             tweak->spin_adj, value, -DBL_MAX, DBL_MAX, step, 0.0, 0.0);
         gtk_spin_button_set_digits(GTK_SPIN_BUTTON(tweak->spin_button), digits);
     }
     g_signal_handlers_unblock_by_func(
-        tweak->spin_adj, G_CALLBACK(on_spin_adj_changed), tweak);
+        tweak->spin_adj, G_CALLBACK(on_butterworth_order_changed), tweak);
 
     csfg_var_table_set_lit(tweak->vt, str_view(tweak->name), value);
     notify_parameters_changed(tweak->plugin_ctx);
 }
 
 /* -------------------------------------------------------------------------- */
-static void on_spin_adj_changed(GtkAdjustment* adj, gpointer user_data)
+static void on_butterworth_order_changed(GtkAdjustment* adj, gpointer user_data)
 {
     struct tweak* tweak = user_data;
 
@@ -219,7 +219,7 @@ static void rebuild_ui(struct plugin_ctx* ctx)
         g_signal_connect(
             tweak->spin_adj,
             "value-changed",
-            G_CALLBACK(on_spin_adj_changed),
+            G_CALLBACK(on_butterworth_order_changed),
             tweak);
 
         row++;

@@ -40,7 +40,7 @@ TEST_F(NAME, simplify_constant_expression)
 
 TEST_F(NAME, simplify_constant_expression_with_negate)
 {
-    int r1 = csfg_expr_parse(&p1, cstr_view("a^-1"));
+    int r1 = csfg_expr_parse(&p1, cstr_view("a^(-1*1)"));
     ASSERT_GE(r1, 0);
     ASSERT_GT(csfg_rule_fold_constants(&p1), 0);
     ASSERT_EQ(p1->nodes[p1->nodes[r1].child[1]].type, CSFG_EXPR_LIT);

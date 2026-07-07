@@ -7,6 +7,7 @@ catpuccin = dict(
     gc           = ["doubleoctagon", "#e39aa6", "#e39aa6",],
     literal      = ["record",        "#fab387", "#fab387",],
     variable     = ["record",        "#b4befe", "#b4befe",],
+    imag         = ["record",        "#cba6f7", "#cba6f7",],
     inf          = ["record",        "#cba6f7", "#cba6f7",],
     neg          = ["oval",          "#f8f0e3", "#f8f0e3",],
     op           = ["oval",          "#f9e2af", "#f9e2af",],
@@ -22,6 +23,7 @@ dark_nightfly = dict(
     gc           = ["doubleoctagon", "#f95772", "#f95772",],
     literal      = ["record",        "#f78c6c", "#f78c6c",],
     variable     = ["record",        "#b0b2f4", "#b0b2f4",],
+    imag         = ["record",        "#21c7a8", "#21c7a8",],
     inf          = ["record",        "#21c7a8", "#21c7a8",],
     neg          = ["oval",          "#ecc48d", "#ecc48d",],
     op           = ["oval",          "#ecea8d", "#ecea8d",],
@@ -68,6 +70,8 @@ def plot_expr_graph(pool, root):
             print_node_style(n, "op", "*")
         if node["type"] == 7:
             print_node_style(n, "op", "^")
+        if node["type"] == 8:
+            print_node_style(n, "imag", "j")
     def print_edge(n):
         nonlocal text
         left = pool["nodes"][n]["child"][0]

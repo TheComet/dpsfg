@@ -16,12 +16,12 @@ static int expand_constant_exponents(struct csfg_expr_pool** pool)
     int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
-        double              value;
-        int                 reps;
-        int                 chain;
-        int                 sign = 1;
-        int                 base = (*pool)->nodes[n].child[0];
-        int                 exp = (*pool)->nodes[n].child[1];
+        double value;
+        int reps;
+        int chain;
+        int sign                 = 1;
+        int base                 = (*pool)->nodes[n].child[0];
+        int exp                  = (*pool)->nodes[n].child[1];
         enum csfg_expr_type type = (*pool)->nodes[n].type;
 
         if (type != CSFG_EXPR_POW)
@@ -46,7 +46,8 @@ static int expand_constant_exponents(struct csfg_expr_pool** pool)
         for (; reps > 2; --reps)
             chain =
                 csfg_expr_mul(pool, chain, csfg_expr_dup_recurse(pool, base));
-        if (csfg_expr_set_pow(*pool, n, chain, csfg_expr_lit(pool, sign)) == -1)
+        if (csfg_expr_set_pow(*pool, n, chain, csfg_expr_lit(pool, sign)) ==
+            -1)
             return -1;
 
         modified = 1;

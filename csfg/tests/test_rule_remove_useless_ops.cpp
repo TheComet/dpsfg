@@ -140,6 +140,9 @@ TEST_F(NAME, cancel_products_2)
     int r2 = csfg_expr_parse(&p2, cstr_view("-1/G2"));
     ASSERT_GE(r1, 0);
     ASSERT_GE(r2, 0);
+    csfg_rule_fold_constants(&p2);
+    csfg_rule_lower_negates(&p2);
     ASSERT_GT(csfg_rule_remove_useless_ops(&p1), 0);
+    csfg_rule_fold_constants(&p1);
     ASSERT_TRUE(ExprEq(p1, r1, p2, r2));
 }

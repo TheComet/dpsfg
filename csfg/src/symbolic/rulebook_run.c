@@ -315,7 +315,8 @@ static enum match_result match_subtree(
             return MATCH_FOUND;
         }
 
-        case CSFG_EXPR_INF: {
+        case CSFG_EXPR_IMAG:
+        case CSFG_EXPR_INF : {
             if (target_pool->nodes[target_expr].type !=
                 ruleset_pool->nodes[search_expr].type)
                 return MATCH_NONE;
@@ -382,10 +383,11 @@ static int chain_depth(const struct csfg_expr_pool* pool, int parent, int expr)
     type = pool->nodes[expr].type;
     switch (type)
     {
-        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); break;
+        case CSFG_EXPR_GC  : CSFG_DEBUG_ASSERT(0); break;
         case CSFG_EXPR_LIT: break;
-        case CSFG_EXPR_VAR: break;
-        case CSFG_EXPR_INF: break;
+        case CSFG_EXPR_VAR : break;
+        case CSFG_EXPR_IMAG: break;
+        case CSFG_EXPR_INF : break;
         case CSFG_EXPR_NEG:
             return chain_depth(pool, expr, pool->nodes[expr].child[0]);
         case CSFG_EXPR_ADD:
@@ -421,10 +423,11 @@ static int expand_collected_chains(
     type = pool->nodes[expr].type;
     switch (type)
     {
-        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); break;
+        case CSFG_EXPR_GC  : CSFG_DEBUG_ASSERT(0); break;
         case CSFG_EXPR_LIT: break;
-        case CSFG_EXPR_VAR: break;
-        case CSFG_EXPR_INF: break;
+        case CSFG_EXPR_VAR : break;
+        case CSFG_EXPR_IMAG: break;
+        case CSFG_EXPR_INF : break;
         case CSFG_EXPR_NEG:
             return expand_collected_chains(
                 permutations, pool, pool->nodes[expr].child[0], depth, 0);
@@ -615,7 +618,8 @@ static int dup_replace_tree(
         case CSFG_EXPR_GC: CSFG_DEBUG_ASSERT(0); break;
         case CSFG_EXPR_LIT:
             return csfg_expr_lit(target_pool, replace_node->value.lit);
-        case CSFG_EXPR_INF: return csfg_expr_inf(target_pool);
+        case CSFG_EXPR_IMAG: return csfg_expr_imag(target_pool);
+        case CSFG_EXPR_INF : return csfg_expr_inf(target_pool);
         case CSFG_EXPR_NEG:
             return csfg_expr_neg(
                 target_pool,

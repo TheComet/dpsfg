@@ -1,6 +1,6 @@
 #include "csfg/symbolic/expr.h"
-#include "csfg/symbolic/rules.h"
 #include "csfg/symbolic/rulebook.h"
+#include "csfg/symbolic/rules.h"
 
 /* -------------------------------------------------------------------------- */
 /* Searches the subtree "n" recursively until it matches the node "search". The
@@ -11,9 +11,9 @@ static int find_same_expr(const struct csfg_expr_pool* pool, int n, int search)
 {
     if (pool->nodes[n].type == CSFG_EXPR_MUL)
     {
-        int left = pool->nodes[n].child[0];
+        int left  = pool->nodes[n].child[0];
         int right = pool->nodes[n].child[1];
-        n = find_same_expr(pool, left, search);
+        n         = find_same_expr(pool, left, search);
         if (n > -1)
             return n;
         n = find_same_expr(pool, right, search);
@@ -55,24 +55,24 @@ static int process_chain(struct csfg_expr_pool** pool, int n, int top)
 
         if ((*pool)->nodes[n].type == CSFG_EXPR_POW)
         {
-            int exp = (*pool)->nodes[n].child[1];
+            int exp  = (*pool)->nodes[n].child[1];
             int sum1 = csfg_expr_dup_shallow(pool, exp);
-            int sum2 =
-                (*pool)->nodes[match].type == CSFG_EXPR_POW
-                    ? csfg_expr_dup_shallow(pool, (*pool)->nodes[match].child[1])
-                    : csfg_expr_lit(pool, 1.0);
+            int sum2 = (*pool)->nodes[match].type == CSFG_EXPR_POW
+                         ? csfg_expr_dup_shallow(
+                               pool, (*pool)->nodes[match].child[1])
+                         : csfg_expr_lit(pool, 1.0);
             if (csfg_expr_set_add(*pool, exp, sum1, sum2) == -1)
                 return -1;
         }
         else
         {
             int exp = (*pool)->nodes[match].type == CSFG_EXPR_POW
-                          ? csfg_expr_add(
-                                pool,
-                                csfg_expr_dup_shallow(
-                                    pool, (*pool)->nodes[match].child[1]),
-                                csfg_expr_lit(pool, 1.0))
-                          : csfg_expr_lit(pool, 2.0);
+                        ? csfg_expr_add(
+                              pool,
+                              csfg_expr_dup_shallow(
+                                  pool, (*pool)->nodes[match].child[1]),
+                              csfg_expr_lit(pool, 1.0))
+                        : csfg_expr_lit(pool, 2.0);
             if (csfg_expr_set_pow(
                     *pool, n, csfg_expr_dup_shallow(pool, n), exp) == -1)
                 return -1;
@@ -90,7 +90,7 @@ static int simplify_products(struct csfg_expr_pool** pool)
     int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
-        int left = (*pool)->nodes[n].child[0];
+        int left  = (*pool)->nodes[n].child[0];
         int right = (*pool)->nodes[n].child[1];
         if ((*pool)->nodes[n].type != CSFG_EXPR_MUL)
             continue;
@@ -98,14 +98,14 @@ static int simplify_products(struct csfg_expr_pool** pool)
         switch (process_chain(pool, left, n))
         {
             case -1: return -1;
-            case 0: break;
-            case 1: modified = 1; break;
+            case 0 : break;
+            case 1 : modified = 1; break;
         }
         switch (process_chain(pool, right, n))
         {
             case -1: return -1;
-            case 0: break;
-            case 1: modified = 1; break;
+            case 0 : break;
+            case 1 : modified = 1; break;
         }
     }
 

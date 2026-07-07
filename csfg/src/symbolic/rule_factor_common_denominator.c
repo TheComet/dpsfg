@@ -6,7 +6,7 @@
 static int find_power_with_negative_constant_exponent(
     const struct csfg_expr_pool* pool, int n)
 {
-    int left = pool->nodes[n].child[0];
+    int left  = pool->nodes[n].child[0];
     int right = pool->nodes[n].child[1];
     if (pool->nodes[n].type == CSFG_EXPR_MUL)
     {
@@ -36,15 +36,15 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
     int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
-        int    other_summand, pow, product, exp;
+        int other_summand, pow, product, exp;
         double neg_exp;
-        int    left = (*pool)->nodes[n].child[0];
-        int    right = (*pool)->nodes[n].child[1];
+        int left  = (*pool)->nodes[n].child[0];
+        int right = (*pool)->nodes[n].child[1];
 
         if ((*pool)->nodes[n].type != CSFG_EXPR_ADD)
             continue;
 
-        pow = find_power_with_negative_constant_exponent(*pool, left);
+        pow           = find_power_with_negative_constant_exponent(*pool, left);
         other_summand = right;
         if (pow == -1)
         {
@@ -54,18 +54,18 @@ static int factor_common_denominator(struct csfg_expr_pool** pool)
         if (pow == -1)
             continue;
 
-        exp = (*pool)->nodes[pow].child[1];
+        exp     = (*pool)->nodes[pow].child[1];
         neg_exp = -(*pool)->nodes[exp].value.lit;
 
         product = csfg_expr_find_parent(*pool, pow);
         if ((*pool)->nodes[product].type == CSFG_EXPR_MUL)
         {
             int mul = (*pool)->nodes[product].child[0] == pow
-                          ? (*pool)->nodes[product].child[1]
-                          : (*pool)->nodes[product].child[0];
+                        ? (*pool)->nodes[product].child[1]
+                        : (*pool)->nodes[product].child[0];
             /* mul and pow dangle after this */
             (*pool)->nodes[product] = (*pool)->nodes[mul];
-            (*pool)->nodes[mul] = (*pool)->nodes[other_summand];
+            (*pool)->nodes[mul]     = (*pool)->nodes[other_summand];
             csfg_expr_set_mul(
                 *pool,
                 other_summand,

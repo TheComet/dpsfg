@@ -53,6 +53,7 @@ int csfg_expr_integrity_check_recurse(struct csfg_expr_pool* pool, int n)
 
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
+        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF:
             if (left != -1 || right != -1)
                 return -1;

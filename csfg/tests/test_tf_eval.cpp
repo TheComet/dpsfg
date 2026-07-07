@@ -33,8 +33,7 @@ struct NAME : public Test
 {
     void SetUp() override
     {
-        csfg_expr_pool_init(&pool);
-        csfg_expr_pool_init(&tf_pool);
+        csfg_expr_pool_init(&p);
         csfg_tf_expr_init(&tf_expr);
         csfg_var_table_init(&vt);
         csfg_tf_init(&tf);
@@ -44,16 +43,14 @@ struct NAME : public Test
         csfg_tf_deinit(&tf);
         csfg_var_table_deinit(&vt);
         csfg_tf_expr_deinit(&tf_expr);
-        csfg_expr_pool_deinit(tf_pool);
-        csfg_expr_pool_deinit(pool);
+        csfg_expr_pool_deinit(p);
     }
 
-    struct csfg_expr_pool* pool;
-    struct csfg_expr_pool* tf_pool;
-    struct csfg_tf_expr    tf_expr;
-    struct csfg_var_table  vt;
-    struct csfg_tf         tf;
-    struct csfg_complex    z;
+    struct csfg_expr_pool* p;
+    struct csfg_tf_expr tf_expr;
+    struct csfg_var_table vt;
+    struct csfg_tf tf;
+    struct csfg_complex z;
 };
 
 TEST_F(NAME, bandpass)
@@ -65,15 +62,15 @@ TEST_F(NAME, bandpass)
      * --------------------
      * s^2 + wp/qp*s + wp^2
      */
-    int expr = csfg_expr_parse(&pool, cstr_view("k*wp*s/(s^2+wp/qp*s+wp^2)"));
-    csfg_expr_to_rational(pool, expr, cstr_view("s"), &tf_pool, &tf_expr);
+    int expr = csfg_expr_parse(&p, cstr_view("k*wp*s/(s^2+wp/qp*s+wp^2)"));
+    csfg_expr_to_rational(&tf_expr, &p, expr, "s");
     vec_for_each (tf_expr.num, coeff)
-        csfg_var_table_populate(&vt, tf_pool, coeff->expr);
+        csfg_var_table_populate(&vt, p, coeff->expr);
     vec_for_each (tf_expr.den, coeff)
-        csfg_var_table_populate(&vt, tf_pool, coeff->expr);
+        csfg_var_table_populate(&vt, p, coeff->expr);
 
     /* k=1, wp=1, qp=1 */
-    csfg_tf_from_symbolic(&tf, tf_pool, &tf_expr, &vt);
+    csfg_tf_from_symbolic(&tf, p, &tf_expr, &vt);
     ASSERT_THAT(csfg_tf_eval(&tf, csfg_complex(0, 0)), ComplexEq(0, 0));
     ASSERT_THAT(csfg_tf_eval(&tf, csfg_complex(0, 1)), ComplexEq(1, 0));
     ASSERT_THAT(
@@ -87,7 +84,7 @@ TEST_F(NAME, bandpass)
     csfg_var_table_set_lit(&vt, cstr_view("k"), 4);
     csfg_var_table_set_lit(&vt, cstr_view("wp"), 0.1);
     csfg_var_table_set_lit(&vt, cstr_view("qp"), 0.5);
-    csfg_tf_from_symbolic(&tf, tf_pool, &tf_expr, &vt);
+    csfg_tf_from_symbolic(&tf, p, &tf_expr, &vt);
     ASSERT_THAT(csfg_tf_eval(&tf, csfg_complex(0, 0)), ComplexEq(0, 0));
     ASSERT_THAT(
         csfg_tf_eval(&tf, csfg_complex(0, 1)),

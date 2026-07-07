@@ -12,9 +12,9 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
 
     switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
-        case CSFG_EXPR_GC : break;
+        case CSFG_EXPR_GC  : break;
         case CSFG_EXPR_LIT: return pool->nodes[n].value.lit;
-        case CSFG_EXPR_VAR: {
+        case CSFG_EXPR_VAR : {
             double result;
             if (pool->nodes[n].visited)
                 return NAN;
@@ -27,7 +27,8 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
 
             return result;
         }
-        case CSFG_EXPR_INF: return INFINITY;
+        case CSFG_EXPR_INF : return INFINITY;
+        case CSFG_EXPR_IMAG: return NAN;
         case CSFG_EXPR_NEG:
             child_result[0] = eval(pool, pool->nodes[n].child[0], vt);
             break;
@@ -44,11 +45,12 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
         case CSFG_EXPR_GC:
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
-        case CSFG_EXPR_INF: assert(0); break;
-        case CSFG_EXPR_NEG: return -child_result[0];
-        case CSFG_EXPR_ADD: return child_result[0] + child_result[1];
-        case CSFG_EXPR_MUL: return child_result[0] * child_result[1];
-        case CSFG_EXPR_POW: return pow(child_result[0], child_result[1]);
+        case CSFG_EXPR_IMAG:
+        case CSFG_EXPR_INF : assert(0); break;
+        case CSFG_EXPR_NEG : return -child_result[0];
+        case CSFG_EXPR_ADD : return child_result[0] + child_result[1];
+        case CSFG_EXPR_MUL : return child_result[0] * child_result[1];
+        case CSFG_EXPR_POW : return pow(child_result[0], child_result[1]);
     }
 
     return NAN;
@@ -85,7 +87,8 @@ static int has_any_op_as_parent(const struct csfg_expr_pool* pool, int n)
 
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
-        case CSFG_EXPR_INF: break;
+        case CSFG_EXPR_IMAG:
+        case CSFG_EXPR_INF : break;
 
         case CSFG_EXPR_NEG:
         case CSFG_EXPR_ADD:
@@ -138,6 +141,12 @@ int csfg_expr_to_str(
             int var_idx          = pool->nodes[expr].value.var_idx;
             const char* var_name = strlist_cstr(pool->var_names, var_idx);
             if (str_append_cstr(str, var_name) != 0)
+                return -1;
+            break;
+        }
+
+        case CSFG_EXPR_IMAG: {
+            if (str_append_cstr(str, "j") != 0)
                 return -1;
             break;
         }

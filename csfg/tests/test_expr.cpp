@@ -1,4 +1,4 @@
-#include "gtest/gtest.h"
+#include "gmock/gmock.h"
 
 extern "C" {
 #include "csfg/symbolic/expr.h"
@@ -23,7 +23,7 @@ struct NAME : public Test
     }
 
     struct csfg_expr_pool* p;
-    struct csfg_var_table  vt;
+    struct csfg_var_table vt;
 };
 
 TEST_F(NAME, negative_literal)
@@ -73,6 +73,29 @@ TEST_F(NAME, float_numbers)
     int e;
     ASSERT_GE(e = csfg_expr_parse(&p, cstr_view("(2.5-3.54*4.5)^2 + 4.2")), 0);
     ASSERT_DOUBLE_EQ(csfg_expr_eval(p, e, NULL), 184.56489519844058);
+}
+
+TEST_F(NAME, imaginary)
+{
+    int e;
+    ASSERT_GE(e = csfg_expr_parse(&p, cstr_view("j")), 0);
+    ASSERT_EQ(p->nodes[e].type, CSFG_EXPR_IMAG);
+    ASSERT_THAT(
+        csfg_expr_eval(p, e, NULL),
+        NanSensitiveDoubleEq(std::numeric_limits<double>::signaling_NaN()));
+}
+
+TEST_F(NAME, imaginary_value)
+{
+    int e;
+    ASSERT_GE(e = csfg_expr_parse(&p, cstr_view("2j")), 0);
+    ASSERT_EQ(p->nodes[e].type, CSFG_EXPR_MUL);
+    ASSERT_EQ(p->nodes[p->nodes[e].child[0]].type, CSFG_EXPR_IMAG);
+    ASSERT_EQ(p->nodes[p->nodes[e].child[1]].type, CSFG_EXPR_LIT);
+    ASSERT_EQ(p->nodes[p->nodes[e].child[1]].value.lit, 2.0);
+    ASSERT_THAT(
+        csfg_expr_eval(p, e, NULL),
+        NanSensitiveDoubleEq(std::numeric_limits<double>::signaling_NaN()));
 }
 
 TEST_F(NAME, infinity)

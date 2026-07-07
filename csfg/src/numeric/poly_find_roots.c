@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-static const double EPSILON = 1e-8;
+static const double EPSILON = 1e-15;
 
 /* -------------------------------------------------------------------------- */
 static double rand_float(void)
@@ -249,7 +249,7 @@ int csfg_cpoly_find_roots(
         n_iters = 100 * vec_count(coeffs);
 
     if (tolerance <= 0.0)
-        tolerance = 1e-6;
+        tolerance = EPSILON;
 
     /* Pick default initial guess if unspecified */
     if (vec_count(*roots) == 0)

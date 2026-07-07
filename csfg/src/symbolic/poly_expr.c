@@ -202,7 +202,7 @@ int csfg_poly_expr_copy(
     struct csfg_poly_expr** dst, const struct csfg_poly_expr* src)
 {
     const struct csfg_coeff_expr* c;
-    CSFG_DEBUG_ASSERT(vec_count(*dst) == 0);
+    csfg_poly_expr_clear(*dst);
     vec_for_each (src, c)
         if (csfg_poly_expr_push(dst, *c) != 0)
             return -1;
@@ -221,9 +221,9 @@ int csfg_poly_expr_add(
     out_degree = vec_count(p1) > vec_count(p2) ? vec_count(p1) : vec_count(p2);
     min_degree = vec_count(p1) < vec_count(p2) ? vec_count(p1) : vec_count(p2);
 
+    csfg_poly_expr_clear(*out);
     if (csfg_poly_expr_realloc(out, out_degree) != 0)
         return -1;
-    CSFG_DEBUG_ASSERT(vec_count(*out) == 0);
 
     for (i = 0; i != min_degree; ++i)
     {
@@ -260,10 +260,10 @@ int csfg_poly_expr_mul(
     const struct csfg_coeff_expr *c1, *c2;
     int i, i1, i2, degree;
 
+    csfg_poly_expr_clear(*out);
     degree = vec_count(p1) + vec_count(p2) - 1;
     if (csfg_poly_expr_realloc(out, degree) != 0)
         return -1;
-    CSFG_DEBUG_ASSERT(vec_count(*out) == 0);
 
     for (i = 0; i != degree; ++i)
     {
@@ -275,18 +275,8 @@ int csfg_poly_expr_mul(
                     struct csfg_coeff_expr coeff;
                     if (mul_coeffs(pool, &coeff, c1, c2) != 0)
                         return -1;
-
-                    if (acc_coeff.expr == -1)
-                        acc_coeff.expr = coeff.expr;
-                    else if (coeff.expr > -1)
-                    {
-                        acc_coeff.expr =
-                            csfg_expr_mul(pool, acc_coeff.expr, coeff.expr);
-                        if (acc_coeff.expr < 0)
-                            return -1;
-                    }
-
-                    acc_coeff.factor += coeff.factor;
+                    if (add_coeffs(pool, &acc_coeff, &acc_coeff, &coeff) != 0)
+                        return -1;
                 }
 
         if (acc_coeff.factor == 0.0 && acc_coeff.expr > -1)
@@ -312,6 +302,9 @@ int csfg_poly_expr_div(
     const struct csfg_coeff_expr *remainder_coeff, *c2, *divisor;
     CSFG_DEBUG_ASSERT(quotient == NULL || vec_count(*quotient) == 0);
 
+    if (quotient != NULL)
+        csfg_poly_expr_clear(*quotient);
+
     if (*remainder != p1)
         vec_for_each (p1, remainder_coeff)
             if (csfg_poly_expr_push(remainder, *remainder_coeff) != 0)
@@ -333,7 +326,7 @@ int csfg_poly_expr_div(
         if (quotient != NULL && csfg_poly_expr_push(quotient, coeff) != 0)
             return -1;
 
-        vec_enumerate_range(*remainder, i, c1, 0, remainder_degree)
+        vec_enumerate_range (*remainder, i, c1, 0, remainder_degree)
         {
             i2 = i - out_degree;
             if (i2 < 0 || i2 >= vec_count(p2) || vec_get(p2, i2)->factor == 0.0)

@@ -28,12 +28,12 @@ const struct TestParam TEST_PARAMETERS[] = {
         "x*(g+h+i) + y*(a+b+c) + y*(g+h+i)", false,
      },
     {
-     "a+(b+(c+(d+(e+(f+(g+(h+(i+(j+(k+(l+(m+(n+(o+p))))))))))))))", /**/
-        "a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p", false,
+     "a+(b+(c+(d+(e+(f+(g+(h+(k+(l+(m+(n+(o+(p+(q+r))))))))))))))", /**/
+        "a+b+c+d+e+f+g+h+k+l+m+n+o+p+q+r", false,
      },
     {
-     "(((a+b)+(c+d))+((e+f)+(g+h)))+(((i+j)+(k+l))+((m+n)+(o+p)))", /**/
-        "a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p", false,
+     "(((a+b)+(c+d))+((e+f)+(g+h)))+(((k+l)+(m+n))+((o+p)+(q+r)))", /**/
+        "a+b+c+d+e+f+g+h+k+l+m+n+o+p+q+r", false,
      },
     {
      "-G1*(s*C+G1+G2) / (C*s*(s*C+G1+G2) + G2*(s*C+G1+G2))", /**/
@@ -54,7 +54,6 @@ struct NAME : public TestWithParam<TestParam>, public ExprHelper
 {
     void SetUp() override { csfg_expr_pool_init(&p); }
     void TearDown() override { csfg_expr_pool_deinit(p); }
-
     struct csfg_expr_pool* p;
 };
 

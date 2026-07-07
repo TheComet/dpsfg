@@ -410,170 +410,6 @@ move_active_edge_in_direction(GraphEditor* editor, double dx, double dy)
 }
 
 /* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_edge_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_edge_in_direction(editor, -1, 0);
-            break;
-        case MODE_MOVE:
-            move_active_edge_in_direction(editor, -1, 0);
-            move_active_node_in_direction(editor, -1, 0);
-            break;
-    }
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-static gboolean
-shortcut_edge_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_edge_in_direction(editor, 1, 0);
-            break;
-        case MODE_MOVE:
-            move_active_edge_in_direction(editor, 1, 0);
-            move_active_node_in_direction(editor, 1, 0);
-            break;
-    }
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-static gboolean
-shortcut_edge_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_edge_in_direction(editor, 0, -1);
-            break;
-        case MODE_MOVE:
-            move_active_edge_in_direction(editor, 0, -1);
-            move_active_node_in_direction(editor, 0, -1);
-            break;
-    }
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-static gboolean
-shortcut_edge_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_edge_in_direction(editor, 0, 1);
-            break;
-        case MODE_MOVE:
-            move_active_edge_in_direction(editor, 0, 1);
-            move_active_node_in_direction(editor, 0, 1);
-            break;
-    }
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_node_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_node_in_direction(editor, -1, 0);
-            break;
-        case MODE_MOVE:
-            move_active_node_in_direction(editor, -1, 0);
-            move_active_edge_in_direction(editor, -1, 0);
-            break;
-    }
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-static gboolean
-shortcut_node_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_node_in_direction(editor, 1, 0);
-            break;
-        case MODE_MOVE:
-            move_active_node_in_direction(editor, 1, 0);
-            move_active_edge_in_direction(editor, 1, 0);
-            break;
-    }
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-static gboolean
-shortcut_node_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_node_in_direction(editor, 0, -1);
-            break;
-        case MODE_MOVE:
-            move_active_node_in_direction(editor, 0, -1);
-            move_active_edge_in_direction(editor, 0, -1);
-            break;
-    }
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-static gboolean
-shortcut_node_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_node_in_direction(editor, 0, 1);
-            break;
-        case MODE_MOVE:
-            move_active_node_in_direction(editor, 0, 1);
-            move_active_edge_in_direction(editor, 0, 1);
-            break;
-    }
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_switch_mode_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    switch (editor->mode)
-    {
-        case MODE_NORMAL: editor->mode = MODE_MOVE; break;
-        case MODE_MOVE  : editor->mode = MODE_NORMAL; break;
-    }
-
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
 static int is_near_any_other_node(
     double x,
     double y,
@@ -760,60 +596,6 @@ static int create_new_node(GraphEditor* editor, int n_id_prev)
 }
 
 /* -------------------------------------------------------------------------- */
-static void notify_graph_changed(GraphEditor* editor)
-{
-    int node_in_idx, node_out_idx;
-    const struct csfg_node* n;
-
-    if (editor->graph == NULL)
-        return;
-
-    csfg_graph_enumerate_nodes (editor->graph, node_in_idx, n)
-        if (n->id == editor->node_in_id)
-            break;
-    csfg_graph_enumerate_nodes (editor->graph, node_out_idx, n)
-        if (n->id == editor->node_out_id)
-            break;
-
-    if (node_in_idx == csfg_graph_node_count(editor->graph))
-        node_in_idx = -1;
-    if (node_out_idx == csfg_graph_node_count(editor->graph))
-        node_out_idx = -1;
-
-    editor->icb->graph_structure_changed(
-        editor->cb, editor->plugin_ctx, node_in_idx, node_out_idx);
-}
-
-/* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_new_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    editor->active_node_id = create_new_node(editor, editor->active_node_id);
-    editor->active_edge_id = -1;
-    editor->mode           = MODE_NORMAL;
-    notify_graph_changed(editor);
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
-static gboolean shortcut_new_node_and_edge_cb(
-    GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor     = user_data;
-    int prev_active_node_id = editor->active_node_id;
-    (void)widget, (void)unused;
-    editor->active_node_id = create_new_node(editor, editor->active_node_id);
-    editor->mode           = MODE_NORMAL;
-    create_new_edge(editor, prev_active_node_id, editor->active_node_id);
-    notify_graph_changed(editor);
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
 static int delete_edge(GraphEditor* editor, int edge_id)
 {
     int e_idx;
@@ -893,83 +675,69 @@ static int delete_node(GraphEditor* editor, int node_id)
 }
 
 /* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+static void notify_graph_changed(GraphEditor* editor)
 {
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
+    int node_in_idx, node_out_idx;
+    const struct csfg_node* n;
 
-    editor->active_node_id = delete_node(editor, editor->active_node_id);
-    editor->active_edge_id = delete_edge(editor, editor->active_edge_id);
+    if (editor->graph == NULL)
+        return;
+
+    csfg_graph_enumerate_nodes (editor->graph, node_in_idx, n)
+        if (n->id == editor->node_in_id)
+            break;
+    csfg_graph_enumerate_nodes (editor->graph, node_out_idx, n)
+        if (n->id == editor->node_out_id)
+            break;
+
+    if (node_in_idx == csfg_graph_node_count(editor->graph))
+        node_in_idx = -1;
+    if (node_out_idx == csfg_graph_node_count(editor->graph))
+        node_out_idx = -1;
+
+    editor->icb->graph_structure_changed(
+        editor->cb, editor->plugin_ctx, node_in_idx, node_out_idx);
+}
+
+/* -------------------------------------------------------------------------- */
+static void finish_editing(GtkEntry* entry, gpointer user_data)
+{
+    int n_idx;
+    struct csfg_node* n;
+    struct csfg_edge* e;
+    struct edge_attr* ea;
+    GraphEditor* editor = user_data;
+
+    const char* text = gtk_editable_get_text(GTK_EDITABLE(entry));
+
+    if (editor->active_node_id > -1)
+    {
+        csfg_graph_enumerate_nodes (editor->graph, n_idx, n)
+            if (n->id == editor->active_node_id)
+            {
+                str_set_cstr(&n->name, text);
+                break;
+            }
+    }
+    else if (editor->active_edge_id > -1)
+    {
+        ea = edge_attr_hmap_find(editor->edge_attrs, editor->active_edge_id);
+        str_set_cstr(&ea->expr_str, text);
+
+        csfg_graph_for_each_edge (editor->graph, e)
+            if (e->id == editor->active_edge_id)
+            {
+                csfg_expr_pool_clear(e->pool);
+                e->expr = csfg_expr_parse(&e->pool, cstr_view(text));
+            }
+    }
+
+    gtk_widget_unparent(editor->entry);
+    editor->entry = NULL;
 
     notify_graph_changed(editor);
     gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
 }
-
-/* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_select_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    if (editor->selected_node_id == editor->active_node_id)
-        editor->selected_node_id = -1;
-    else
-        editor->selected_node_id = editor->active_node_id;
-    editor->mode = MODE_NORMAL;
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_new_edge_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    create_new_edge(editor, editor->selected_node_id, editor->active_node_id);
-    notify_graph_changed(editor);
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_set_in_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    editor->node_in_id = editor->active_node_id;
-    notify_graph_changed(editor);
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
-static gboolean shortcut_set_out_node_cb(
-    GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    editor->node_out_id = editor->active_node_id;
-    notify_graph_changed(editor);
-    gtk_widget_queue_draw(editor->drawing_area);
-    return TRUE;
-}
-
-/* -------------------------------------------------------------------------- */
-static void finish_editing(GtkEntry* e, gpointer user_data);
-static void
-on_entry_focus_changed(GObject* obj, GParamSpec* pspec, gpointer user_data)
-{
-    GtkWidget* entry = GTK_WIDGET(obj);
-    (void)pspec;
-    if (!gtk_widget_has_focus(entry))
-        finish_editing(GTK_ENTRY(entry), user_data);
-}
-
-/* -------------------------------------------------------------------------- */
 static void start_editing(
     GraphEditor* editor,
     double x,
@@ -1001,8 +769,14 @@ static void start_editing(
     g_signal_connect(
         editor->entry, "activate", G_CALLBACK(finish_editing), editor);
 }
-
-/* -------------------------------------------------------------------------- */
+static void
+on_entry_focus_changed(GObject* obj, GParamSpec* pspec, gpointer user_data)
+{
+    GtkWidget* entry = GTK_WIDGET(obj);
+    (void)pspec;
+    if (!gtk_widget_has_focus(entry))
+        finish_editing(GTK_ENTRY(entry), user_data);
+}
 static void start_editing_active_node_or_edge(GraphEditor* editor)
 {
     const struct csfg_node* n;
@@ -1027,6 +801,323 @@ static void start_editing_active_node_or_edge(GraphEditor* editor)
 }
 
 /* -------------------------------------------------------------------------- */
+static gboolean
+shortcut_node_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_node_in_direction(editor, -1, 0);
+            break;
+        case MODE_MOVE:
+            move_active_node_in_direction(editor, -1, 0);
+            move_active_edge_in_direction(editor, -1, 0);
+            break;
+    }
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_node_left_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_node_left_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_node_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_node_in_direction(editor, 1, 0);
+            break;
+        case MODE_MOVE:
+            move_active_node_in_direction(editor, 1, 0);
+            move_active_edge_in_direction(editor, 1, 0);
+            break;
+    }
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_node_right_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_node_right_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_node_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_node_in_direction(editor, 0, -1);
+            break;
+        case MODE_MOVE:
+            move_active_node_in_direction(editor, 0, -1);
+            move_active_edge_in_direction(editor, 0, -1);
+            break;
+    }
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_node_up_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_node_up_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_node_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_node_in_direction(editor, 0, 1);
+            break;
+        case MODE_MOVE:
+            move_active_node_in_direction(editor, 0, 1);
+            move_active_edge_in_direction(editor, 0, 1);
+            break;
+    }
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_node_down_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_node_down_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_edge_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(editor, -1, 0);
+            break;
+        case MODE_MOVE:
+            move_active_edge_in_direction(editor, -1, 0);
+            move_active_node_in_direction(editor, -1, 0);
+            break;
+    }
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_edge_left_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_edge_left_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_edge_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(editor, 1, 0);
+            break;
+        case MODE_MOVE:
+            move_active_edge_in_direction(editor, 1, 0);
+            move_active_node_in_direction(editor, 1, 0);
+            break;
+    }
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_edge_right_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_edge_right_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_edge_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(editor, 0, -1);
+            break;
+        case MODE_MOVE:
+            move_active_edge_in_direction(editor, 0, -1);
+            move_active_node_in_direction(editor, 0, -1);
+            break;
+    }
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_edge_up_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_edge_up_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_edge_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(editor, 0, 1);
+            break;
+        case MODE_MOVE:
+            move_active_edge_in_direction(editor, 0, 1);
+            move_active_node_in_direction(editor, 0, 1);
+            break;
+    }
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_edge_down_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_edge_down_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_switch_mode_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    switch (editor->mode)
+    {
+        case MODE_NORMAL: editor->mode = MODE_MOVE; break;
+        case MODE_MOVE  : editor->mode = MODE_NORMAL; break;
+    }
+
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_switch_mode_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_switch_mode_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_new_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    editor->active_node_id = create_new_node(editor, editor->active_node_id);
+    editor->active_edge_id = -1;
+    editor->mode           = MODE_NORMAL;
+    notify_graph_changed(editor);
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_new_node_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_new_node_cb(NULL, NULL, user_data);
+}
+
+static gboolean shortcut_new_node_and_edge_cb(
+    GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor     = user_data;
+    int prev_active_node_id = editor->active_node_id;
+    (void)widget, (void)unused;
+    editor->active_node_id = create_new_node(editor, editor->active_node_id);
+    editor->mode           = MODE_NORMAL;
+    create_new_edge(editor, prev_active_node_id, editor->active_node_id);
+    notify_graph_changed(editor);
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_new_node_and_edge_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_new_node_and_edge_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    editor->active_node_id = delete_node(editor, editor->active_node_id);
+    editor->active_edge_id = delete_edge(editor, editor->active_edge_id);
+    notify_graph_changed(editor);
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_delete_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_delete_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_select_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    if (editor->selected_node_id == editor->active_node_id)
+        editor->selected_node_id = -1;
+    else
+        editor->selected_node_id = editor->active_node_id;
+    editor->mode = MODE_NORMAL;
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_select_node_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_select_node_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_new_edge_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    create_new_edge(editor, editor->selected_node_id, editor->active_node_id);
+    notify_graph_changed(editor);
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_new_edge_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_new_edge_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_set_in_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    editor->node_in_id = editor->active_node_id;
+    notify_graph_changed(editor);
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_set_in_node_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_set_in_node_cb(NULL, NULL, user_data);
+}
+
+static gboolean shortcut_set_out_node_cb(
+    GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    editor->node_out_id = editor->active_node_id;
+    notify_graph_changed(editor);
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_set_out_node_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_set_out_node_cb(NULL, NULL, user_data);
+}
+
 static gboolean shortcut_edit_node_or_edge_cb(
     GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
@@ -1034,13 +1125,18 @@ static gboolean shortcut_edit_node_or_edge_cb(
     start_editing_active_node_or_edge(user_data);
     return TRUE;
 }
+static void button_edit_node_or_edge_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_edit_node_or_edge_cb(NULL, NULL, user_data);
+}
 
 /* -------------------------------------------------------------------------- */
-static void setup_global_shortcuts(GraphEditor* editor)
+static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
 {
     GtkEventController* controller;
     GtkShortcutTrigger* trigger;
     GtkShortcutAction* action;
+    GtkWidget* button;
     GtkShortcut* shortcut;
     int i;
 
@@ -1049,7 +1145,7 @@ static void setup_global_shortcuts(GraphEditor* editor)
         guint keyval;
         GdkModifierType modifiers;
         gboolean (*callback)(GtkWidget*, GVariant*, gpointer);
-    } table[] = {
+    } shortcuts[] = {
         /* clang-format off */
         {GDK_KEY_h, GDK_NO_MODIFIER_MASK, shortcut_node_left_cb},
         {GDK_KEY_l, GDK_NO_MODIFIER_MASK, shortcut_node_right_cb},
@@ -1062,13 +1158,30 @@ static void setup_global_shortcuts(GraphEditor* editor)
         {GDK_KEY_m, GDK_NO_MODIFIER_MASK, shortcut_switch_mode_cb},
         {GDK_KEY_m, GDK_SHIFT_MASK,       shortcut_switch_mode_cb},
         {GDK_KEY_n, GDK_NO_MODIFIER_MASK, shortcut_new_node_cb},
+        {GDK_KEY_e, GDK_NO_MODIFIER_MASK, shortcut_new_edge_cb},
         {GDK_KEY_n, GDK_SHIFT_MASK,       shortcut_new_node_and_edge_cb},
         {GDK_KEY_x, GDK_NO_MODIFIER_MASK, shortcut_delete_cb},
         {GDK_KEY_s, GDK_NO_MODIFIER_MASK, shortcut_select_node_cb},
-        {GDK_KEY_e, GDK_NO_MODIFIER_MASK, shortcut_new_edge_cb},
         {GDK_KEY_i, GDK_NO_MODIFIER_MASK, shortcut_set_in_node_cb},
         {GDK_KEY_o, GDK_NO_MODIFIER_MASK, shortcut_set_out_node_cb},
         {GDK_KEY_i, GDK_SHIFT_MASK,       shortcut_edit_node_or_edge_cb},
+        /* clang-format on */
+    };
+
+    struct
+    {
+        const char* text;
+        const char* tooltip;
+        void (*callback)(GtkButton*, gpointer);
+    } buttons[] = {
+        /* clang-format off */
+        {"New Node",           "Shortcut: n",       button_new_node_cb},
+        {"New Connected Node", "Shortcut: Shift+n", button_new_node_and_edge_cb},
+        {"Select",             "Shortcut: s",       button_select_node_cb},
+        {"New Edge",           "Shortcut: e",       button_new_edge_cb},
+        {"Delete",             "Shortcut: x",       button_delete_cb},
+        {"Set Input Node",     "Shortcut: i",       button_set_in_node_cb},
+        {"Set Output Node",    "Shortcut: o",       button_set_out_node_cb},
         /* clang-format on */
     };
 
@@ -1077,13 +1190,24 @@ static void setup_global_shortcuts(GraphEditor* editor)
         GTK_SHORTCUT_CONTROLLER(controller), GTK_SHORTCUT_SCOPE_GLOBAL);
     gtk_widget_add_controller(editor->drawing_area, controller);
 
-    for (i = 0; i != G_N_ELEMENTS(table); ++i)
+    for (i = 0; i != G_N_ELEMENTS(shortcuts); ++i)
     {
-        trigger  = gtk_keyval_trigger_new(table[i].keyval, table[i].modifiers);
-        action   = gtk_callback_action_new(table[i].callback, editor, NULL);
+        trigger =
+            gtk_keyval_trigger_new(shortcuts[i].keyval, shortcuts[i].modifiers);
+        action   = gtk_callback_action_new(shortcuts[i].callback, editor, NULL);
         shortcut = gtk_shortcut_new(trigger, action);
         gtk_shortcut_controller_add_shortcut(
             GTK_SHORTCUT_CONTROLLER(controller), shortcut);
+    }
+
+    for (i = 0; i != G_N_ELEMENTS(buttons); ++i)
+    {
+        button = gtk_button_new();
+        gtk_button_set_label(GTK_BUTTON(button), buttons[i].text);
+        gtk_widget_set_tooltip_text(button, buttons[i].tooltip);
+        gtk_box_append(toolbar, button);
+        g_signal_connect(
+            button, "clicked", G_CALLBACK(buttons[i].callback), editor);
     }
 }
 
@@ -1402,46 +1526,6 @@ try_select_edge(double mouse_x, double mouse_y, const struct csfg_graph* graph)
 }
 
 /* -------------------------------------------------------------------------- */
-static void finish_editing(GtkEntry* entry, gpointer user_data)
-{
-    int n_idx;
-    struct csfg_node* n;
-    struct csfg_edge* e;
-    struct edge_attr* ea;
-    GraphEditor* editor = user_data;
-
-    const char* text = gtk_editable_get_text(GTK_EDITABLE(entry));
-
-    if (editor->active_node_id > -1)
-    {
-        csfg_graph_enumerate_nodes (editor->graph, n_idx, n)
-            if (n->id == editor->active_node_id)
-            {
-                str_set_cstr(&n->name, text);
-                break;
-            }
-    }
-    else if (editor->active_edge_id > -1)
-    {
-        ea = edge_attr_hmap_find(editor->edge_attrs, editor->active_edge_id);
-        str_set_cstr(&ea->expr_str, text);
-
-        csfg_graph_for_each_edge (editor->graph, e)
-            if (e->id == editor->active_edge_id)
-            {
-                csfg_expr_pool_clear(e->pool);
-                e->expr = csfg_expr_parse(&e->pool, cstr_view(text));
-            }
-    }
-
-    gtk_widget_unparent(editor->entry);
-    editor->entry = NULL;
-
-    notify_graph_changed(editor);
-    gtk_widget_queue_draw(editor->drawing_area);
-}
-
-/* -------------------------------------------------------------------------- */
 static void try_select_edge_or_node(GraphEditor* editor, double x, double y)
 {
     editor->active_node_id =
@@ -1485,6 +1569,7 @@ static void click_end(
     double y,
     gpointer user_data)
 {
+    (void)gesture, (void)n_press, (void)x, (void)y, (void)user_data;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1556,6 +1641,7 @@ static void drag_update(
 static void
 drag_end(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
+    (void)gesture, (void)x, (void)y, (void)user_data;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1689,9 +1775,13 @@ static void graph_editor_init(GraphEditor* self)
     self->overlay = gtk_overlay_new();
     gtk_overlay_set_child(GTK_OVERLAY(self->overlay), self->drawing_area);
 
-    gtk_box_append(GTK_BOX(self), self->overlay);
+    GtkWidget* toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    setup_global_shortcuts(self, GTK_BOX(toolbar));
 
-    setup_global_shortcuts(self);
+    gtk_orientable_set_orientation(
+        GTK_ORIENTABLE(self), GTK_ORIENTATION_VERTICAL);
+    gtk_box_append(GTK_BOX(self), toolbar);
+    gtk_box_append(GTK_BOX(self), self->overlay);
     gtk_widget_set_focusable(GTK_WIDGET(self), TRUE);
 }
 
@@ -1848,4 +1938,19 @@ void graph_editor_set_edge_attributes(
     edge_attr_hmap_deinit(editor->edge_attrs);
 
     editor->edge_attrs = edge_attrs;
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_editor_clear_attrs(GraphEditor* editor)
+{
+    int i, id;
+    struct edge_attr* ea;
+
+    if (editor->edge_attrs != NULL)
+        hmap_for_each (editor->edge_attrs, i, id, ea)
+        {
+            (void)id, (void)ea;
+            edge_attr_deinit(edge_attr_hmap_erase_slot(editor->edge_attrs, i));
+        }
+    edge_attr_hmap_clear(editor->edge_attrs);
 }

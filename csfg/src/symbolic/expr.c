@@ -72,51 +72,54 @@ int csfg_expr_new(
 
 /* -------------------------------------------------------------------------- */
 static int insert_substitutions(
-    struct csfg_expr_pool** pool, int n, const struct csfg_var_table* vt)
+    struct csfg_expr_pool** pool, int expr, const struct csfg_var_table* vt)
 {
-    int left, right, dup;
+    int left, right;
     const struct csfg_var_table_entry* entry;
 
+    CSFG_DEBUG_ASSERT(expr >= 0);
+
     entry = NULL;
-    if ((*pool)->nodes[n].type == CSFG_EXPR_VAR)
+    if ((*pool)->nodes[expr].type == CSFG_EXPR_VAR)
     {
-        entry = csfg_var_hmap_find(
-            vt->map,
-            strlist_view((*pool)->var_names, (*pool)->nodes[n].value.var_idx));
+        int var_idx             = (*pool)->nodes[expr].value.var_idx;
+        struct strview var_name = strlist_view((*pool)->var_names, var_idx);
+        entry                   = csfg_var_hmap_find(vt->map, var_name);
     }
 
     if (entry != NULL)
     {
         if (entry->pool->nodes[entry->expr].type == CSFG_EXPR_INF)
-            return 0;
+            return expr;
 
         if (entry->pool->nodes[entry->expr].visited)
             return -1;
         entry->pool->nodes[entry->expr].visited = 1;
 
-        dup = csfg_expr_dup_recurse_from(pool, entry->pool, entry->expr);
-        if (dup == -1)
+        expr = csfg_expr_dup_recurse_from(pool, entry->pool, entry->expr);
+        if (expr < 0)
             return -1;
-        (*pool)->nodes[n] = (*pool)->nodes[dup];
-        csfg_expr_mark_deleted_shallow(*pool, dup);
 
-        if (insert_substitutions(pool, n, vt) != 0)
+        expr = insert_substitutions(pool, expr, vt);
+        if (expr < 0)
             return -1;
     }
 
-    left  = (*pool)->nodes[n].child[0];
-    right = (*pool)->nodes[n].child[1];
+    left  = (*pool)->nodes[expr].child[0];
+    right = (*pool)->nodes[expr].child[1];
     if (left > -1)
-        if (insert_substitutions(pool, left, vt) != 0)
+        if ((left = insert_substitutions(pool, left, vt)) < 0)
             return -1;
     if (right > -1)
-        if (insert_substitutions(pool, right, vt) != 0)
+        if ((right = insert_substitutions(pool, right, vt)) < 0)
             return -1;
+    (*pool)->nodes[expr].child[0] = left;
+    (*pool)->nodes[expr].child[1] = right;
 
     if (entry != NULL)
         entry->pool->nodes[entry->expr].visited = 0;
 
-    return 0;
+    return expr;
 }
 int csfg_expr_insert_substitutions(
     struct csfg_expr_pool** pool, int expr, const struct csfg_var_table* vt)
@@ -132,52 +135,29 @@ int csfg_expr_insert_substitutions(
 
 /* -------------------------------------------------------------------------- */
 int csfg_expr_apply_limits(
-    const struct csfg_expr_pool* in_pool,
-    int in_expr,
-    const struct csfg_var_table* vt,
-    struct csfg_expr_pool** out_pool)
+    struct csfg_expr_pool** pool, int expr, const struct csfg_var_table* vt)
 {
-    int slot, out_expr, result;
+    int slot;
     struct str* key;
     struct csfg_var_table_entry* entry;
     struct csfg_tf_expr tf;
-    struct csfg_expr_pool* tmp_pool;
 
     csfg_tf_expr_init(&tf);
-    csfg_expr_pool_init(&tmp_pool);
 
-    out_expr = -1;
     hmap_for_each (vt->map, slot, key, entry)
-    {
-        struct strview var_name = str_view(key);
-        if (entry->pool->nodes[entry->expr].type != CSFG_EXPR_INF)
-            continue;
+        if (entry->pool->nodes[entry->expr].type == CSFG_EXPR_INF)
+        {
+            if (csfg_expr_to_rational_limit(&tf, pool, expr, str_cstr(key)) < 0)
+                goto fail;
+            expr = csfg_rational_to_expr(&tf, pool, str_cstr(key));
+            if (expr < 0)
+                goto fail;
+        }
 
-        csfg_expr_pool_clear(tmp_pool);
-        csfg_tf_expr_clear(&tf);
-        result = csfg_expr_to_rational_limit(
-            in_pool, in_expr, var_name, &tmp_pool, &tf);
-        if (result != 0)
-            goto fail;
-
-        out_expr = csfg_rational_to_expr(&tf, tmp_pool, out_pool);
-        if (out_expr < 0)
-            goto fail;
-
-        in_pool = *out_pool;
-        in_expr = out_expr;
-    }
-
-    /* If no INF variables were set, then we just copy */
-    if (out_expr < 0)
-        out_expr = csfg_expr_dup_recurse_from(out_pool, in_pool, in_expr);
-
-    csfg_expr_pool_deinit(tmp_pool);
     csfg_tf_expr_deinit(&tf);
-    return out_expr;
+    return expr;
 
 fail:
-    csfg_expr_pool_deinit(tmp_pool);
     csfg_tf_expr_deinit(&tf);
     return -1;
 }
@@ -205,6 +185,12 @@ int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name)
         return -1;
 
     return n;
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_expr_imag(struct csfg_expr_pool** pool)
+{
+    return csfg_expr_new(pool, CSFG_EXPR_IMAG, -1, -1);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -258,6 +244,19 @@ int csfg_expr_set_var(struct csfg_expr_pool* pool, int n, struct strview name)
         return -1;
 
     return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_expr_set_imag(struct csfg_expr_pool* pool, int n)
+{
+    if (n == -1)
+        return -1;
+
+    pool->nodes[n].type     = CSFG_EXPR_IMAG;
+    pool->nodes[n].child[0] = -1;
+    pool->nodes[n].child[1] = -1;
+
+    return n;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -415,11 +414,12 @@ int csfg_expr_dup_shallow_from(
                 return -1;
             break;
         }
-        case CSFG_EXPR_INF: break;
-        case CSFG_EXPR_NEG: break;
-        case CSFG_EXPR_ADD: break;
-        case CSFG_EXPR_MUL: break;
-        case CSFG_EXPR_POW: break;
+        case CSFG_EXPR_IMAG: break;
+        case CSFG_EXPR_INF : break;
+        case CSFG_EXPR_NEG : break;
+        case CSFG_EXPR_ADD : break;
+        case CSFG_EXPR_MUL : break;
+        case CSFG_EXPR_POW : break;
     }
 
     return dup;
@@ -619,11 +619,12 @@ int csfg_expr_equal(
                 return 0;
             break;
         }
+        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF:
         case CSFG_EXPR_NEG:
         case CSFG_EXPR_ADD:
         case CSFG_EXPR_MUL:
-        case CSFG_EXPR_POW: break;
+        case CSFG_EXPR_POW : break;
     }
 
     child1 = pool1->nodes[expr1].child[0];
@@ -646,14 +647,15 @@ static int rank(const struct csfg_expr_pool* pool, int n)
 {
     switch ((enum csfg_expr_type)pool->nodes[n].type)
     {
-        case CSFG_EXPR_GC : break;
-        case CSFG_EXPR_LIT: return 6;
-        case CSFG_EXPR_VAR: return 5;
-        case CSFG_EXPR_INF: return 7;
-        case CSFG_EXPR_NEG: return 4;
-        case CSFG_EXPR_ADD: return 3;
-        case CSFG_EXPR_MUL: return 2;
-        case CSFG_EXPR_POW: return 1;
+        case CSFG_EXPR_GC  : break;
+        case CSFG_EXPR_LIT : return 6;
+        case CSFG_EXPR_VAR : return 5;
+        case CSFG_EXPR_IMAG: return 7;
+        case CSFG_EXPR_INF : return 8;
+        case CSFG_EXPR_NEG : return 4;
+        case CSFG_EXPR_ADD : return 3;
+        case CSFG_EXPR_MUL : return 2;
+        case CSFG_EXPR_POW : return 1;
     }
     return 0;
 }
@@ -678,7 +680,8 @@ int csfg_expr_lexicographical_compare(
             struct strview var_b = strlist_view(pool->var_names, var_idx_b);
             return -strview_lexicographic_compare(var_a, var_b);
         }
-        case CSFG_EXPR_INF: return 0;
+        case CSFG_EXPR_IMAG: return 0;
+        case CSFG_EXPR_INF : return 0;
         case CSFG_EXPR_NEG:
             return csfg_expr_lexicographical_compare(
                 pool, pool->nodes[a].child[0], pool->nodes[b].child[0]);

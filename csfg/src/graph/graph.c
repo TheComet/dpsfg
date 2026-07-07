@@ -12,7 +12,7 @@ static int node_init(struct csfg_node* n, int id, const char* name)
     n->x  = 0;
     n->y  = 0;
     str_init(&n->name);
-    return str_set_cstr(&n->name, name);
+    return  str_set_cstr(&n->name, name) ;
 }
 
 /* -------------------------------------------------------------------------- */

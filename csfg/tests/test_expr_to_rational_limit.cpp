@@ -16,8 +16,7 @@ struct NAME : public Test, public ExprHelper
 {
     void SetUp() override
     {
-        csfg_expr_pool_init(&in_pool);
-        csfg_expr_pool_init(&out_pool);
+        csfg_expr_pool_init(&p);
         csfg_tf_expr_init(&tf);
         csfg_var_table_init(&vt);
     }
@@ -26,12 +25,10 @@ struct NAME : public Test, public ExprHelper
     {
         csfg_var_table_deinit(&vt);
         csfg_tf_expr_deinit(&tf);
-        csfg_expr_pool_deinit(out_pool);
-        csfg_expr_pool_deinit(in_pool);
+        csfg_expr_pool_deinit(p);
     }
 
-    struct csfg_expr_pool* in_pool;
-    struct csfg_expr_pool* out_pool;
+    struct csfg_expr_pool* p;
     struct csfg_tf_expr tf;
     struct csfg_var_table vt;
 };
@@ -43,19 +40,15 @@ TEST_F(NAME, zero_divided_by_zero)
      * ----------- |      = ---
      * 0*x^2 + 0*x |x->oo    0
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(0*x^2 + 0*x)/(0*x^2 + 0*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(0*x^2 + 0*x)/(0*x^2 + 0*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 0.0));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 0.0));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, 0.0));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 0.0));
 }
 
 TEST_F(NAME, zero_numerator)
@@ -65,19 +58,15 @@ TEST_F(NAME, zero_numerator)
      * ----------- |      = 0
      * c*x^2 + d*x |x->oo
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(0*x^2 + 0*x)/(c*x^2 + d*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(0*x^2 + 0*x)/(c*x^2 + d*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 0.0));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, 0.0));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 1.0));
 }
 
 TEST_F(NAME, positive_zero_denominator)
@@ -87,19 +76,15 @@ TEST_F(NAME, positive_zero_denominator)
      * ----------- |      = --
      * 0*x^2 + 0*x |x->oo   0
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(a*x^2 + b*x)/(0*x^2 + 0*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(a*x^2 + b*x)/(0*x^2 + 0*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, CSFG_EXPR_INF));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 0.0));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, 1.0, CSFG_EXPR_INF));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 0.0));
 }
 
 TEST_F(NAME, negative_zero_denominator)
@@ -109,19 +94,15 @@ TEST_F(NAME, negative_zero_denominator)
      * ------------ |      = ---
      *  0*x^2 + 0*x |x->oo    0
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(-a*x^2 + b*x)/(0*x^2 + 0*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(-a*x^2 + b*x)/(0*x^2 + 0*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, -1.0, CSFG_EXPR_INF));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 0.0));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, -1.0, CSFG_EXPR_INF));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 0.0));
 }
 
 TEST_F(NAME, numerator_diverges_positive_inf)
@@ -131,19 +112,15 @@ TEST_F(NAME, numerator_diverges_positive_inf)
      * ----------- |      = oo
      * 0*x^2 + d*x |x->oo
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(a*x^2 + b*x)/(0*x^2 + d*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(a*x^2 + b*x)/(0*x^2 + d*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, CSFG_EXPR_INF));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, 1.0, CSFG_EXPR_INF));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 1.0));
 }
 
 TEST_F(NAME, numerator_diverges_negative_inf)
@@ -153,19 +130,15 @@ TEST_F(NAME, numerator_diverges_negative_inf)
      * ------------ |      = -oo
      *  0*x^2 + d*x |x->oo
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(-a*x^2 + b*x)/(0*x^2 + d*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(-a*x^2 + b*x)/(0*x^2 + d*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, -1.0, CSFG_EXPR_INF));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, -1.0, CSFG_EXPR_INF));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 1.0));
 }
 
 TEST_F(NAME, denominator_diverges)
@@ -175,19 +148,15 @@ TEST_F(NAME, denominator_diverges)
      * ----------- |      = 0
      * c*x^2 + d*x |x->oo
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(0*x^2 + b*x)/(c*x^2 + d*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(0*x^2 + b*x)/(c*x^2 + d*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 0.0));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, 0.0));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 1.0));
 }
 
 TEST_F(NAME, converge_1)
@@ -197,19 +166,15 @@ TEST_F(NAME, converge_1)
      * ----------- |      = ---
      * 0*x^2 + d*x |x->oo    d
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(0*x^2 + b*x)/(0*x^2 + d*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(0*x^2 + b*x)/(0*x^2 + d*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, "b"));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0, "d"));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, 1.0, "b"));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 1.0, "d"));
 }
 
 TEST_F(NAME, converge_2)
@@ -219,17 +184,13 @@ TEST_F(NAME, converge_2)
      * ----------- |      = ---
      * c*x^2 + d*x |x->oo    c
      */
-    int expr =
-        csfg_expr_parse(&in_pool, cstr_view("(a*x^2 + b*x)/(c*x^2 + d*x)"));
+    int expr = csfg_expr_parse(&p, cstr_view("(a*x^2 + b*x)/(c*x^2 + d*x)"));
     ASSERT_GE(expr, 0);
 
-    ASSERT_EQ(
-        csfg_expr_to_rational_limit(
-            in_pool, expr, cstr_view("x"), &out_pool, &tf),
-        0);
+    ASSERT_EQ(csfg_expr_to_rational_limit(&tf, &p, expr, "x"), 0);
 
     ASSERT_EQ(vec_count(tf.num), 1);
     ASSERT_EQ(vec_count(tf.den), 1);
-    ASSERT_TRUE(CoeffEq(out_pool, tf.num, 0, 1.0, "a"));
-    ASSERT_TRUE(CoeffEq(out_pool, tf.den, 0, 1.0, "c"));
+    ASSERT_TRUE(CoeffEq(p, tf.num, 0, 1.0, "a"));
+    ASSERT_TRUE(CoeffEq(p, tf.den, 0, 1.0, "c"));
 }

@@ -10,8 +10,8 @@
 #    define BAD_SEP '\\'
 #endif
 
-VEC_DECLARE(str_impl, char, 16)
-VEC_DEFINE(str_impl, char, 16)
+VEC_DECLARE(str_impl, char, 32)
+VEC_DEFINE(str_impl, char, 32)
 
 /* -------------------------------------------------------------------------- */
 static int is_sep(char c)
@@ -36,6 +36,7 @@ void str_deinit(struct str* str)
 int str_ensure_capacity(struct str** str, int capacity)
 {
     struct str_impl* impl = (struct str_impl*)*str;
+
     if (impl == NULL)
     {
         if (str_impl_realloc((struct str_impl**)str, capacity + 1) != 0)
@@ -48,7 +49,10 @@ int str_ensure_capacity(struct str** str, int capacity)
 
     if (impl->capacity < capacity + 1)
     {
-        if (str_impl_realloc((struct str_impl**)str, capacity + 1) != 0)
+        int new_size = impl->capacity;
+        while (new_size < capacity + 1)
+            new_size *= 2;
+        if (str_impl_realloc((struct str_impl**)str, new_size) != 0)
             return -1;
     }
 
@@ -180,7 +184,17 @@ void str_set_len(struct str* str, int new_len)
 /* -------------------------------------------------------------------------- */
 int str_set(struct str** str, const char* data, int len)
 {
-    struct str_impl* impl;
+    struct str_impl* impl = (struct str_impl*)*str;
+
+    if (len == 0)
+    {
+        if (impl != NULL)
+        {
+            impl->data[0] = '\0';
+            impl->count   = 0;
+        }
+        return 0;
+    }
 
     if (str_ensure_capacity(str, len) != 0)
         return -1;
@@ -284,6 +298,7 @@ int str_vfmt(struct str** str, const char* fmt, va_list ap)
 
     if (vsprintf(str_data(*str), fmt, ap) != len)
         return -1;
+    ((struct str_impl*)*str)->count = len + 1;
 
     return 0;
 }

@@ -113,12 +113,23 @@ struct ExprHelper
         const char* expr_str)
     {
         if (idx >= vec_count(p))
+        {
+            std::cerr << "idx: " << idx << " is smaller than " << vec_count(p)
+                      << std::endl;
             return false;
+        }
         if (vec_get(p, idx)->expr < 0)
+        {
+            std::cerr << "expr == -1" << std::endl;
             return false;
-        if (!ExprEq(pool, vec_get(p, idx)->expr, expr_str))
+        }
+        if (vec_get(p, idx)->factor != factor)
+        {
+            std::cerr << vec_get(p, idx)->factor << " != " << factor
+                      << std::endl;
             return false;
-        return vec_get(p, idx)->factor == factor;
+        }
+        return ExprEq(pool, vec_get(p, idx)->expr, expr_str);
     }
 
     bool CoeffEq(

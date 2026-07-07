@@ -14,7 +14,8 @@ enum csfg_expr_type
     CSFG_EXPR_NEG,
     CSFG_EXPR_ADD,
     CSFG_EXPR_MUL,
-    CSFG_EXPR_POW
+    CSFG_EXPR_POW,
+    CSFG_EXPR_IMAG
 };
 
 struct csfg_expr_node
@@ -25,7 +26,7 @@ struct csfg_expr_node
         int var_idx;
     } value;
     int child[2];
-    unsigned type    : 3;
+    unsigned type    : 4;
     unsigned visited : 1;
 };
 
@@ -114,20 +115,21 @@ int csfg_expr_new(
 int csfg_expr_insert_substitutions(
     struct csfg_expr_pool** pool, int expr, const struct csfg_var_table* vt);
 int csfg_expr_apply_limits(
-    const struct csfg_expr_pool* in_pool,
-    int in_expr,
-    const struct csfg_var_table* vt,
-    struct csfg_expr_pool** out_pool);
+    struct csfg_expr_pool** pool,
+    int expr,
+    const struct csfg_var_table* vt);
 
 int csfg_expr_simplify(struct csfg_expr_pool** pool, int expr);
 
 /* Leaf nodes */
 int csfg_expr_lit(struct csfg_expr_pool** pool, double value);
 int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name);
+int csfg_expr_imag(struct csfg_expr_pool** pool);
 int csfg_expr_inf(struct csfg_expr_pool** pool);
 
 int csfg_expr_set_lit(struct csfg_expr_pool* pool, int n, double value);
 int csfg_expr_set_var(struct csfg_expr_pool* pool, int n, struct strview name);
+int csfg_expr_set_imag(struct csfg_expr_pool* pool, int n);
 int csfg_expr_set_inf(struct csfg_expr_pool* pool, int n);
 
 /* Unary operators */

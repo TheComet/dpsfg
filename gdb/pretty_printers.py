@@ -6,6 +6,7 @@ if this_dir not in sys.path:
     sys.path.insert(0, this_dir)
 
 import plot
+import expr
 import mathprint
 
 from rb import rb_PrettyPrinter

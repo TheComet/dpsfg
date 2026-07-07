@@ -11,9 +11,10 @@ void csfg_expr_rotate_chain(struct csfg_expr_pool* pool, int chain)
         case CSFG_EXPR_GC:
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
+        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF:
         case CSFG_EXPR_NEG:
-        case CSFG_EXPR_POW: return;
+        case CSFG_EXPR_POW : return;
 
         case CSFG_EXPR_ADD:
         case CSFG_EXPR_MUL: break;

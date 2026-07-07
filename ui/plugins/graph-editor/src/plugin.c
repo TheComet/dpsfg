@@ -43,6 +43,7 @@ static void graph_on_unload(struct plugin_ctx* ctx)
 static void
 graph_on_structure_changed(struct plugin_ctx* ctx, int node_in, int node_out)
 {
+    graph_editor_clear_attrs(ctx->graph_editor);
     graph_editor_rebuild_graph(ctx->graph_editor, node_in, node_out);
 }
 static void graph_on_layout_changed(struct plugin_ctx* ctx)

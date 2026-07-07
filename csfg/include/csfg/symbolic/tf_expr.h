@@ -1,7 +1,6 @@
 #pragma once
 
 #include "csfg/symbolic/poly_expr.h"
-#include "csfg/util/strview.h"
 
 struct csfg_expr_pool;
 struct csfg_var_table;
@@ -31,11 +30,10 @@ static void csfg_tf_expr_clear(struct csfg_tf_expr* r)
 }
 
 int csfg_expr_to_rational(
-    const struct csfg_expr_pool* in_pool,
-    int in_expr,
-    struct strview main_var,
-    struct csfg_expr_pool** tf_pool,
-    struct csfg_tf_expr* tf);
+    struct csfg_tf_expr* tf,
+    struct csfg_expr_pool** pool,
+    int expr,
+    const char* variable);
 
 /*!
  * @brief Calculates lim_{variable->oo} of an expression and returns it as a
@@ -58,22 +56,20 @@ int csfg_expr_to_rational(
  * Returns -1 on failure, 0 on success.
  */
 int csfg_expr_to_rational_limit(
-    const struct csfg_expr_pool* in_pool,
-    int in_expr,
-    struct strview variable,
-    struct csfg_expr_pool** tf_pool,
-    struct csfg_tf_expr* tf);
+    struct csfg_tf_expr* tf,
+    struct csfg_expr_pool** pool,
+    int expr,
+    const char* variable);
 int csfg_expr_to_rational_limits(
-    const struct csfg_expr_pool* in_pool,
-    int in_expr,
-    const struct csfg_var_table* vt,
-    struct csfg_expr_pool** tf_pool,
-    struct csfg_tf_expr* tf);
+    struct csfg_tf_expr* tf,
+    struct csfg_expr_pool** pool,
+    int expr,
+    const struct csfg_var_table* vt);
 
 int csfg_rational_to_expr(
     const struct csfg_tf_expr* tf,
-    const struct csfg_expr_pool* tf_pool,
-    struct csfg_expr_pool** expr_pool);
+    struct csfg_expr_pool** pool,
+    const char* variable);
 
 VEC_DECLARE(csfg_expr_vec, int, 8)
 

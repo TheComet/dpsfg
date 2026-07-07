@@ -33,12 +33,8 @@ open_file_failed:
 }
 
 /* -------------------------------------------------------------------------- */
-int math_pipeline_init(struct math_pipeline* pl)
+void math_pipeline_init(struct math_pipeline* pl)
 {
-    csfg_rulebook_init(&pl->rulebook);
-    if (load_expr_ops(&pl->rulebook) != 0)
-        goto load_expr_ops_failed;
-
     csfg_graph_init(&pl->graph);
     csfg_path_vec_init(&pl->paths);
     csfg_path_vec_init(&pl->loops);
@@ -47,14 +43,12 @@ int math_pipeline_init(struct math_pipeline* pl)
 
     csfg_var_table_init(&pl->substitutions);
 
-    csfg_expr_pool_init(&pl->graph_pool);
-    csfg_expr_pool_init(&pl->subs_pool);
-    csfg_expr_pool_init(&pl->lim_pool);
+    csfg_expr_pool_init(&pl->pool);
+    csfg_expr_pool_init(&pl->prev_pool);
     pl->graph_expr = -1;
     pl->subs_expr  = -1;
     pl->lim_expr   = -1;
 
-    csfg_expr_pool_init(&pl->tf_pool);
     csfg_tf_expr_init(&pl->tf_expr);
 
     csfg_var_table_init(&pl->parameters);
@@ -63,12 +57,6 @@ int math_pipeline_init(struct math_pipeline* pl)
     csfg_pfd_poly_init(&pl->pfd_impulse);
     csfg_pfd_poly_init(&pl->pfd_step);
     csfg_pfd_poly_init(&pl->pfd_ramp);
-
-    return 0;
-
-load_expr_ops_failed:
-    csfg_rulebook_deinit(&pl->rulebook);
-    return -1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -80,15 +68,12 @@ void math_pipeline_deinit(struct math_pipeline* pl)
     csfg_tf_deinit(&pl->tf);
     csfg_var_table_deinit(&pl->parameters);
     csfg_tf_expr_deinit(&pl->tf_expr);
-    csfg_expr_pool_deinit(pl->tf_pool);
-    csfg_expr_pool_deinit(pl->lim_pool);
-    csfg_expr_pool_deinit(pl->subs_pool);
-    csfg_expr_pool_deinit(pl->graph_pool);
+    csfg_expr_pool_deinit(pl->prev_pool);
+    csfg_expr_pool_deinit(pl->pool);
     csfg_var_table_deinit(&pl->substitutions);
     csfg_path_vec_deinit(pl->loops);
     csfg_path_vec_deinit(pl->paths);
     csfg_graph_deinit(&pl->graph);
-    csfg_rulebook_deinit(&pl->rulebook);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -131,157 +116,151 @@ int math_pipeline_save(const struct math_pipeline* pl, struct serializer** ser)
 }
 
 /* -------------------------------------------------------------------------- */
-static void calc_graph_expression(struct math_pipeline* pipeline)
+static void calc_graph_expression(struct math_pipeline* pl)
 {
     /* It's OK if node_in/node_out are -1 here */
     csfg_graph_find_forward_paths(
-        &pipeline->graph,
-        &pipeline->paths,
-        pipeline->node_in,
-        pipeline->node_out);
-    csfg_graph_find_loops(&pipeline->graph, &pipeline->loops);
+        &pl->graph, &pl->paths, pl->node_in, pl->node_out);
+    csfg_graph_find_loops(&pl->graph, &pl->loops);
 
-    pipeline->graph_expr = csfg_graph_mason(
-        &pipeline->graph,
-        &pipeline->graph_pool,
-        pipeline->paths,
-        pipeline->loops);
-    if (pipeline->graph_expr > -1)
+    pl->graph_expr =
+        csfg_graph_mason(&pl->graph, &pl->pool, pl->paths, pl->loops);
+    if (pl->graph_expr > -1)
     {
         csfg_rules_run(
-            &pipeline->graph_pool,
+            &pl->pool,
             csfg_rule_fold_constants,
             csfg_rule_remove_useless_ops,
             NULL);
-        pipeline->graph_expr =
-            csfg_expr_gc(pipeline->graph_pool, pipeline->graph_expr);
+        pl->graph_expr = csfg_expr_gc(pl->pool, pl->graph_expr);
     }
 }
-static void calc_substitutions(struct math_pipeline* pipeline)
+static void calc_substitutions(struct math_pipeline* pl)
 {
-    /* It's OK if graph_expr is -1 here */
-    csfg_expr_pool_clear(pipeline->subs_pool);
-    pipeline->subs_expr = csfg_expr_dup_recurse_from(
-        &pipeline->subs_pool, pipeline->graph_pool, pipeline->graph_expr);
-    if (pipeline->subs_expr > -1)
-        if (csfg_expr_insert_substitutions(
-                &pipeline->subs_pool,
-                pipeline->subs_expr,
-                &pipeline->substitutions) != 0)
-        {
-            csfg_expr_pool_clear(pipeline->subs_pool);
-            pipeline->subs_expr = -1;
-        }
-    if (pipeline->subs_expr > -1)
+    pl->subs_expr = -1;
+    if (pl->graph_expr > -1)
+    {
+        pl->subs_expr = csfg_expr_insert_substitutions(
+            &pl->pool, pl->graph_expr, &pl->substitutions);
+    }
+    if (pl->subs_expr > -1)
     {
         csfg_rules_run(
-            &pipeline->subs_pool,
+            &pl->pool,
             csfg_rule_fold_constants,
             csfg_rule_remove_useless_ops,
             NULL);
-        pipeline->subs_expr =
-            csfg_expr_gc(pipeline->subs_pool, pipeline->subs_expr);
+        pl->subs_expr = csfg_expr_gc(pl->pool, pl->subs_expr);
     }
 }
-static void calc_limits(struct math_pipeline* pipeline)
+static void calc_limits(struct math_pipeline* pl)
 {
-    csfg_expr_pool_clear(pipeline->lim_pool);
-    pipeline->lim_expr = -1;
-    if (pipeline->subs_expr > -1)
-        pipeline->lim_expr = csfg_expr_apply_limits(
-            pipeline->subs_pool,
-            pipeline->subs_expr,
-            &pipeline->substitutions,
-            &pipeline->lim_pool);
-    if (pipeline->lim_expr > -1)
+    pl->lim_expr = -1;
+    if (pl->subs_expr > -1)
     {
-        pipeline->lim_expr =
-            csfg_expr_simplify(&pipeline->lim_pool, pipeline->lim_expr);
+        pl->lim_expr = csfg_expr_apply_limits(
+            &pl->pool, pl->subs_expr, &pl->substitutions);
     }
+    if (pl->lim_expr > -1)
+        pl->lim_expr = csfg_expr_simplify(&pl->pool, pl->lim_expr);
 }
-static void calc_symbolic_tf(struct math_pipeline* pipeline)
+static void calc_symbolic_tf(struct math_pipeline* pl)
 {
-    csfg_tf_expr_clear(&pipeline->tf_expr);
-    csfg_expr_pool_clear(pipeline->tf_pool);
-    if (pipeline->lim_expr > -1)
-        if (csfg_expr_to_rational(
-                pipeline->lim_pool,
-                pipeline->lim_expr,
-                cstr_view("s"),
-                &pipeline->tf_pool,
-                &pipeline->tf_expr) != 0)
-        {
-            csfg_expr_pool_clear(pipeline->tf_pool);
-            csfg_tf_expr_clear(&pipeline->tf_expr);
-        }
-    if (csfg_expr_pool_count(pipeline->tf_pool) > 0)
+    csfg_tf_expr_clear(&pl->tf_expr);
+    if (pl->lim_expr > -1)
     {
-        csfg_rules_run(
-            &pipeline->tf_pool,
-            csfg_rule_fold_constants,
-            csfg_rule_remove_useless_ops,
-            NULL);
+        struct csfg_coeff_expr* c;
+        csfg_expr_to_rational(&pl->tf_expr, &pl->pool, pl->lim_expr, "s");
+        vec_for_each (pl->tf_expr.num, c)
+            if (c->expr > -1)
+                c->expr = csfg_expr_simplify(&pl->pool, c->expr);
+        vec_for_each (pl->tf_expr.den, c)
+            if (c->expr > -1)
+                c->expr = csfg_expr_simplify(&pl->pool, c->expr);
     }
 }
-static void repopulate_parameter_table(struct math_pipeline* pipeline)
+static void repopulate_parameter_table(struct math_pipeline* pl)
 {
     const struct csfg_coeff_expr* coeff;
+    csfg_var_table_reset_visited(&pl->parameters);
 
-    csfg_var_table_reset_visited(&pipeline->parameters);
+    vec_for_each (pl->tf_expr.num, coeff)
+        csfg_var_table_populate(&pl->parameters, pl->pool, coeff->expr);
+    vec_for_each (pl->tf_expr.den, coeff)
+        csfg_var_table_populate(&pl->parameters, pl->pool, coeff->expr);
 
-    vec_for_each (pipeline->tf_expr.num, coeff)
-        csfg_var_table_populate(
-            &pipeline->parameters, pipeline->tf_pool, coeff->expr);
-
-    vec_for_each (pipeline->tf_expr.den, coeff)
-        csfg_var_table_populate(
-            &pipeline->parameters, pipeline->tf_pool, coeff->expr);
-
-    csfg_var_table_erase_unvisited(&pipeline->parameters);
+    csfg_var_table_erase_unvisited(&pl->parameters);
 }
-static void calc_numeric_tf(struct math_pipeline* mp)
+static void calc_numeric_tf(struct math_pipeline* pl)
 {
-    csfg_tf_from_symbolic(&mp->tf, mp->tf_pool, &mp->tf_expr, &mp->parameters);
+    csfg_tf_from_symbolic(&pl->tf, pl->pool, &pl->tf_expr, &pl->parameters);
 }
-static void calc_pfds(struct math_pipeline* mp)
+static void calc_pfds(struct math_pipeline* pl)
 {
     csfg_rpoly_partial_fraction_decomposition(
-        &mp->pfd_impulse, mp->tf.num, mp->tf.poles);
+        &pl->pfd_impulse, pl->tf.num, pl->tf.poles);
 
     /* temporarily append poles to get step and ramp responses */
-    if (csfg_rpoly_push(&mp->tf.poles, csfg_complex(0, 0)) != 0)
+    if (csfg_rpoly_push(&pl->tf.poles, csfg_complex(0, 0)) != 0)
         goto push_step_pole_failed;
     csfg_rpoly_partial_fraction_decomposition(
-        &mp->pfd_step, mp->tf.num, mp->tf.poles);
+        &pl->pfd_step, pl->tf.num, pl->tf.poles);
 
-    if (csfg_rpoly_push(&mp->tf.poles, csfg_complex(0, 0)) != 0)
+    if (csfg_rpoly_push(&pl->tf.poles, csfg_complex(0, 0)) != 0)
         goto push_ramp_pole_failed;
     csfg_rpoly_partial_fraction_decomposition(
-        &mp->pfd_ramp, mp->tf.num, mp->tf.poles);
+        &pl->pfd_ramp, pl->tf.num, pl->tf.poles);
 
-    csfg_rpoly_pop(mp->tf.poles);
+    csfg_rpoly_pop(pl->tf.poles);
 push_step_pole_failed:
-    csfg_rpoly_pop(mp->tf.poles);
+    csfg_rpoly_pop(pl->tf.poles);
 push_ramp_pole_failed:
     return;
 }
 void math_pipeline_update(
-    struct math_pipeline* mp, enum math_pipeline_state state)
+    struct math_pipeline* pl, enum math_pipeline_state state)
 {
+    /* To prevent the pool from growing infinitely, the pool is cleared whenever
+     * an expression is recalculated. The only case where the pool can be
+     * completely cleared is when we have to re-run everything. In case of a
+     * partial update (for example, if the graph didn't change but
+     * substitutions changed), we copy over the existing graph to avoid having
+     * to run mason again. */
+
+    if (state == MATH_PIPELINE_GRAPH_CHANGED)
+    {
+        csfg_expr_pool_clear(pl->pool);
+    }
+    else if (state == MATH_PIPELINE_SUBSTITUTIONS_CHANGED)
+    {
+        struct csfg_expr_pool* tmp = pl->pool;
+        pl->pool                   = pl->prev_pool;
+        pl->prev_pool              = tmp;
+        /* Graph has not changed, copy over its expression, but clear every
+         * other expression */
+        csfg_expr_pool_clear(pl->pool);
+        pl->graph_expr = csfg_expr_dup_recurse_from(
+            &pl->pool, pl->prev_pool, pl->graph_expr);
+    }
+    else if (state == MATH_PIPELINE_PARAMETERS_CHANGED)
+    {
+        /* no expression has changed */
+    }
+
     switch (state)
     {
         case MATH_PIPELINE_GRAPH_CHANGED: /**/
-            calc_graph_expression(mp);
+            calc_graph_expression(pl);
             /* fallthrough */
         case MATH_PIPELINE_SUBSTITUTIONS_CHANGED: /**/
-            calc_substitutions(mp);
-            calc_limits(mp);
-            calc_symbolic_tf(mp);
-            repopulate_parameter_table(mp);
+            calc_substitutions(pl);
+            calc_limits(pl);
+            calc_symbolic_tf(pl);
+            repopulate_parameter_table(pl);
             /* fallthrough */
         case MATH_PIPELINE_PARAMETERS_CHANGED: /**/
-            calc_numeric_tf(mp);
-            calc_pfds(mp);
+            calc_numeric_tf(pl);
+            calc_pfds(pl);
             /* fallthrough */
     }
 }
@@ -306,10 +285,10 @@ static void notify_expr_changed(
     if (i->expr == NULL)
         return;
 
-    i->expr->on_mason_expr(ctx, pipeline->graph_pool, pipeline->graph_expr);
-    i->expr->on_substituted_expr(ctx, pipeline->subs_pool, pipeline->subs_expr);
-    i->expr->on_limit_expr(ctx, pipeline->lim_pool, pipeline->lim_expr);
-    i->expr->on_tf_expr(ctx, pipeline->tf_pool, &pipeline->tf_expr);
+    i->expr->on_mason_expr(ctx, pipeline->pool, pipeline->graph_expr);
+    i->expr->on_substituted_expr(ctx, pipeline->pool, pipeline->subs_expr);
+    i->expr->on_limit_expr(ctx, pipeline->pool, pipeline->lim_expr);
+    i->expr->on_tf_expr(ctx, pipeline->pool, &pipeline->tf_expr);
 }
 static void notify_substitutions_changed(
     const struct dpsfg_plugin_interface* i, struct plugin_ctx* ctx)
