@@ -56,7 +56,7 @@ macro (sqlgen_target name)
         COMMAND sqlgen -b ${_backends} -i ${_input_file} --header ${_output_header} --source ${_output_source}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         MAIN_DEPENDENCY ${_input_file}
-        DEPENDS sqlgen
+        DEPENDS sqlgen ${_input_file}
         COMMENT "[sqlgen][${name}] Generating SQL bindings for backends: ${_backends}"
         VERBATIM)
 

@@ -32,7 +32,8 @@ add_subdirectory ("thirdparty/mathomatic")
 add_subdirectory ("thirdparty/sqlite-3.43.1")
 add_subdirectory ("thirdparty/sqlgen/sqlgen")
 add_subdirectory ("csfg")
-add_subdirectory ("ui")
+add_subdirectory ("ui-gtk")
+add_subdirectory ("plugins")
 add_subdirectory ("doc/report")
 
 # All subprojects have added targets to this export
