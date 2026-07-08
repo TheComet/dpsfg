@@ -1299,18 +1299,32 @@ static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
 
     struct
     {
-        const char* text;
         const char* tooltip;
+        const char* icon;
         void (*callback)(GtkButton*, gpointer);
     } buttons[] = {
         /* clang-format off */
-        {"New Node",           "Shortcut: n",       button_new_node_cb},
-        {"New Connected Node", "Shortcut: Shift+n", button_new_node_and_edge_cb},
-        {"Select",             "Shortcut: s",       button_select_node_cb},
-        {"New Edge",           "Shortcut: e",       button_new_edge_cb},
-        {"Delete",             "Shortcut: x",       button_delete_cb},
-        {"Set Input Node",     "Shortcut: i",       button_set_in_node_cb},
-        {"Set Output Node",    "Shortcut: o",       button_set_out_node_cb},
+        {"New Node\n"                      "Shortcut: n",
+         "/ch/thecomet/dpsfg/graph-editor/icons/new-node.svg",
+         button_new_node_cb},
+        {"New Connected Node\n"            "Shortcut: Shift+n",
+         "/ch/thecomet/dpsfg/graph-editor/icons/new-node-with-edge.svg",
+         button_new_node_and_edge_cb},
+        {"New Edge\n"                      "Shortcut: e",
+         "/ch/thecomet/dpsfg/graph-editor/icons/new-edge.svg",
+         button_new_edge_cb},
+        {"Mark Node (for connections)\n"   "Shortcut: s",
+         "/ch/thecomet/dpsfg/graph-editor/icons/mark-node.svg",
+         button_mark_node_cb},
+        {"Set Input Node\n"                "Shortcut: i",
+         "/ch/thecomet/dpsfg/graph-editor/icons/input-node.svg",
+         button_set_in_node_cb},
+        {"Set Output Node\n"               "Shortcut: o",
+         "/ch/thecomet/dpsfg/graph-editor/icons/output-node.svg",
+         button_set_out_node_cb},
+        {"Delete\n"                        "Shortcut: x",
+         "/ch/thecomet/dpsfg/graph-editor/icons/delete.svg",
+         button_delete_cb},
         /* clang-format on */
     };
 
@@ -1331,8 +1345,9 @@ static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
 
     for (i = 0; i != G_N_ELEMENTS(buttons); ++i)
     {
-        button = gtk_button_new();
-        gtk_button_set_label(GTK_BUTTON(button), buttons[i].text);
+        GtkWidget* image = gtk_image_new_from_resource(buttons[i].icon);
+        button           = gtk_button_new();
+        gtk_button_set_child(GTK_BUTTON(button), image);
         gtk_widget_set_tooltip_text(button, buttons[i].tooltip);
         gtk_box_append(toolbar, button);
         g_signal_connect(

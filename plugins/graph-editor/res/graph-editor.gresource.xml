@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/ch/thecomet/dpsfg/graph-editor">
+    <file>icons/new-node.svg</file>
+    <file>icons/new-node-with-edge.svg</file>
+    <file>icons/new-edge.svg</file>
+    <file>icons/mark-node.svg</file>
+    <file>icons/delete.svg</file>
+    <file>icons/input-node.svg</file>
+    <file>icons/output-node.svg</file>
+  </gresource>
+</gresources>

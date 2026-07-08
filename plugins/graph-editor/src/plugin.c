@@ -124,6 +124,8 @@ static struct plugin_ctx* create(
     edge_attr_hmap_init(&ctx->edge_attrs);
 
     graph_editor_register_type_internal(type_module);
+    GResource* graph_editor_get_resource(void);
+    g_resources_register(graph_editor_get_resource());
 
     return ctx;
 }

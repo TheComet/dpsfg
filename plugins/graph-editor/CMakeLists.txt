@@ -7,9 +7,15 @@ project ("graph-editor"
 find_package (GTK4 REQUIRED COMPONENTS
     gtk glib cairo pango pangocairo harfbuzz gdk-pixbuf graphene)
 
+gtk_compile_resource (
+    "res/graph-editor.gresource.xml"
+    "src/graph-editor.gresource.c")
+
 include (DPSFGPlugin)
 dpsfg_add_plugin ("graph-editor"
     SOURCES
+        "${PROJECT_BINARY_DIR}/src/graph-editor.gresource.c"
+        "res/graph-editor.gresource.xml"
         "src/plugin.c"
         "src/graph_editor.c"
     INCLUDES

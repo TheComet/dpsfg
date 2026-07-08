@@ -249,7 +249,7 @@ macro (gtk_compile_resource in_file out_file)
         COMMAND ${GTK4_glib_compile_resources_PROGRAM}
         ARGS --generate --target=${_output_file} ${_input_file}
         WORKING_DIRECTORY ${_work_dir}
-        MAIN_DEPENDENCY ${_input_file}
+        DEPENDS ${_input_file}
         COMMENT "Compiling resource ${_input_file}"
         VERBATIM)
 
