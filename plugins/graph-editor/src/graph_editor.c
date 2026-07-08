@@ -1356,6 +1356,33 @@ static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
 }
 
 /* -------------------------------------------------------------------------- */
+static void draw_grid_with_size(
+    cairo_t* cr,
+    double pan_x,
+    double pan_y,
+    int width,
+    int height,
+    int grid_width,
+    double color)
+{
+    int from_x = -(int)pan_x / grid_width * grid_width - grid_width;
+    int from_y = -(int)pan_y / grid_width * grid_width - grid_width;
+    int to_x   = from_x + width + grid_width;
+    int to_y   = from_y + height + grid_width;
+
+    cairo_set_source_rgb(cr, color, color, color);
+    for (int x = from_x; x < to_x; x += grid_width)
+    {
+        cairo_move_to(cr, x, from_y);
+        cairo_line_to(cr, x, to_y);
+    }
+    for (int y = from_y; y < to_y; y += grid_width)
+    {
+        cairo_move_to(cr, from_x, y);
+        cairo_line_to(cr, to_x, y);
+    }
+    cairo_stroke(cr);
+}
 static void draw_grid(
     cairo_t* cr, double pan_x, double pan_y, int width, int height, double zoom)
 {
@@ -1364,23 +1391,8 @@ static void draw_grid(
     width /= zoom;
     height /= zoom;
 
-    int from_x = -(int)pan_x / GRID_WIDTH * GRID_WIDTH - GRID_WIDTH;
-    int from_y = -(int)pan_y / GRID_WIDTH * GRID_WIDTH - GRID_WIDTH;
-    int to_x   = from_x + width + GRID_WIDTH;
-    int to_y   = from_y + height + GRID_WIDTH;
-
-    cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
-    for (int x = from_x; x < to_x; x += 20)
-    {
-        cairo_move_to(cr, x, from_y);
-        cairo_line_to(cr, x, to_y);
-    }
-    for (int y = from_y; y < to_y; y += 20)
-    {
-        cairo_move_to(cr, from_x, y);
-        cairo_line_to(cr, to_x, y);
-    }
-    cairo_stroke(cr);
+    draw_grid_with_size(cr, pan_x, pan_y, width, height, GRID_WIDTH, 0.8);
+    draw_grid_with_size(cr, pan_x, pan_y, width, height, GRID_WIDTH * 6, 0.7);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1695,9 +1707,11 @@ static void drag_update(
     double offset_y,
     gpointer user_data)
 {
+    int snap_size;
     struct csfg_node* n;
     struct csfg_edge* e;
     double start_x, start_y, x, y;
+    GdkEvent* event;
     GraphEditor* editor       = user_data;
     struct graph_model* model = &editor->model;
 
@@ -1708,10 +1722,20 @@ static void drag_update(
     n = find_node(model->graph, model->active_node_id);
     e = find_edge(model->graph, model->active_edge_id);
 
+    snap_size = 20;
+    event =
+        gtk_event_controller_get_current_event(GTK_EVENT_CONTROLLER(gesture));
+    if (event)
+    {
+        GdkModifierType mods = gdk_event_get_modifier_state(event);
+        if (mods & GDK_CONTROL_MASK)
+            snap_size *= 6;
+    }
+
     if (n != NULL)
     {
-        int node_x = round((x - editor->drag_offset_x) / 20) * 20;
-        int node_y = round((y - editor->drag_offset_y) / 20) * 20;
+        int node_x = round((x - editor->drag_offset_x) / snap_size) * snap_size;
+        int node_y = round((y - editor->drag_offset_y) / snap_size) * snap_size;
 
         drag_edge_with_node(
             model->graph, model->active_node_id, node_x, node_y);
@@ -1721,8 +1745,8 @@ static void drag_update(
     }
     else if (e != NULL)
     {
-        e->x = round((x - editor->drag_offset_x) / 20) * 20;
-        e->y = round((y - editor->drag_offset_y) / 20) * 20;
+        e->x = round((x - editor->drag_offset_x) / snap_size) * snap_size;
+        e->y = round((y - editor->drag_offset_y) / snap_size) * snap_size;
     }
 
     gtk_widget_queue_draw(editor->drawing_area);
