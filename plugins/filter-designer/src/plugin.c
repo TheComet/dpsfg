@@ -23,7 +23,8 @@
     X(hp2,                                                                     \
       "Highpass 2nd Order",                                                    \
       create_low_order_filter_ui(ctx, G_CALLBACK(on_hp2_generate_clicked)))    \
-    X(butterworth, "Butterworth", create_butterworth_ui(ctx))
+    X(butterworth, "Butterworth", create_butterworth_ui(ctx))                  \
+    /*X(elliptic, "Elliptic", create_elliptic_ui(ctx))*/
 
 struct plugin_ctx
 {
@@ -36,9 +37,9 @@ struct plugin_ctx
     unsigned we_are_in_control : 1;
 
     GtkWidget* stack;
-#    define X(member, name, create_func) GtkWidget* member;
+#define X(member, name, create_func) GtkWidget* member;
     FILTERS_LIST
-#    undef X
+#undef X
 };
 
 /* -------------------------------------------------------------------------- */
@@ -96,9 +97,12 @@ fail:
     ctx->notify_interface->graph_structure_changed(
         ctx->notify_ctx, ctx, n_in, n_out);
 }
+
+/* -------------------------------------------------------------------------- */
 static void generate_graph_butterworth(struct plugin_ctx* ctx)
 {
-    int k, n_in, n_out, posx, posy, is_odd;
+    int n, k, n_in, n_out, posx, posy, is_odd;
+    n    = ctx->order;
     posx = 0, posy = 0;
 
     if (ctx->graph == NULL)
@@ -111,18 +115,59 @@ static void generate_graph_butterworth(struct plugin_ctx* ctx)
     if (generate_edge(ctx->graph, &n_out, &posx, &posy, cstr_view("k")) < 0)
         goto fail;
 
-    is_odd = !!(ctx->order % 2);
+    is_odd = !!(n % 2);
     if (is_odd)
     {
         if (generate_edge(
-                ctx->graph, &n_out, &posx, &posy, cstr_view("1/(s/c+1)")) < 0)
+                ctx->graph, &n_out, &posx, &posy, cstr_view("1/(s/wp+1)")) < 0)
             goto fail;
     }
 
-    for (k = 1; k <= ctx->order / 2; ++k)
+    for (k = 1; k <= n / 2; ++k)
     {
-        double sk = 2 * cos(M_PI * (2 * k + ctx->order - 1) / (2 * ctx->order));
-        if (str_fmt(&ctx->str, "1 / ((s/c)^2 - s/c*%f + 1)", sk) != 0)
+        double sk = 2 * cos(M_PI * (2 * k + n - 1) / (2 * n));
+        if (str_fmt(&ctx->str, "1 / ((s/wp)^2 - s/wp*%f + 1)", sk) != 0)
+            goto fail;
+
+        if (generate_edge(
+                ctx->graph, &n_out, &posx, &posy, str_view(ctx->str)) < 0)
+            goto fail;
+    }
+
+    if (str_set_cstr(&csfg_graph_get_node(ctx->graph, n_out)->name, "Out") != 0)
+        goto fail;
+
+    ctx->notify_interface->graph_structure_changed(
+        ctx->notify_ctx, ctx, n_in, n_out);
+    return;
+
+fail:
+    csfg_graph_clear(ctx->graph);
+    ctx->notify_interface->graph_structure_changed(
+        ctx->notify_ctx, ctx, n_in, n_out);
+}
+
+/* -------------------------------------------------------------------------- */
+static void generate_graph_elliptic(struct plugin_ctx* ctx)
+{
+    int n, k, n_in, n_out, posx, posy;
+    n    = ctx->order;
+    posx = 0, posy = 0;
+
+    if (ctx->graph == NULL)
+        return;
+
+    csfg_graph_clear(ctx->graph);
+    n_in = n_out = csfg_graph_add_node(ctx->graph, "In");
+
+    /* Gain */
+    if (generate_edge(ctx->graph, &n_out, &posx, &posy, cstr_view("k")) < 0)
+        goto fail;
+
+    for (k = 1; k <= n; ++k)
+    {
+        double sk = 2 * cos(M_PI * (2 * k + n - 1) / (2 * n));
+        if (str_fmt(&ctx->str, "1 / ((s/wp)^2 - s/wp*%f + 1)", sk) != 0)
             goto fail;
 
         if (generate_edge(
@@ -194,6 +239,20 @@ static void on_butterworth_order_changed(GtkAdjustment* adj, gpointer user_data)
     if (ctx->we_are_in_control)
         generate_graph_butterworth(ctx);
 }
+static void on_elliptic_generate_clicked(GtkButton* button, gpointer user_data)
+{
+    struct plugin_ctx* ctx = user_data;
+    generate_graph_elliptic(ctx);
+    ctx->we_are_in_control = 1;
+    (void)button;
+}
+static void on_elliptic_order_changed(GtkAdjustment* adj, gpointer user_data)
+{
+    struct plugin_ctx* ctx = user_data;
+    ctx->order             = (int)gtk_adjustment_get_value(adj);
+    if (ctx->we_are_in_control)
+        generate_graph_elliptic(ctx);
+}
 static void
 on_filter_selected(GtkDropDown* dropdown, GParamSpec* pspec, gpointer user_data)
 {
@@ -202,15 +261,15 @@ on_filter_selected(GtkDropDown* dropdown, GParamSpec* pspec, gpointer user_data)
     guint idx              = 0;
     (void)pspec;
 
-#    define X(member, name, create_func)                                       \
-        if (selected == idx++)                                                 \
-        {                                                                      \
-            gtk_stack_set_visible_child(GTK_STACK(ctx->stack), ctx->member);   \
-            if (ctx->we_are_in_control)                                        \
-                on_##member##_generate_clicked(NULL, ctx);                     \
-        }
+#define X(member, name, create_func)                                           \
+    if (selected == idx++)                                                     \
+    {                                                                          \
+        gtk_stack_set_visible_child(GTK_STACK(ctx->stack), ctx->member);       \
+        if (ctx->we_are_in_control)                                            \
+            on_##member##_generate_clicked(NULL, ctx);                         \
+    }
     FILTERS_LIST
-#    undef X
+#undef X
 }
 
 /* -------------------------------------------------------------------------- */
@@ -269,25 +328,71 @@ static GtkWidget* create_butterworth_ui(struct plugin_ctx* ctx)
 
     return grid;
 }
+static GtkWidget* create_elliptic_ui(struct plugin_ctx* ctx)
+{
+    GtkWidget* grid;
+    GtkWidget* spin_button;
+    GtkAdjustment* spin_adj;
+    GtkWidget* button_update_graph;
+    GtkWidget* info;
+
+    info = gtk_label_new(
+        "An elliptic filter has equalized ripple (equiripple) behavior in both "
+        "the passband and the stopband. The amount of ripple in each band is "
+        "independently adjustable, and no other filter of equal order can have "
+        "a faster transition in gain between the passband and the stopband, for "
+        "the given values of ripple. Alternatively, one may give up the ability "
+        "to adjust independently the passband and stopband ripple, and instead "
+        "design a filter which is maximally insensitive to component variations.\n\n"
+
+        "As the ripple in the stopband approaches zero, the filter becomes "
+        "a type I Chebyshev filter. As the ripple in the passband approaches zero, "
+        "the filter becomes a type II Chebyshev filter and finally, as both ripple "
+        "values approach zero, the filter becomes a Butterworth filter.");
+    gtk_label_set_wrap(GTK_LABEL(info), TRUE);
+
+    spin_adj    = gtk_adjustment_new(ctx->order, 1.0, 12.0, 1.0, 0.0, 0.0);
+    spin_button = gtk_spin_button_new(spin_adj, 0.0, 1);
+
+    button_update_graph = gtk_button_new_with_label("Generate Graph");
+
+    grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 6);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+    gtk_grid_attach(GTK_GRID(grid), info, 0, 0, 2, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Order"), 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), spin_button, 1, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), button_update_graph, 0, 2, 2, 1);
+
+    g_signal_connect(
+        spin_adj, "value-changed", G_CALLBACK(on_elliptic_order_changed), ctx);
+    g_signal_connect(
+        button_update_graph,
+        "clicked",
+        G_CALLBACK(on_elliptic_generate_clicked),
+        ctx);
+
+    return grid;
+}
 static GtkWidget* ui_pane_create(struct plugin_ctx* ctx)
 {
     GtkWidget* dropdown;
     GtkWidget* top;
 
     static const char* filter_names[] = {
-#    define X(member, name, create_func) name,
+#define X(member, name, create_func) name,
         FILTERS_LIST
-#    undef X
+#undef X
             NULL,
     };
     dropdown = gtk_drop_down_new_from_strings(filter_names);
 
     ctx->stack = gtk_stack_new();
-#    define X(member, name, create_func)                                       \
-        ctx->member = create_func;                                             \
-        gtk_stack_add_child(GTK_STACK(ctx->stack), ctx->member);
+#define X(member, name, create_func)                                           \
+    ctx->member = create_func;                                                 \
+    gtk_stack_add_child(GTK_STACK(ctx->stack), ctx->member);
     FILTERS_LIST
-#    undef X
+#undef X
 
     top = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_box_append(GTK_BOX(top), dropdown);

@@ -10,7 +10,6 @@ static int is_binop(enum csfg_expr_type type)
         case CSFG_EXPR_GC:
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF:
         case CSFG_EXPR_NEG : return 0;
 
@@ -29,7 +28,6 @@ static float identity_value_for_type(enum csfg_expr_type type)
         case CSFG_EXPR_GC:
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF:
         case CSFG_EXPR_NEG:
         case CSFG_EXPR_POW : break;

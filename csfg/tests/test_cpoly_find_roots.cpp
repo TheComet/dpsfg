@@ -8,10 +8,12 @@ extern "C" {
 
 #define NAME test_cpoly_find_roots
 
+namespace {
 MATCHER_P3(ComplexEq, real, imag, epsilon, "")
 {
     return abs(arg.real - real) < epsilon && abs(arg.imag - imag) < epsilon;
 }
+} // namespace
 
 using namespace testing;
 
@@ -30,7 +32,7 @@ struct NAME : public Test
 
     struct csfg_cpoly* coeffs;
     struct csfg_rpoly* roots;
-    const double       epsilon = 1e-3;
+    const double epsilon = 1e-3;
 };
 
 TEST_F(NAME, single_value_has_no_roots)

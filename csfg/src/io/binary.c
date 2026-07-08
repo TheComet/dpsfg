@@ -32,7 +32,6 @@ serialize_expr_pool(struct serializer** ser, const struct csfg_expr_pool* pool)
                     strlist_cstr(
                         pool->var_names, pool->nodes[n].value.var_idx));
                 break;
-            case CSFG_EXPR_IMAG:
             case CSFG_EXPR_INF:
             case CSFG_EXPR_NEG:
             case CSFG_EXPR_ADD:
@@ -93,15 +92,6 @@ static int deserialize_expr(
                 continue;
             case CSFG_EXPR_VAR:
                 if (csfg_expr_var(pool, cstr_view(deserialize_cstr(des))) < 0)
-                    return -1;
-                if (left != -1 || right != -1)
-                    log_warn(
-                        "Invalid left/right indices read: left=%d, right=%d\n",
-                        left,
-                        right);
-                continue;
-            case CSFG_EXPR_IMAG:
-                if (csfg_expr_imag(pool) < 0)
                     return -1;
                 if (left != -1 || right != -1)
                     log_warn(

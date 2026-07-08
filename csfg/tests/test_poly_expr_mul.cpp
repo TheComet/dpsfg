@@ -150,5 +150,5 @@ TEST_F(NAME, multiple_same_polynomial_multiple_times)
     ASSERT_EQ(csfg_poly_expr_mul(&pool, &p2, p1, out), 0);
     ASSERT_EQ(csfg_poly_expr_mul(&pool, &out, p1, p2), 0);
 
-    ASSERT_TRUE(CoeffEq(pool, out, 0, 8.0, "s*s*s*s"));
+    ASSERT_TRUE(CoeffEq(pool, out, 0, 8.0, "s*(s*s*s)"));
 }

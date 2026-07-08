@@ -3,7 +3,6 @@
 #include <stdint.h>
 
 #define CHAR_TOKEN_LIST                                                        \
-    X(IMAG, 'j')                                                               \
     X(ADD, '+')                                                                \
     X(SUB, '-')                                                                \
     X(MUL, '*')                                                                \
@@ -126,20 +125,11 @@ static int parse_expr(struct parser* p, struct csfg_expr_pool** pool);
 static int parse_base(struct parser* p, struct csfg_expr_pool** pool)
 {
     int n;
-    double value;
 
     switch (p->tok)
     {
         case TOK_LIT:
-            value = p->value.lit;
-            if (scan_next(p) != TOK_IMAG)
-                return csfg_expr_lit(pool, value);
-            scan_next(p);
-            return csfg_expr_mul(
-                pool, csfg_expr_imag(pool), csfg_expr_lit(pool, value));
-
-        case TOK_IMAG:
-            n = csfg_expr_imag(pool);
+            n = csfg_expr_lit(pool, p->value.lit);
             scan_next(p);
             return n;
 

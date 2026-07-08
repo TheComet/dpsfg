@@ -67,3 +67,11 @@ TEST_F(NAME, div)
     z2 = csfg_complex(4.0, 3.0);
     ASSERT_THAT(csfg_complex_div(z1, z2), ComplexEq(0.92, 0.56));
 }
+
+
+TEST_F(NAME, pow)
+{
+    z1 = csfg_complex(2.0, 0.0);
+    z2 = csfg_complex(4.0, 0.0);
+    ASSERT_THAT(csfg_complex_pow(z1, z2), ComplexEq(16.0, 0.0));
+}

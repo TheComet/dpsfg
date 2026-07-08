@@ -13,8 +13,8 @@ void csfg_var_table_init(struct csfg_var_table* vt)
 /* -------------------------------------------------------------------------- */
 void csfg_var_table_deinit(struct csfg_var_table* vt)
 {
-    int16_t                      slot;
-    struct str*                  name;
+    int16_t slot;
+    struct str* name;
     struct csfg_var_table_entry* entry;
 
     hmap_for_each (vt->map, slot, name, entry)
@@ -25,8 +25,8 @@ void csfg_var_table_deinit(struct csfg_var_table* vt)
 /* -------------------------------------------------------------------------- */
 void csfg_var_table_clear(struct csfg_var_table* vt)
 {
-    int16_t                      slot;
-    struct str*                  name;
+    int16_t slot;
+    struct str* name;
     struct csfg_var_table_entry* entry;
 
     hmap_for_each (vt->map, slot, name, entry)
@@ -39,8 +39,8 @@ static int var_table_populate(
     struct csfg_var_table* vt, const struct csfg_expr_pool* pool, int n)
 {
     struct csfg_var_table_entry* entry;
-    struct strview               name;
-    const double                 default_value = 1.0;
+    struct strview name;
+    const double default_value = 1.0;
 
     if (n == -1)
         return 0;
@@ -72,7 +72,7 @@ static int var_table_populate(
         case HMAP_NEW:
             csfg_expr_pool_init(&entry->pool);
             entry->visited = 1;
-            entry->expr = csfg_expr_lit(&entry->pool, default_value);
+            entry->expr    = csfg_expr_lit(&entry->pool, default_value);
             if (entry->expr < 0)
             {
                 csfg_expr_pool_deinit(entry->pool);
@@ -101,8 +101,8 @@ int csfg_var_table_populate(
 /* -------------------------------------------------------------------------- */
 void csfg_var_table_reset_visited(struct csfg_var_table* vt)
 {
-    int                          slot;
-    const struct str*            name;
+    int slot;
+    const struct str* name;
     struct csfg_var_table_entry* entry;
 
     hmap_for_each (vt->map, slot, name, entry)
@@ -112,8 +112,8 @@ void csfg_var_table_reset_visited(struct csfg_var_table* vt)
 /* -------------------------------------------------------------------------- */
 void csfg_var_table_erase_unvisited(struct csfg_var_table* vt)
 {
-    int                          slot;
-    const struct str*            name;
+    int slot;
+    const struct str* name;
     struct csfg_var_table_entry* entry;
 
     hmap_for_each (vt->map, slot, name, entry)
@@ -129,12 +129,12 @@ int csfg_var_table_set_lit(
     struct csfg_var_table* vt, struct strview name, double value)
 {
     struct csfg_var_table_entry* entry;
-    int                          n;
+    int n;
 
     switch (csfg_var_hmap_emplace_or_get(&vt->map, name, &entry))
     {
-        case HMAP_OOM: return -1;
-        case HMAP_NEW: csfg_expr_pool_init(&entry->pool); break;
+        case HMAP_OOM   : return -1;
+        case HMAP_NEW   : csfg_expr_pool_init(&entry->pool); break;
         case HMAP_EXISTS: csfg_expr_pool_clear(entry->pool); break;
     }
 
@@ -152,17 +152,17 @@ int csfg_var_table_set_lit(
 /* -------------------------------------------------------------------------- */
 int csfg_var_table_set_expr(
     struct csfg_var_table* vt,
-    struct strview         name,
+    struct strview name,
     struct csfg_expr_pool* pool,
-    int                    expr)
+    int expr)
 {
     struct csfg_var_table_entry* entry;
 
     switch (csfg_var_hmap_emplace_or_get(&vt->map, name, &entry))
     {
-        case HMAP_OOM: return -1;
+        case HMAP_OOM   : return -1;
         case HMAP_EXISTS: csfg_expr_pool_deinit(entry->pool);
-        case HMAP_NEW: break;
+        case HMAP_NEW   : break;
     }
 
     entry->pool = pool;
@@ -174,7 +174,7 @@ int csfg_var_table_set_expr(
 int csfg_var_table_set_parse_expr(
     struct csfg_var_table* vt, struct strview name, struct strview str)
 {
-    int                    expr;
+    int expr;
     struct csfg_expr_pool* pool;
 
     csfg_expr_pool_init(&pool);
@@ -205,7 +205,7 @@ struct csfg_expr_pool* csfg_var_table_get(
 /* -------------------------------------------------------------------------- */
 double csfg_var_table_eval(const struct csfg_var_table* vt, struct strview name)
 {
-    int                    expr;
+    int expr;
     struct csfg_expr_pool* pool;
     assert(vt != NULL);
 

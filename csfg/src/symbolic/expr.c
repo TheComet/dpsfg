@@ -188,12 +188,6 @@ int csfg_expr_var(struct csfg_expr_pool** pool, struct strview name)
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_imag(struct csfg_expr_pool** pool)
-{
-    return csfg_expr_new(pool, CSFG_EXPR_IMAG, -1, -1);
-}
-
-/* -------------------------------------------------------------------------- */
 int csfg_expr_inf(struct csfg_expr_pool** pool)
 {
     return csfg_expr_new(pool, CSFG_EXPR_INF, -1, -1);
@@ -244,19 +238,6 @@ int csfg_expr_set_var(struct csfg_expr_pool* pool, int n, struct strview name)
         return -1;
 
     return 0;
-}
-
-/* -------------------------------------------------------------------------- */
-int csfg_expr_set_imag(struct csfg_expr_pool* pool, int n)
-{
-    if (n == -1)
-        return -1;
-
-    pool->nodes[n].type     = CSFG_EXPR_IMAG;
-    pool->nodes[n].child[0] = -1;
-    pool->nodes[n].child[1] = -1;
-
-    return n;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -414,7 +395,6 @@ int csfg_expr_dup_shallow_from(
                 return -1;
             break;
         }
-        case CSFG_EXPR_IMAG: break;
         case CSFG_EXPR_INF : break;
         case CSFG_EXPR_NEG : break;
         case CSFG_EXPR_ADD : break;
@@ -619,7 +599,6 @@ int csfg_expr_equal(
                 return 0;
             break;
         }
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF:
         case CSFG_EXPR_NEG:
         case CSFG_EXPR_ADD:
@@ -650,8 +629,7 @@ static int rank(const struct csfg_expr_pool* pool, int n)
         case CSFG_EXPR_GC  : break;
         case CSFG_EXPR_LIT : return 6;
         case CSFG_EXPR_VAR : return 5;
-        case CSFG_EXPR_IMAG: return 7;
-        case CSFG_EXPR_INF : return 8;
+        case CSFG_EXPR_INF : return 7;
         case CSFG_EXPR_NEG : return 4;
         case CSFG_EXPR_ADD : return 3;
         case CSFG_EXPR_MUL : return 2;
@@ -680,7 +658,6 @@ int csfg_expr_lexicographical_compare(
             struct strview var_b = strlist_view(pool->var_names, var_idx_b);
             return -strview_lexicographic_compare(var_a, var_b);
         }
-        case CSFG_EXPR_IMAG: return 0;
         case CSFG_EXPR_INF : return 0;
         case CSFG_EXPR_NEG:
             return csfg_expr_lexicographical_compare(

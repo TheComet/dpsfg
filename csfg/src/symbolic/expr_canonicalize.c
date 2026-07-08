@@ -10,7 +10,6 @@ static void rebalance_tree(struct csfg_expr_pool* pool, int n)
         case CSFG_EXPR_GC  : CSFG_DEBUG_ASSERT(0);
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR :
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF :
         case CSFG_EXPR_NEG :
         case CSFG_EXPR_POW : break;
@@ -60,7 +59,6 @@ static int is_tree_rebalanced(const struct csfg_expr_pool* pool, int n)
         case CSFG_EXPR_GC  : CSFG_DEBUG_ASSERT(0);
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR :
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF :
         case CSFG_EXPR_NEG :
         case CSFG_EXPR_POW : break;
@@ -175,7 +173,6 @@ static void bubble_sort_tree(struct csfg_expr_pool* pool, int n)
         case CSFG_EXPR_GC  : CSFG_DEBUG_ASSERT(0);
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR :
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF :
         case CSFG_EXPR_NEG :
         case CSFG_EXPR_POW : break;
@@ -203,7 +200,6 @@ static int is_tree_sorted(const struct csfg_expr_pool* pool, int n)
         case CSFG_EXPR_GC  : CSFG_DEBUG_ASSERT(0);
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR :
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF :
         case CSFG_EXPR_NEG :
         case CSFG_EXPR_POW : break;

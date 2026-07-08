@@ -278,7 +278,7 @@ TEST_F(NAME, inverting_amplifier)
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_EQ(csfg_expr_insert_substitutions(&p, expr, &vt), 0);
+    ASSERT_GE(expr = csfg_expr_insert_substitutions(&p, expr, &vt), 0);
     csfg_rule_remove_useless_ops(&p);
     csfg_rule_fold_constants(&p);
     expr = csfg_expr_gc(p, expr);
@@ -342,7 +342,7 @@ TEST_F(NAME, integrator)
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("G2 + s*C"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_EQ(csfg_expr_insert_substitutions(&p, expr, &vt), 0);
+    ASSERT_GE(expr = csfg_expr_insert_substitutions(&p, expr, &vt), 0);
     csfg_rule_remove_useless_ops(&p);
     csfg_rule_fold_constants(&p);
     expr = csfg_expr_gc(p, expr);
@@ -426,7 +426,7 @@ TEST_F(NAME, active_lowpass_filter)
     csfg_var_table_set_parse_expr(&vt, cstr_view("z2"), cstr_view("1/y2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("y2"), cstr_view("s*C + G2"));
     csfg_var_table_set_parse_expr(&vt, cstr_view("A"), cstr_view("oo"));
-    ASSERT_EQ(csfg_expr_insert_substitutions(&p, expr, &vt), 0);
+    ASSERT_GE(expr = csfg_expr_insert_substitutions(&p, expr, &vt), 0);
     csfg_rule_remove_useless_ops(&p);
     csfg_rule_fold_constants(&p);
     expr = csfg_expr_gc(p, expr);

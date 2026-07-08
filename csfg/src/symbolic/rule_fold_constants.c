@@ -8,7 +8,7 @@ static int eval_subtrees(struct csfg_expr_pool** pool)
     int n, modified = 0;
     for (n = 0; n != (*pool)->count; ++n)
     {
-        int left = (*pool)->nodes[n].child[0];
+        int left  = (*pool)->nodes[n].child[0];
         int right = (*pool)->nodes[n].child[1];
 
         if ((*pool)->nodes[n].type == CSFG_EXPR_GC)
@@ -42,9 +42,9 @@ static int eval_subtrees(struct csfg_expr_pool** pool)
 /* -------------------------------------------------------------------------- */
 static int find_other_constant_operand(
     const struct csfg_expr_pool* pool,
-    enum csfg_expr_type          type,
-    int                          n,
-    int                          exclude)
+    enum csfg_expr_type type,
+    int n,
+    int exclude)
 {
     int left, right, result;
 
@@ -55,7 +55,7 @@ static int find_other_constant_operand(
     if (pool->nodes[n].type != type)
         return -1;
 
-    left = pool->nodes[n].child[0];
+    left  = pool->nodes[n].child[0];
     right = pool->nodes[n].child[1];
 
     result = find_other_constant_operand(pool, type, left, exclude);
@@ -75,10 +75,10 @@ static int combine_constants(struct csfg_expr_pool** pool)
     for (n = 0; n != (*pool)->count; ++n)
     {
         enum csfg_expr_type op_type = (*pool)->nodes[n].type;
-        int                 left = (*pool)->nodes[n].child[0];
-        int                 right = (*pool)->nodes[n].child[1];
-        int                 constant, top, match;
-        double              combined_value;
+        int left                    = (*pool)->nodes[n].child[0];
+        int right                   = (*pool)->nodes[n].child[1];
+        int constant, top, match;
+        double combined_value;
 
         if (op_type != CSFG_EXPR_ADD && op_type != CSFG_EXPR_MUL)
             continue;

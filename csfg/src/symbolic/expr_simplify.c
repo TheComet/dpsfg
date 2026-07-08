@@ -183,14 +183,6 @@ static int expr_to_mathomatic_equation(
             tok->level          = depth;
             tok->token.variable = var_idx + VAR_OFFSET;
             break;
-        case CSFG_EXPR_IMAG:
-            tok = token_vec_emplace(eq);
-            if (tok == NULL)
-                return -1;
-            tok->kind           = VARIABLE;
-            tok->level          = depth;
-            tok->token.variable = IMAGINARY;
-            break;
         case CSFG_EXPR_INF:
             /* We cannot simplify the equation meaningfully if it contains
              * infinities. Make sure to run csfg_expr_apply_limits() first! */
@@ -273,19 +265,14 @@ static int mathomatic_equation_to_expr_recurse(
                     break;
                 }
 
-                switch (tok->token.variable)
-                {
-                    case IMAGINARY: expr = csfg_expr_imag(pool); break;
-                    default:
-                        if (tok->token.variable < VAR_OFFSET)
-                            return -1;
-                        expr = csfg_expr_new(pool, CSFG_EXPR_VAR, -1, -1);
-                        if (expr < 0)
-                            return -1;
-                        (*pool)->nodes[expr].value.var_idx =
-                            tok->token.variable - VAR_OFFSET;
-                        break;
-                }
+                if (tok->token.variable < VAR_OFFSET)
+                    return -1;
+                expr = csfg_expr_new(pool, CSFG_EXPR_VAR, -1, -1);
+                if (expr < 0)
+                    return -1;
+                (*pool)->nodes[expr].value.var_idx =
+                    tok->token.variable - VAR_OFFSET;
+
                 ++*idx;
                 break;
             case OPERATOR:
@@ -330,13 +317,12 @@ static void unlink_variable_names_from_mathomatic(
     enum csfg_expr_type type = pool->nodes[expr].type;
     switch (type)
     {
-        case CSFG_EXPR_GC  : CSFG_DEBUG_ASSERT(0); break;
+        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); break;
         case CSFG_EXPR_LIT: break;
         case CSFG_EXPR_VAR:
             var_idx            = pool->nodes[expr].value.var_idx;
             var_names[var_idx] = NULL;
             break;
-        case CSFG_EXPR_IMAG: break;
         case CSFG_EXPR_INF : break;
         case CSFG_EXPR_NEG:
             unlink_variable_names_from_mathomatic(

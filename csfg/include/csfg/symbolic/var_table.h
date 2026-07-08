@@ -8,8 +8,8 @@ struct csfg_expr_pool;
 struct csfg_var_table_entry
 {
     struct csfg_expr_pool* pool;
-    int                    expr;
-    unsigned               visited : 1;
+    int expr;
+    unsigned visited : 1;
 };
 
 HMAP_DECLARE_STR(extern, csfg_var_hmap, struct csfg_var_table_entry, 16)
@@ -54,9 +54,9 @@ int csfg_var_table_set_lit(
  */
 int csfg_var_table_set_expr(
     struct csfg_var_table* vt,
-    struct strview         name,
+    struct strview name,
     struct csfg_expr_pool* pool,
-    int                    expr);
+    int expr);
 int csfg_var_table_set_parse_expr(
     struct csfg_var_table* vt, struct strview name, struct strview expr);
 

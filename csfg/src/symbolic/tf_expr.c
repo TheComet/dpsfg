@@ -41,7 +41,6 @@ static int csfg_expr_to_rational_recurse(
             break;
         }
 
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF : {
             if (csfg_poly_expr_push(&tf->num, csfg_coeff_expr(1.0, expr)) != 0)
                 return -1;

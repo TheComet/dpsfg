@@ -28,7 +28,6 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
             return result;
         }
         case CSFG_EXPR_INF : return INFINITY;
-        case CSFG_EXPR_IMAG: return NAN;
         case CSFG_EXPR_NEG:
             child_result[0] = eval(pool, pool->nodes[n].child[0], vt);
             break;
@@ -45,7 +44,6 @@ eval(struct csfg_expr_pool* pool, int n, const struct csfg_var_table* vt)
         case CSFG_EXPR_GC:
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF : assert(0); break;
         case CSFG_EXPR_NEG : return -child_result[0];
         case CSFG_EXPR_ADD : return child_result[0] + child_result[1];
@@ -87,7 +85,6 @@ static int has_any_op_as_parent(const struct csfg_expr_pool* pool, int n)
 
         case CSFG_EXPR_LIT:
         case CSFG_EXPR_VAR:
-        case CSFG_EXPR_IMAG:
         case CSFG_EXPR_INF : break;
 
         case CSFG_EXPR_NEG:
@@ -123,30 +120,31 @@ int csfg_expr_to_str(
 
     switch ((enum csfg_expr_type)pool->nodes[expr].type)
     {
-        case CSFG_EXPR_GC: break;
-        case CSFG_EXPR_LIT:
-            if (isinf(pool->nodes[expr].value.lit))
+        case CSFG_EXPR_GC : break;
+        case CSFG_EXPR_LIT: {
+            double value = pool->nodes[expr].value.lit;
+            if (isinf(value))
             {
                 if (str_append_cstr(str, "oo") != 0)
                     return -1;
             }
+            else if (value - (int)value != 0.0)
+            {
+                if (str_append_float(str, value) != 0)
+                    return -1;
+            }
             else
             {
-                if (str_append_int(str, pool->nodes[expr].value.lit) != 0)
+                if (str_append_int(str, value) != 0)
                     return -1;
             }
             break;
+        }
 
         case CSFG_EXPR_VAR: {
             int var_idx          = pool->nodes[expr].value.var_idx;
             const char* var_name = strlist_cstr(pool->var_names, var_idx);
             if (str_append_cstr(str, var_name) != 0)
-                return -1;
-            break;
-        }
-
-        case CSFG_EXPR_IMAG: {
-            if (str_append_cstr(str, "j") != 0)
                 return -1;
             break;
         }
