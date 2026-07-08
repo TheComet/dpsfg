@@ -13,7 +13,9 @@ static int DEFAULT_NODE_RADIUS           = 10;
 enum mode
 {
     MODE_NORMAL,
-    MODE_MOVE
+    MODE_MOVE,
+    MODE_RECONNECT_FROM,
+    MODE_RECONNECT_TO,
 };
 
 HMAP_DEFINE(extern, node_attr_hmap, int, struct node_attr, 16)
@@ -31,7 +33,9 @@ struct graph_model
 
     int active_node_id;
     int active_edge_id;
-    int selected_node_id;
+    int marked_node_id;
+    int reconnect_node_id;
+    int reconnect_edge_id;
     int node_in_id;
     int node_out_id;
 
@@ -307,6 +311,17 @@ drag_edge_with_node(struct csfg_graph* g, int n_id, double new_x, double new_y)
 }
 
 /* -------------------------------------------------------------------------- */
+static int find_node_idx(struct csfg_graph* g, int node_id)
+{
+    struct csfg_node* n;
+    int idx;
+    if (g == NULL)
+        return -1;
+    csfg_graph_enumerate_nodes (g, idx, n)
+        if (n->id == node_id)
+            return idx;
+    return -1;
+}
 static struct csfg_node* find_node(struct csfg_graph* g, int node_id)
 {
     struct csfg_node* n;
@@ -319,6 +334,17 @@ static struct csfg_node* find_node(struct csfg_graph* g, int node_id)
 }
 
 /* -------------------------------------------------------------------------- */
+static int find_edge_idx(struct csfg_graph* g, int edge_id)
+{
+    struct csfg_edge* e;
+    int idx;
+    if (g == NULL)
+        return -1;
+    csfg_graph_enumerate_edges (g, idx, e)
+        if (e->id == edge_id)
+            return idx;
+    return -1;
+}
 static struct csfg_edge* find_edge(struct csfg_graph* g, int edge_id)
 {
     struct csfg_edge* e;
@@ -376,6 +402,122 @@ static void select_next_active_edge_in_direction(
 
     if (model->active_edge_id > -1)
         model->active_node_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void select_next_connected_node_in_direction(
+    struct graph_model* model, int edge_id, double dirx, double diry)
+{
+    const struct csfg_node* n;
+    const struct csfg_edge* e;
+    int idx, nodes[2];
+    double dx, dy, current_x, current_y;
+    double new_dist, dist = 100000. * 100000.;
+
+    e = find_edge(model->graph, edge_id);
+    if (e == NULL)
+        return;
+
+    n = find_node(model->graph, model->active_node_id);
+    if (n != NULL)
+        current_x = n->x, current_y = n->y;
+    else
+        current_x = e->x, current_y = e->y;
+
+    nodes[0] = e->n_idx_from;
+    nodes[1] = e->n_idx_to;
+    for (idx = 0; idx != 2; ++idx)
+    {
+        n        = csfg_graph_get_node(model->graph, nodes[idx]);
+        dx       = current_x - n->x;
+        dy       = current_y - n->y;
+        new_dist = dx * dx + dy * dy;
+        if (new_dist < dist)
+        {
+            if (dirx > 0 && n->x > current_x)
+                dist = new_dist, model->active_node_id = n->id;
+            if (dirx < 0 && n->x < current_x)
+                dist = new_dist, model->active_node_id = n->id;
+            if (diry > 0 && n->y > current_y)
+                dist = new_dist, model->active_node_id = n->id;
+            if (diry < 0 && n->y < current_y)
+                dist = new_dist, model->active_node_id = n->id;
+        }
+    }
+
+    model->active_edge_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void select_next_connected_edge_in_direction(
+    struct graph_model* model, int node_id, double dirx, double diry)
+{
+    const struct csfg_node* n;
+    const struct csfg_edge* e;
+    int idx;
+    double dx, dy, current_x, current_y;
+    double new_dist, dist = 100000. * 100000.;
+
+    n = find_node(model->graph, node_id);
+    if (n == NULL)
+        return;
+
+    e = find_edge(model->graph, model->active_edge_id);
+    if (e != NULL)
+        current_x = e->x, current_y = e->y;
+    else
+        current_x = n->x, current_y = n->y;
+
+    csfg_graph_enumerate_edges (model->graph, idx, e)
+    {
+        if (csfg_graph_get_node(model->graph, e->n_idx_from)->id != n->id &&
+            csfg_graph_get_node(model->graph, e->n_idx_to)->id != n->id)
+            continue;
+
+        dx       = current_x - e->x;
+        dy       = current_y - e->y;
+        new_dist = dx * dx + dy * dy;
+        if (new_dist < dist)
+        {
+            if (dirx > 0 && e->x > current_x)
+                dist = new_dist, model->active_edge_id = e->id;
+            if (dirx < 0 && e->x < current_x)
+                dist = new_dist, model->active_edge_id = e->id;
+            if (diry > 0 && e->y > current_y)
+                dist = new_dist, model->active_edge_id = e->id;
+            if (diry < 0 && e->y < current_y)
+                dist = new_dist, model->active_edge_id = e->id;
+        }
+    }
+
+    model->active_node_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static int reconnect_edge(
+    struct graph_model* model,
+    int edge_id,
+    int current_node_id,
+    int target_node_id)
+{
+    struct csfg_edge* e  = find_edge(model->graph, edge_id);
+    int current_node_idx = find_node_idx(model->graph, current_node_id);
+    int target_node_idx  = find_node_idx(model->graph, target_node_id);
+    if (e == NULL || current_node_idx < 0 || target_node_idx < 0)
+        return current_node_id;
+
+    if (e->n_idx_to == current_node_idx)
+    {
+        e->n_idx_to = target_node_idx;
+        return target_node_id;
+    }
+    if (e->n_idx_from == current_node_idx)
+    {
+        e->n_idx_from = target_node_idx;
+        return target_node_id;
+    }
+
+    return current_node_id;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -916,22 +1058,62 @@ static void start_editing_active_node_or_edge(GraphEditor* editor)
 }
 
 /* -------------------------------------------------------------------------- */
-static gboolean
-shortcut_node_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+static void
+node_direction_action(struct graph_model* model, double dx, double dy)
 {
-    GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
-    (void)widget, (void)unused;
     switch (model->mode)
     {
         case MODE_NORMAL:
-            select_next_active_node_in_direction(model, -1, 0);
+            select_next_active_node_in_direction(model, dx, dy);
             break;
         case MODE_MOVE:
-            move_active_node_in_direction(model, -1, 0);
-            move_active_edge_in_direction(model, -1, 0);
+            move_active_node_in_direction(model, dx, dy);
+            move_active_edge_in_direction(model, dx, dy);
+            break;
+        case MODE_RECONNECT_FROM:
+            select_next_connected_node_in_direction(
+                model, model->reconnect_edge_id, dx, dy);
+            select_next_connected_edge_in_direction(
+                model, model->reconnect_node_id, dx, dy);
+            break;
+        case MODE_RECONNECT_TO:
+            select_next_active_node_in_direction(model, dx, dy);
+            model->reconnect_node_id = reconnect_edge(
+                model,
+                model->reconnect_edge_id,
+                model->reconnect_node_id,
+                model->active_node_id);
             break;
     }
+}
+static void
+edge_direction_action(struct graph_model* model, double dx, double dy)
+{
+    switch (model->mode)
+    {
+        case MODE_NORMAL:
+            select_next_active_edge_in_direction(model, dx, dy);
+            break;
+        case MODE_MOVE:
+            move_active_edge_in_direction(model, dx, dy);
+            move_active_node_in_direction(model, dx, dy);
+            break;
+        case MODE_RECONNECT_FROM:
+            select_next_connected_node_in_direction(
+                model, model->reconnect_node_id, dx, dy);
+            select_next_connected_edge_in_direction(
+                model, model->reconnect_node_id, dx, dy);
+        case MODE_RECONNECT_TO: break;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static gboolean
+shortcut_node_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    node_direction_action(&editor->model, -1, 0);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -943,19 +1125,9 @@ static void button_node_left_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_node_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_node_in_direction(model, 1, 0);
-            break;
-        case MODE_MOVE:
-            move_active_node_in_direction(model, 1, 0);
-            move_active_edge_in_direction(model, 1, 0);
-            break;
-    }
+    node_direction_action(&editor->model, 1, 0);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -967,19 +1139,9 @@ static void button_node_right_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_node_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_node_in_direction(model, 0, -1);
-            break;
-        case MODE_MOVE:
-            move_active_node_in_direction(model, 0, -1);
-            move_active_edge_in_direction(model, 0, -1);
-            break;
-    }
+    node_direction_action(&editor->model, 0, -1);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -993,16 +1155,7 @@ shortcut_node_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_node_in_direction(&editor->model, 0, 1);
-            break;
-        case MODE_MOVE:
-            move_active_node_in_direction(&editor->model, 0, 1);
-            move_active_edge_in_direction(&editor->model, 0, 1);
-            break;
-    }
+    node_direction_action(&editor->model, 0, 1);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1016,16 +1169,7 @@ shortcut_edge_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_edge_in_direction(&editor->model, -1, 0);
-            break;
-        case MODE_MOVE:
-            move_active_edge_in_direction(&editor->model, -1, 0);
-            move_active_node_in_direction(&editor->model, -1, 0);
-            break;
-    }
+    edge_direction_action(&editor->model, -1, 0);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1039,16 +1183,7 @@ shortcut_edge_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_edge_in_direction(&editor->model, 1, 0);
-            break;
-        case MODE_MOVE:
-            move_active_edge_in_direction(&editor->model, 1, 0);
-            move_active_node_in_direction(&editor->model, 1, 0);
-            break;
-    }
+    edge_direction_action(&editor->model, 1, 0);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1062,16 +1197,7 @@ shortcut_edge_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_edge_in_direction(&editor->model, 0, -1);
-            break;
-        case MODE_MOVE:
-            move_active_edge_in_direction(&editor->model, 0, -1);
-            move_active_node_in_direction(&editor->model, 0, -1);
-            break;
-    }
+    edge_direction_action(&editor->model, 0, -1);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1085,16 +1211,7 @@ shortcut_edge_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
-    {
-        case MODE_NORMAL:
-            select_next_active_edge_in_direction(&editor->model, 0, 1);
-            break;
-        case MODE_MOVE:
-            move_active_edge_in_direction(&editor->model, 0, 1);
-            move_active_node_in_direction(&editor->model, 0, 1);
-            break;
-    }
+    edge_direction_action(&editor->model, 0, 1);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1104,14 +1221,22 @@ static void button_edge_down_cb(GtkButton* button, gpointer user_data)
 }
 
 static gboolean
-shortcut_switch_mode_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+shortcut_move_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = &editor->model;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
+    switch (model->mode)
     {
-        case MODE_NORMAL: editor->model.mode = MODE_MOVE; break;
-        case MODE_MOVE  : editor->model.mode = MODE_NORMAL; break;
+        case MODE_NORMAL: model->mode = MODE_MOVE; break;
+        case MODE_MOVE  : model->mode = MODE_NORMAL; break;
+
+        case MODE_RECONNECT_FROM:
+            model->reconnect_node_id = -1;
+            model->reconnect_edge_id = -1;
+            model->mode              = MODE_MOVE;
+            break;
+        case MODE_RECONNECT_TO: break;
     }
 
     gtk_widget_queue_draw(editor->drawing_area);
@@ -1119,7 +1244,7 @@ shortcut_switch_mode_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 }
 static void button_switch_mode_cb(GtkButton* button, gpointer user_data)
 {
-    (void)button, shortcut_switch_mode_cb(NULL, NULL, user_data);
+    (void)button, shortcut_move_cb(NULL, NULL, user_data);
 }
 
 static gboolean
@@ -1130,8 +1255,10 @@ shortcut_new_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     (void)widget, (void)unused;
     model->active_node_id =
         create_new_node(&editor->model, model->active_node_id);
-    model->active_edge_id = -1;
-    model->mode           = MODE_NORMAL;
+    model->active_edge_id    = -1;
+    model->reconnect_node_id = -1;
+    model->reconnect_edge_id = -1;
+    model->mode              = MODE_NORMAL;
     notify_graph_changed(model);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
@@ -1150,7 +1277,10 @@ static gboolean shortcut_new_node_and_edge_cb(
     (void)widget, (void)unused;
     model->active_node_id =
         create_new_node(&editor->model, model->active_node_id);
-    model->mode = MODE_NORMAL;
+    model->active_edge_id    = -1;
+    model->reconnect_node_id = -1;
+    model->reconnect_edge_id = -1;
+    model->mode              = MODE_NORMAL;
     create_new_edge(&editor->model, prev_active_node_id, model->active_node_id);
     notify_graph_changed(model);
     gtk_widget_queue_draw(editor->drawing_area);
@@ -1171,6 +1301,9 @@ shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
         delete_node(model, editor->model.active_node_id);
     editor->model.active_edge_id =
         delete_edge(model, editor->model.active_edge_id);
+    model->reconnect_node_id = -1;
+    model->reconnect_edge_id = -1;
+    model->mode              = MODE_NORMAL;
     notify_graph_changed(model);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
@@ -1181,22 +1314,22 @@ static void button_delete_cb(GtkButton* button, gpointer user_data)
 }
 
 static gboolean
-shortcut_select_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+shortcut_mark_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
     struct graph_model* model = &editor->model;
     (void)widget, (void)unused;
-    if (model->selected_node_id == model->active_node_id)
-        model->selected_node_id = -1;
+    if (model->marked_node_id == model->active_node_id)
+        model->marked_node_id = -1;
     else
-        model->selected_node_id = model->active_node_id;
+        model->marked_node_id = model->active_node_id;
     model->mode = MODE_NORMAL;
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
-static void button_select_node_cb(GtkButton* button, gpointer user_data)
+static void button_mark_node_cb(GtkButton* button, gpointer user_data)
 {
-    (void)button, shortcut_select_node_cb(NULL, NULL, user_data);
+    (void)button, shortcut_mark_node_cb(NULL, NULL, user_data);
 }
 
 static gboolean
@@ -1205,7 +1338,7 @@ shortcut_new_edge_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     GraphEditor* editor       = user_data;
     struct graph_model* model = &editor->model;
     (void)widget, (void)unused;
-    create_new_edge(model, model->selected_node_id, model->active_node_id);
+    create_new_edge(model, model->marked_node_id, model->active_node_id);
     notify_graph_changed(model);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
@@ -1259,6 +1392,53 @@ static void button_edit_node_or_edge_cb(GtkButton* button, gpointer user_data)
     (void)button, shortcut_edit_node_or_edge_cb(NULL, NULL, user_data);
 }
 
+static gboolean shortcut_reconnect_edge_cb(
+    GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = &editor->model;
+    (void)widget, (void)unused;
+    switch (editor->model.mode)
+    {
+        case MODE_NORMAL:
+        case MODE_MOVE:
+            model->reconnect_node_id = -1;
+            model->reconnect_edge_id = -1;
+            if (model->active_node_id > -1)
+                model->reconnect_node_id = model->active_node_id;
+            else if (model->active_edge_id > -1)
+                model->reconnect_edge_id = model->active_edge_id;
+            else
+                break;
+
+            model->mode = MODE_RECONNECT_FROM;
+            break;
+
+        case MODE_RECONNECT_FROM:
+            if (model->reconnect_node_id > -1)
+                model->reconnect_edge_id = model->active_edge_id;
+            else
+                model->reconnect_node_id = model->active_node_id;
+
+            if (model->reconnect_node_id > -1 && model->reconnect_edge_id > -1)
+                model->mode = MODE_RECONNECT_TO;
+            else
+                model->mode = MODE_NORMAL;
+            break;
+
+        case MODE_RECONNECT_TO:
+            model->reconnect_node_id = -1;
+            model->reconnect_edge_id = -1;
+            model->mode              = MODE_NORMAL;
+            break;
+    }
+    return TRUE;
+}
+static void button_reconnect_edge_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_edit_node_or_edge_cb(NULL, NULL, user_data);
+}
+
 /* -------------------------------------------------------------------------- */
 static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
 {
@@ -1284,16 +1464,17 @@ static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
         {GDK_KEY_l, GDK_SHIFT_MASK,       shortcut_edge_right_cb},
         {GDK_KEY_j, GDK_SHIFT_MASK,       shortcut_edge_down_cb},
         {GDK_KEY_k, GDK_SHIFT_MASK,       shortcut_edge_up_cb},
-        {GDK_KEY_m, GDK_NO_MODIFIER_MASK, shortcut_switch_mode_cb},
-        {GDK_KEY_m, GDK_SHIFT_MASK,       shortcut_switch_mode_cb},
+        {GDK_KEY_m, GDK_NO_MODIFIER_MASK, shortcut_move_cb},
+        {GDK_KEY_m, GDK_SHIFT_MASK,       shortcut_move_cb},
         {GDK_KEY_n, GDK_NO_MODIFIER_MASK, shortcut_new_node_cb},
         {GDK_KEY_e, GDK_NO_MODIFIER_MASK, shortcut_new_edge_cb},
         {GDK_KEY_n, GDK_SHIFT_MASK,       shortcut_new_node_and_edge_cb},
         {GDK_KEY_x, GDK_NO_MODIFIER_MASK, shortcut_delete_cb},
-        {GDK_KEY_s, GDK_NO_MODIFIER_MASK, shortcut_select_node_cb},
+        {GDK_KEY_s, GDK_NO_MODIFIER_MASK, shortcut_mark_node_cb},
         {GDK_KEY_i, GDK_NO_MODIFIER_MASK, shortcut_set_in_node_cb},
         {GDK_KEY_o, GDK_NO_MODIFIER_MASK, shortcut_set_out_node_cb},
         {GDK_KEY_i, GDK_SHIFT_MASK,       shortcut_edit_node_or_edge_cb},
+        {GDK_KEY_r, GDK_NO_MODIFIER_MASK, shortcut_reconnect_edge_cb},
         /* clang-format on */
     };
 
@@ -1629,7 +1810,7 @@ static void draw_cb(
             r,
             g,
             b,
-            n->id == model->selected_node_id,
+            n->id == model->marked_node_id,
             n->id == model->node_in_id,
             n->id == model->node_out_id);
         if (model->mode == MODE_MOVE && n->id == model->active_node_id)
@@ -1835,12 +2016,14 @@ static void graph_editor_init(GraphEditor* self)
     model->graph = NULL;
     node_attr_hmap_init(&model->node_attrs);
     edge_attr_hmap_init(&model->edge_attrs);
-    model->node_in_id       = -1;
-    model->node_out_id      = -1;
-    model->active_node_id   = -1;
-    model->active_edge_id   = -1;
-    model->selected_node_id = -1;
-    model->mode             = MODE_NORMAL;
+    model->node_in_id        = -1;
+    model->node_out_id       = -1;
+    model->active_node_id    = -1;
+    model->active_edge_id    = -1;
+    model->marked_node_id    = -1;
+    model->reconnect_node_id = -1;
+    model->reconnect_edge_id = -1;
+    model->mode              = MODE_NORMAL;
 
     self->overlay      = NULL;
     self->drawing_area = NULL;
