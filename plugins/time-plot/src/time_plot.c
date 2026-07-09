@@ -3,17 +3,17 @@
 
 struct _TimePlot
 {
-    GtkBox     parent_instance;
+    GtkBox parent_instance;
     GtkWidget* drawing_area;
 
-    const struct csfg_tf*       tf;
+    const struct csfg_tf* tf;
     const struct csfg_pfd_poly* pfd_impulse;
     const struct csfg_pfd_poly* pfd_step;
     const struct csfg_pfd_poly* pfd_ramp;
 
     unsigned enable_impulse : 1;
-    unsigned enable_step : 1;
-    unsigned enable_ramp : 1;
+    unsigned enable_step    : 1;
+    unsigned enable_ramp    : 1;
 };
 
 G_DEFINE_DYNAMIC_TYPE(TimePlot, time_plot, GTK_TYPE_BOX)
@@ -21,17 +21,17 @@ G_DEFINE_DYNAMIC_TYPE(TimePlot, time_plot, GTK_TYPE_BOX)
 /* -------------------------------------------------------------------------- */
 static void draw_mag_cb(
     GtkDrawingArea* area,
-    cairo_t*        cr,
-    int             width,
-    int             height,
-    gpointer        user_data)
+    cairo_t* cr,
+    int width,
+    int height,
+    gpointer user_data)
 {
     TimePlot* plot = user_data;
     (void)area, (void)width, (void)height;
 
     if (plot->tf != NULL)
     {
-        int    exponent, i;
+        int exponent, i;
         double scale_x, scale_y;
         double value;
         double t_start, t_end, t_step, t;
@@ -50,37 +50,46 @@ static void draw_mag_cb(
             {
                 value =
                     csfg_pfd_poly_eval_inverse_laplace(plot->pfd_impulse, t);
-                if (y_max < value)
-                    y_max = value;
-                if (y_min > value)
-                    y_min = value;
-                value = fabs(value);
-                if (max_abs_value < value)
-                    max_abs_value = value;
+                if (!isinf(value) && !isnan(value))
+                {
+                    if (y_max < value)
+                        y_max = value;
+                    if (y_min > value)
+                        y_min = value;
+                    value = fabs(value);
+                    if (max_abs_value < value)
+                        max_abs_value = value;
+                }
             }
 
             if (plot->enable_step)
             {
                 value = csfg_pfd_poly_eval_inverse_laplace(plot->pfd_step, t);
-                if (y_max < value)
-                    y_max = value;
-                if (y_min > value)
-                    y_min = value;
-                value = fabs(value);
-                if (max_abs_value < value)
-                    max_abs_value = value;
+                if (!isinf(value) && !isnan(value))
+                {
+                    if (y_max < value)
+                        y_max = value;
+                    if (y_min > value)
+                        y_min = value;
+                    value = fabs(value);
+                    if (max_abs_value < value)
+                        max_abs_value = value;
+                }
             }
 
             if (plot->enable_ramp)
             {
                 value = csfg_pfd_poly_eval_inverse_laplace(plot->pfd_ramp, t);
-                if (y_max < value)
-                    y_max = value;
-                if (y_min > value)
-                    y_min = value;
-                value = fabs(value);
-                if (max_abs_value < value)
-                    max_abs_value = value;
+                if (!isinf(value) && !isnan(value))
+                {
+                    if (y_max < value)
+                        y_max = value;
+                    if (y_min > value)
+                        y_min = value;
+                    value = fabs(value);
+                    if (max_abs_value < value)
+                        max_abs_value = value;
+                }
             }
         }
         scale_x = width / (t_end - t_start) * 0.95;
@@ -152,7 +161,7 @@ static void draw_mag_cb(
         cairo_set_line_width(cr, 1.0);
         cairo_set_source_rgb(cr, 0.6, 0.6, 0.6);
         exponent = (int)ceil(log10(t_end));
-        t = pow(10, exponent);
+        t        = pow(10, exponent);
         cairo_move_to(cr, t * scale_x, 5);
         cairo_line_to(cr, t * scale_x, -5);
         t = pow(10, exponent - 1);
@@ -162,7 +171,7 @@ static void draw_mag_cb(
         cairo_move_to(cr, t * scale_x, 5);
         cairo_line_to(cr, t * scale_x, -5);
 
-        t = pow(10, exponent);
+        t      = pow(10, exponent);
         t_step = t / 100;
         for (i = 0; i != 100; ++i)
         {
@@ -208,10 +217,10 @@ static void time_plot_init(TimePlot* self)
 
     g_object_set(self, "orientation", GTK_ORIENTATION_VERTICAL, NULL);
 
-    self->tf = NULL;
+    self->tf             = NULL;
     self->enable_impulse = 0;
-    self->enable_step = 1;
-    self->enable_ramp = 0;
+    self->enable_step    = 1;
+    self->enable_ramp    = 0;
 
     self->drawing_area = gtk_drawing_area_new();
     gtk_widget_set_hexpand(self->drawing_area, TRUE);
@@ -220,8 +229,8 @@ static void time_plot_init(TimePlot* self)
         GTK_DRAWING_AREA(self->drawing_area), draw_mag_cb, self, NULL);
 
     check_impulse = gtk_check_button_new_with_label("Impulse");
-    check_step = gtk_check_button_new_with_label("Step");
-    check_ramp = gtk_check_button_new_with_label("Ramp");
+    check_step    = gtk_check_button_new_with_label("Step");
+    check_ramp    = gtk_check_button_new_with_label("Ramp");
     gtk_check_button_set_active(GTK_CHECK_BUTTON(check_step), TRUE);
     g_signal_connect(
         check_impulse, "toggled", G_CALLBACK(on_impulse_toggled), self);
@@ -247,7 +256,7 @@ static void time_plot_finalize(GObject* obj)
 static void time_plot_class_init(TimePlotClass* class)
 {
     GObjectClass* object_class = G_OBJECT_CLASS(class);
-    object_class->finalize = time_plot_finalize;
+    object_class->finalize     = time_plot_finalize;
 }
 
 /* -------------------------------------------------------------------------- */

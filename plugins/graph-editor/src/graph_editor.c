@@ -1,6 +1,10 @@
 #include "csfg/graph/graph.h"
+#include "csfg/io/deserialize.h"
+#include "csfg/io/serialize.h"
 #include "csfg/symbolic/expr.h"
+#include "csfg/util/hmap.h"
 #include "csfg/util/str.h"
+#include "csfg/util/vec.h"
 #include "dpsfg-plugin.h"
 #include "graph-editor/graph_editor.h"
 #include <math.h>
@@ -10,37 +14,24 @@ static const int ARROW_RADIUS            = 8;
 static const double DEFAULT_NODE_SPACING = GRID_WIDTH * 6;
 static int DEFAULT_NODE_RADIUS           = 10;
 
-enum mode
+struct node_attr
 {
-    MODE_NORMAL,
-    MODE_MOVE,
-    MODE_RECONNECT_FROM,
-    MODE_RECONNECT_TO,
+    double radius;
 };
 
-HMAP_DEFINE(extern, node_attr_hmap, int, struct node_attr, 16)
-HMAP_DEFINE(extern, edge_attr_hmap, int, struct edge_attr, 16)
-
-struct graph_model
+struct edge_attr
 {
-    const struct plugin_notify_interface* icb;
-    struct plugin_notify_context* cb;
-    struct plugin_ctx* plugin_ctx;
-
-    struct csfg_graph* graph;
-    struct node_attr_hmap* node_attrs;
-    struct edge_attr_hmap* edge_attrs;
-
-    int active_node_id;
-    int active_edge_id;
-    int marked_node_id;
-    int reconnect_node_id;
-    int reconnect_edge_id;
-    int node_in_id;
-    int node_out_id;
-
-    enum mode mode;
+    struct str* expr_str;
 };
+
+HMAP_DECLARE(static, node_attr_hmap, int, struct node_attr, 16)
+HMAP_DEFINE(static, node_attr_hmap, int, struct node_attr, 16)
+
+HMAP_DECLARE(static, edge_attr_hmap, int, struct edge_attr, 16)
+HMAP_DEFINE(static, edge_attr_hmap, int, struct edge_attr, 16)
+
+VEC_DECLARE(undo_stack_vec, struct serializer*, 32)
+VEC_DEFINE(undo_stack_vec, struct serializer*, 32)
 
 struct _GraphEditor
 {
@@ -65,15 +56,185 @@ struct _GraphEditor
     /* Drag state */
     double drag_offset_x, drag_offset_y;
 
-    struct graph_model model;
+    struct graph_model* model;
 };
 
 G_DEFINE_DYNAMIC_TYPE(GraphEditor, graph_editor, GTK_TYPE_BOX)
 
 /* -------------------------------------------------------------------------- */
-void edge_attr_deinit(struct edge_attr* ea)
+static void edge_attr_deinit(struct edge_attr* ea)
 {
     str_deinit(ea->expr_str);
+}
+
+/* -------------------------------------------------------------------------- */
+static int
+graph_model_serialize(struct graph_model* model, struct serializer** ser)
+{
+    return 0;
+}
+static int
+graph_model_deserialize(struct graph_model* model, struct deserializer* des)
+{
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_model_init(
+    struct graph_model* model,
+    struct plugin_ctx* plugin_ctx,
+    const struct plugin_notify_interface* icb,
+    struct plugin_notify_context* cb)
+{
+    model->icb        = icb;
+    model->cb         = cb;
+    model->plugin_ctx = plugin_ctx;
+
+    model->graph = NULL;
+    node_attr_hmap_init(&model->node_attrs);
+    edge_attr_hmap_init(&model->edge_attrs);
+
+    model->undo_stack_ptr    = 0;
+    model->node_in_id        = -1;
+    model->node_out_id       = -1;
+    model->active_node_id    = -1;
+    model->active_edge_id    = -1;
+    model->marked_node_id    = -1;
+    model->reconnect_node_id = -1;
+    model->reconnect_edge_id = -1;
+
+    model->mode = MODE_NORMAL;
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_model_deinit(struct graph_model* model)
+{
+    int idx, id;
+    struct edge_attr* ea;
+
+    hmap_for_each (model->edge_attrs, idx, id, ea)
+        (void)id, edge_attr_deinit(ea);
+
+    edge_attr_hmap_deinit(model->edge_attrs);
+    node_attr_hmap_deinit(model->node_attrs);
+}
+
+/* -------------------------------------------------------------------------- */
+int graph_model_save_attrs(struct graph_model* model, struct serializer** ser)
+{
+    const struct csfg_edge* e;
+    const struct edge_attr* ea;
+    int err;
+
+    if (model->graph == NULL)
+        return -1;
+
+    err = serialize_li16(ser, csfg_graph_edge_count(model->graph));
+    csfg_graph_for_each_edge (model->graph, e)
+    {
+        ea = edge_attr_hmap_find(model->edge_attrs, e->id);
+        err += serialize_li32(ser, e->id);
+        err += serialize_cstr(ser, str_cstr(ea->expr_str));
+    }
+    return err;
+}
+
+/* -------------------------------------------------------------------------- */
+int graph_model_load_attrs(struct graph_model* model, struct deserializer* des)
+{
+    int count, edge_id;
+    const char* edge_expr;
+    struct edge_attr* ea;
+
+    count = deserialize_li16(des);
+    while (count-- > 0)
+    {
+        edge_id   = deserialize_li32(des);
+        edge_expr = deserialize_cstr(des);
+        switch (edge_attr_hmap_emplace_or_get(&model->edge_attrs, edge_id, &ea))
+        {
+            case HMAP_OOM   : return -1;
+            case HMAP_NEW   : str_init(&ea->expr_str);
+            case HMAP_EXISTS: break;
+        }
+        if (str_set_cstr(&ea->expr_str, edge_expr) != 0)
+            return -1;
+    }
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_model_clear_attrs(struct graph_model* model)
+{
+    int i, id;
+    struct edge_attr* ea;
+    hmap_for_each (model->edge_attrs, i, id, ea)
+    {
+        (void)id, (void)ea;
+        edge_attr_deinit(edge_attr_hmap_erase_slot(model->edge_attrs, i));
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_model_set_graph(
+    struct graph_model* model, struct csfg_graph* g, int node_in, int node_out)
+{
+    model->graph = g;
+    graph_model_rebuild_graph(model, node_in, node_out);
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_model_clear_graph(struct graph_model* model)
+{
+    model->graph = NULL;
+    graph_model_rebuild_graph(model, -1, -1);
+}
+
+/* -------------------------------------------------------------------------- */
+static int push_undo(struct graph_model* model)
+{
+    struct serializer** ser;
+
+    /* destroy future */
+    while (vec_count(model->undo_stack) > model->undo_stack_ptr)
+        serializer_deinit(*undo_stack_vec_pop(model->undo_stack));
+
+    ser = undo_stack_vec_emplace(&model->undo_stack);
+    if (ser == NULL)
+        return -1;
+
+    return graph_model_serialize(model, ser);
+}
+static int undo(struct graph_model* model)
+{
+    struct serializer* ser;
+    struct deserializer des;
+
+    if (model->undo_stack_ptr > 0)
+    {
+        --model->undo_stack_ptr;
+        ser = *vec_get(model->undo_stack, model->undo_stack_ptr);
+        des = deserializer(vec_data(ser), vec_count(ser));
+        return graph_model_deserialize(model, &des);
+    }
+
+    return 0;
+}
+static int redo(struct graph_model* model)
+{
+    struct serializer* ser;
+    struct deserializer des;
+
+    if (model->undo_stack_ptr < vec_count(model->undo_stack))
+    {
+        ser = *vec_get(model->undo_stack, model->undo_stack_ptr);
+        ++model->undo_stack_ptr;
+        des = deserializer(vec_data(ser), vec_count(ser));
+        return graph_model_deserialize(model, &des);
+    }
+
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -111,7 +272,7 @@ static int find_farthest_node_in_direction(
 }
 
 /* -------------------------------------------------------------------------- */
-static int find_closest_node_in_direction(
+static int find_nearest_node_in_direction(
     const struct csfg_graph* graph,
     int active_node_id,
     double dirx,
@@ -185,7 +346,7 @@ static int find_farthest_edge_in_direction(
 }
 
 /* -------------------------------------------------------------------------- */
-static int find_closest_edge_in_direction(
+static int find_nearest_edge_in_direction(
     const struct csfg_graph* graph,
     int active_edge_id,
     double dirx,
@@ -226,6 +387,41 @@ static int find_closest_edge_in_direction(
 }
 
 /* -------------------------------------------------------------------------- */
+static int calc_circle_two_points(
+    double* cx,
+    double* cy,
+    double* radius,
+    double x1,
+    double y1,
+    double x2,
+    double y2)
+{
+    double dx = x1 - x2;
+    double dy = y1 - y2;
+    *cx       = (x1 + x2) / 2;
+    *cy       = (y1 + y2) / 2;
+    *radius   = sqrt(dx * dx + dy * dy) / 2;
+    return 1;
+}
+static int calc_circle_two_points_overlapping(
+    double* cx,
+    double* cy,
+    double* radius,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+    double x3,
+    double y3)
+{
+    if (x1 == x2 && y1 == y2 && (x1 != x3 || y1 != y3))
+        return calc_circle_two_points(cx, cy, radius, x1, y1, x3, y3);
+    if (x1 == x3 && y1 == y3 && (x1 != x2 || y1 != y2))
+        return calc_circle_two_points(cx, cy, radius, x1, y1, x2, y2);
+    if (x2 == x3 && y2 == y3 && (x1 != x2 || y1 != y2))
+        return calc_circle_two_points(cx, cy, radius, x1, y1, x2, y2);
+    return 0;
+}
 static int calc_circle(
     double* cx,
     double* cy,
@@ -249,12 +445,10 @@ static int calc_circle(
     double E   = ((x1 * x1 - x2 * x2) + (y1 * y1 - y2 * y2)) / 2.0;
     double F   = ((x1 * x1 - x3 * x3) + (y1 * y1 - y3 * y3)) / 2.0;
     double den = A * D - B * C;
+
     if (fabs(den) < 0.0001)
-    {
-        *cx = (x1 + x3) / 2.0;
-        *cy = (y1 + y3) / 2.0;
         return 0;
-    }
+
     *cx     = (D * E - B * F) / den;
     *cy     = (-C * E + A * F) / den;
     *radius = hypot(*cx - x1, *cy - y1);
@@ -265,49 +459,6 @@ static int calc_circle(
     double vx2 = (x3 - x1), vy2 = (y3 - y1);
     double cross = (vx1 * vy2 - vy1 * vx2);
     return cross > 0 ? 1 : -1;
-}
-
-/* -------------------------------------------------------------------------- */
-static void
-drag_edge_with_node(struct csfg_graph* g, int n_id, double new_x, double new_y)
-{
-    const struct csfg_node* n;
-    struct csfg_edge* e;
-    double cx, cy, radius;
-    int n_idx, orientation;
-
-    if (g == NULL)
-        return;
-
-    csfg_graph_enumerate_nodes (g, n_idx, n)
-        if (n->id == n_id)
-            break;
-    if (n_idx == csfg_graph_node_count(g))
-        return;
-
-    csfg_graph_for_each_edge (g, e)
-    {
-        const struct csfg_node* n1 = csfg_graph_get_node(g, n_idx);
-        const struct csfg_node* n2 =
-            e->n_idx_from == n_idx ? csfg_graph_get_node(g, e->n_idx_to)
-            : e->n_idx_to == n_idx ? csfg_graph_get_node(g, e->n_idx_from)
-                                   : NULL;
-        if (n2 == NULL)
-            continue;
-
-        orientation = calc_circle(
-            &cx, &cy, &radius, n1->x, n1->y, e->x, e->y, n2->x, n2->y);
-        if (orientation == 0)
-        {
-            e->x = (new_x + n2->x) / 2;
-            e->y = (new_y + n2->y) / 2;
-        }
-        else
-        {
-            e->x += (new_x - n1->x) / 2;
-            e->y += (new_y - n1->y) / 2;
-        }
-    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -357,6 +508,220 @@ static struct csfg_edge* find_edge(struct csfg_graph* g, int edge_id)
 }
 
 /* -------------------------------------------------------------------------- */
+static int is_near_any_other_node(
+    double x,
+    double y,
+    const struct csfg_graph* g,
+    const struct csfg_node* exclude_node)
+{
+    const struct csfg_node* n;
+    CSFG_DEBUG_ASSERT(g != NULL);
+    csfg_graph_for_each_node (g, n)
+    {
+        double dx = x - n->x;
+        double dy = y - n->y;
+        if (exclude_node != NULL && n == exclude_node)
+            continue;
+        if (dx * dx + dy * dy < DEFAULT_NODE_SPACING * DEFAULT_NODE_SPACING / 4)
+            return 1;
+    }
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+static int is_near_any_other_edge(
+    double x,
+    double y,
+    const struct csfg_graph* g,
+    const struct csfg_edge* exclude_edge)
+{
+    const struct csfg_edge* e;
+    CSFG_DEBUG_ASSERT(g != NULL);
+    csfg_graph_for_each_edge (g, e)
+    {
+        double dx = x - e->x;
+        double dy = y - e->y;
+        if (exclude_edge != NULL && e == exclude_edge)
+            continue;
+        if (dx * dx + dy * dy < DEFAULT_NODE_SPACING * DEFAULT_NODE_SPACING / 4)
+            return 1;
+    }
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+static int node_is_connected_to_edge(struct csfg_graph* g, int n_id, int e_id)
+{
+    const struct csfg_edge* e;
+    int n_idx;
+
+    if (g == NULL)
+        return 0;
+
+    e = find_edge(g, e_id);
+    if (e == NULL)
+        return 0;
+
+    n_idx = find_node_idx(g, n_id);
+    return e->n_idx_from == n_idx || e->n_idx_to == n_idx;
+}
+
+/* -------------------------------------------------------------------------- */
+static int find_single_node_edge(const struct csfg_graph* g, int n_id)
+{
+    const struct csfg_edge* e;
+    int connected_edges = 0, last_edge_id = -1;
+
+    if (g == NULL)
+        return -1;
+
+    csfg_graph_for_each_edge (g, e)
+        if (csfg_graph_get_node(g, e->n_idx_from)->id == n_id ||
+            csfg_graph_get_node(g, e->n_idx_to)->id == n_id)
+        {
+            connected_edges++;
+            last_edge_id = e->id;
+        }
+
+    if (connected_edges == 1)
+        return last_edge_id;
+
+    return -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void auto_position_node_grid(
+    const struct csfg_graph* g, struct csfg_node* n, int total_node_count)
+{
+    const double row_end =
+        (int)ceil(sqrt(total_node_count)) * DEFAULT_NODE_SPACING;
+    CSFG_DEBUG_ASSERT(g != NULL);
+
+    n->x = 0.0;
+    n->y = 0.0;
+    while (is_near_any_other_node(n->x, n->y, g, n))
+    {
+        n->x += DEFAULT_NODE_SPACING;
+        if (n->x >= row_end)
+        {
+            n->x = 0.0;
+            n->y += DEFAULT_NODE_SPACING;
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static void auto_position_node_near(
+    const struct csfg_graph* g,
+    struct csfg_node* n,
+    double near_x,
+    double near_y)
+{
+    CSFG_DEBUG_ASSERT(g != NULL);
+    n->x = near_x;
+    n->y = near_y;
+    while (is_near_any_other_node(n->x, n->y, g, n))
+        n->x += DEFAULT_NODE_SPACING;
+}
+
+/* -------------------------------------------------------------------------- */
+static void auto_position_edge(
+    const struct csfg_graph* g,
+    struct csfg_edge* e,
+    const struct csfg_node* from,
+    const struct csfg_node* to)
+{
+    CSFG_DEBUG_ASSERT(g != NULL);
+
+    e->x = (from->x + to->x) / 2;
+    e->y = (from->y + to->y) / 2;
+
+    double spacing_increments = DEFAULT_NODE_SPACING / 2;
+    double edge_add_spacing   = spacing_increments;
+
+    while (is_near_any_other_node(e->x, e->y, g, NULL) ||
+           is_near_any_other_edge(e->x, e->y, g, e))
+    {
+        double tmp;
+        double nx  = from->x - to->x;
+        double ny  = from->y - to->y;
+        double den = sqrt(nx * nx + ny * ny);
+        if (den != 0.0)
+        {
+            tmp = nx;
+            nx  = -ny / den;
+            ny  = tmp / den;
+
+            e->x -= nx * edge_add_spacing;
+            e->y -= ny * edge_add_spacing;
+            edge_add_spacing = edge_add_spacing > 0
+                                 ? -(edge_add_spacing + spacing_increments)
+                                 : -edge_add_spacing + spacing_increments;
+        }
+        else
+        {
+            e->x = from->x;
+            e->y -= edge_add_spacing;
+        }
+    }
+}
+/* -------------------------------------------------------------------------- */
+static void drag_edge_connected_to_node(
+    struct csfg_graph* g,
+    struct csfg_edge* e,
+    int n_idx,
+    double n_prev_x,
+    double n_prev_y)
+{
+    const struct csfg_node *n1, *n2;
+    double cx, cy, radius;
+
+    n1 = csfg_graph_get_node(g, n_idx);
+    n2 = e->n_idx_from == n_idx ? csfg_graph_get_node(g, e->n_idx_to)
+       : e->n_idx_to == n_idx   ? csfg_graph_get_node(g, e->n_idx_from)
+                                : NULL;
+    if (n2 == NULL)
+        return;
+
+    if (calc_circle(
+            &cx, &cy, &radius, n_prev_x, n_prev_y, e->x, e->y, n2->x, n2->y) ||
+        calc_circle_two_points_overlapping(
+            &cx, &cy, &radius, n_prev_x, n_prev_y, e->x, e->y, n2->x, n2->y))
+    {
+        e->x += (n1->x - n_prev_x) / 2;
+        e->y += (n1->y - n_prev_y) / 2;
+    }
+    else
+    {
+        e->x = (n1->x + n2->x) / 2;
+        e->y = (n1->y + n2->y) / 2;
+    }
+
+    if (is_near_any_other_node(e->x, e->y, g, NULL) ||
+        is_near_any_other_edge(e->x, e->y, g, e))
+    {
+        auto_position_edge(g, e, n1, n2);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static void drag_all_edges_connected_to_node(
+    struct csfg_graph* g, int n_id, double prev_pos_x, double prev_pos_y)
+{
+    struct csfg_edge* e;
+    int n_idx;
+
+    n_idx = find_node_idx(g, n_id);
+    if (n_idx < 0)
+        return;
+
+    csfg_graph_for_each_edge (g, e)
+        drag_edge_connected_to_node(g, e, n_idx, prev_pos_x, prev_pos_y);
+}
+
+/* -------------------------------------------------------------------------- */
 static void select_next_active_node_in_direction(
     struct graph_model* model, double dx, double dy)
 {
@@ -367,10 +732,10 @@ static void select_next_active_node_in_direction(
     e = find_edge(model->graph, model->active_edge_id);
 
     if (n != NULL)
-        model->active_node_id = find_closest_node_in_direction(
+        model->active_node_id = find_nearest_node_in_direction(
             model->graph, model->active_node_id, dx, dy, n->x, n->y);
     else if (e != NULL)
-        model->active_node_id = find_closest_node_in_direction(
+        model->active_node_id = find_nearest_node_in_direction(
             model->graph, model->active_node_id, dx, dy, e->x, e->y);
     else
         model->active_node_id =
@@ -391,10 +756,10 @@ static void select_next_active_edge_in_direction(
     e = find_edge(model->graph, model->active_edge_id);
 
     if (e != NULL)
-        model->active_edge_id = find_closest_edge_in_direction(
+        model->active_edge_id = find_nearest_edge_in_direction(
             model->graph, model->active_edge_id, dx, dy, e->x, e->y);
     else if (n != NULL)
-        model->active_edge_id = find_closest_edge_in_direction(
+        model->active_edge_id = find_nearest_edge_in_direction(
             model->graph, model->active_edge_id, dx, dy, n->x, n->y);
     else
         model->active_edge_id = find_farthest_edge_in_direction(
@@ -494,27 +859,102 @@ static void select_next_connected_edge_in_direction(
 }
 
 /* -------------------------------------------------------------------------- */
+static void
+select_nearest_connected_node(struct graph_model* model, int edge_id)
+{
+    const struct csfg_node* n;
+    const struct csfg_edge* e;
+    int idx, nodes[2];
+    double dx, dy, current_x, current_y;
+    double new_dist, dist = 100000. * 100000.;
+
+    e = find_edge(model->graph, edge_id);
+    if (e == NULL)
+        return;
+
+    n = find_node(model->graph, model->active_node_id);
+    if (n != NULL)
+        current_x = n->x, current_y = n->y;
+    else
+        current_x = e->x, current_y = e->y;
+
+    nodes[0] = e->n_idx_from;
+    nodes[1] = e->n_idx_to;
+    for (idx = 0; idx != 2; ++idx)
+    {
+        n        = csfg_graph_get_node(model->graph, nodes[idx]);
+        dx       = current_x - n->x;
+        dy       = current_y - n->y;
+        new_dist = dx * dx + dy * dy;
+        if (new_dist < dist)
+            dist = new_dist, model->active_node_id = n->id;
+    }
+
+    model->active_edge_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void
+select_nearest_connected_edge(struct graph_model* model, int node_id)
+{
+    const struct csfg_node* n;
+    const struct csfg_edge* e;
+    int idx;
+    double dx, dy, current_x, current_y;
+    double new_dist, dist = 100000. * 100000.;
+
+    n = find_node(model->graph, node_id);
+    if (n == NULL)
+        return;
+
+    e = find_edge(model->graph, model->active_edge_id);
+    if (e != NULL)
+        current_x = e->x, current_y = e->y;
+    else
+        current_x = n->x, current_y = n->y;
+
+    csfg_graph_enumerate_edges (model->graph, idx, e)
+    {
+        if (csfg_graph_get_node(model->graph, e->n_idx_from)->id != n->id &&
+            csfg_graph_get_node(model->graph, e->n_idx_to)->id != n->id)
+            continue;
+
+        dx       = current_x - e->x;
+        dy       = current_y - e->y;
+        new_dist = dx * dx + dy * dy;
+        if (new_dist < dist)
+            dist = new_dist, model->active_edge_id = e->id;
+    }
+
+    model->active_node_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
 static int reconnect_edge(
     struct graph_model* model,
     int edge_id,
     int current_node_id,
     int target_node_id)
 {
+    struct csfg_node* n;
     struct csfg_edge* e  = find_edge(model->graph, edge_id);
     int current_node_idx = find_node_idx(model->graph, current_node_id);
     int target_node_idx  = find_node_idx(model->graph, target_node_id);
     if (e == NULL || current_node_idx < 0 || target_node_idx < 0)
         return current_node_id;
+    n = csfg_graph_get_node(model->graph, current_node_idx);
 
     if (e->n_idx_to == current_node_idx)
     {
         e->n_idx_to = target_node_idx;
-        return target_node_id;
+        drag_edge_connected_to_node(model->graph, e, e->n_idx_to, n->x, n->y);
+        current_node_id = target_node_id;
     }
-    if (e->n_idx_from == current_node_idx)
+    else if (e->n_idx_from == current_node_idx)
     {
         e->n_idx_from = target_node_idx;
-        return target_node_id;
+        drag_edge_connected_to_node(model->graph, e, e->n_idx_from, n->x, n->y);
+        current_node_id = target_node_id;
     }
 
     return current_node_id;
@@ -524,17 +964,16 @@ static int reconnect_edge(
 static void
 move_active_node_in_direction(struct graph_model* model, double dx, double dy)
 {
+    double x, y;
     struct csfg_node* n = find_node(model->graph, model->active_node_id);
     if (n == NULL)
         return;
 
-    drag_edge_with_node(
-        model->graph,
-        model->active_node_id,
-        n->x + dx * DEFAULT_NODE_SPACING,
-        n->y + dy * DEFAULT_NODE_SPACING);
+    x = n->x;
+    y = n->y;
     n->x += dx * DEFAULT_NODE_SPACING;
     n->y += dy * DEFAULT_NODE_SPACING;
+    drag_all_edges_connected_to_node(model->graph, model->active_node_id, x, y);
 
     model->icb->graph_layout_changed(model->cb, model->plugin_ctx);
 }
@@ -551,119 +990,6 @@ move_active_edge_in_direction(struct graph_model* model, double dx, double dy)
     e->y += dy * GRID_WIDTH;
 
     model->icb->graph_layout_changed(model->cb, model->plugin_ctx);
-}
-
-/* -------------------------------------------------------------------------- */
-static int is_near_any_other_node(
-    double x,
-    double y,
-    const struct csfg_graph* g,
-    const struct csfg_node* exclude_node)
-{
-    const struct csfg_node* n;
-    CSFG_DEBUG_ASSERT(g != NULL);
-    csfg_graph_for_each_node (g, n)
-    {
-        double dx = x - n->x;
-        double dy = y - n->y;
-        if (exclude_node != NULL && n == exclude_node)
-            continue;
-        if (dx * dx + dy * dy < DEFAULT_NODE_SPACING * DEFAULT_NODE_SPACING / 4)
-            return 1;
-    }
-
-    return 0;
-}
-
-/* -------------------------------------------------------------------------- */
-static int is_near_any_other_edge(
-    double x,
-    double y,
-    const struct csfg_graph* g,
-    const struct csfg_edge* exclude_edge)
-{
-    const struct csfg_edge* e;
-    CSFG_DEBUG_ASSERT(g != NULL);
-    csfg_graph_for_each_edge (g, e)
-    {
-        double dx = x - e->x;
-        double dy = y - e->y;
-        if (exclude_edge != NULL && e == exclude_edge)
-            continue;
-        if (dx * dx + dy * dy < DEFAULT_NODE_SPACING * DEFAULT_NODE_SPACING / 4)
-            return 1;
-    }
-
-    return 0;
-}
-
-/* -------------------------------------------------------------------------- */
-static void auto_position_node_grid(
-    const struct csfg_graph* g, struct csfg_node* n, int total_node_count)
-{
-    const double row_end =
-        (int)ceil(sqrt(total_node_count)) * DEFAULT_NODE_SPACING;
-    CSFG_DEBUG_ASSERT(g != NULL);
-
-    n->x = 0.0;
-    n->y = 0.0;
-    while (is_near_any_other_node(n->x, n->y, g, n))
-    {
-        n->x += DEFAULT_NODE_SPACING;
-        if (n->x >= row_end)
-        {
-            n->x = 0.0;
-            n->y += DEFAULT_NODE_SPACING;
-        }
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-static void auto_position_node_near(
-    const struct csfg_graph* g,
-    struct csfg_node* n,
-    double near_x,
-    double near_y)
-{
-    CSFG_DEBUG_ASSERT(g != NULL);
-    n->x = near_x;
-    n->y = near_y;
-    while (is_near_any_other_node(n->x, n->y, g, n))
-        n->x += DEFAULT_NODE_SPACING;
-}
-
-/* -------------------------------------------------------------------------- */
-static void auto_position_edge(
-    const struct csfg_graph* g,
-    struct csfg_edge* e,
-    const struct csfg_node* from,
-    const struct csfg_node* to)
-{
-    CSFG_DEBUG_ASSERT(g != NULL);
-
-    e->x = (from->x + to->x) / 2;
-    e->y = (from->y + to->y) / 2;
-
-    double spacing_increments = DEFAULT_NODE_SPACING / 2;
-    double edge_add_spacing   = spacing_increments;
-
-    while (is_near_any_other_node(e->x, e->y, g, NULL) ||
-           is_near_any_other_edge(e->x, e->y, g, e))
-    {
-        double tmp;
-        double nx  = from->x - to->x;
-        double ny  = from->y - to->y;
-        double den = sqrt(nx * nx + ny * ny);
-        tmp        = nx;
-        nx         = -ny / den;
-        ny         = tmp / den;
-
-        e->x -= nx * edge_add_spacing;
-        e->y -= ny * edge_add_spacing;
-        edge_add_spacing = edge_add_spacing > 0
-                             ? -(edge_add_spacing + spacing_increments)
-                             : -edge_add_spacing + spacing_increments;
-    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -828,6 +1154,9 @@ static int try_select_node(
     int idx;
     const struct csfg_node* n;
 
+    if (graph == NULL)
+        return -1;
+
     csfg_graph_enumerate_nodes (graph, idx, n)
     {
         const struct node_attr* na = node_attr_hmap_find(attrs, n->id);
@@ -851,6 +1180,9 @@ try_select_edge(double mouse_x, double mouse_y, const struct csfg_graph* graph)
     int idx;
     const struct csfg_edge* e;
 
+    if (graph == NULL)
+        return -1;
+
     csfg_graph_enumerate_edges (graph, idx, e)
     {
         dx = mouse_x - e->x;
@@ -873,6 +1205,21 @@ try_select_edge_or_node(struct graph_model* model, double x, double y)
     /* Edge has priority when clicking with the mouse -- feels better */
     if (model->active_edge_id > -1)
         model->active_node_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void flip_active_edge(struct graph_model* model)
+{
+    int tmp;
+    struct csfg_edge* e;
+
+    e = find_edge(model->graph, model->active_edge_id);
+    if (e == NULL)
+        return;
+
+    tmp           = e->n_idx_to;
+    e->n_idx_to   = e->n_idx_from;
+    e->n_idx_from = tmp;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -901,7 +1248,8 @@ static void notify_graph_changed(struct graph_model* model)
 }
 
 /* -------------------------------------------------------------------------- */
-void rebuild_graph(struct graph_model* model, int node_in, int node_out)
+void graph_model_rebuild_graph(
+    struct graph_model* model, int node_in, int node_out)
 {
     int i, id;
     struct csfg_node* n;
@@ -962,7 +1310,7 @@ static void finish_editing(GtkEntry* entry, gpointer user_data)
     struct csfg_edge* e;
     struct edge_attr* ea;
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
 
     const char* text = gtk_editable_get_text(GTK_EDITABLE(entry));
 
@@ -1039,7 +1387,7 @@ static void start_editing_active_node_or_edge(GraphEditor* editor)
     const struct csfg_edge* e;
     const struct node_attr* na;
     const struct edge_attr* ea;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
 
     if ((n = find_node(model->graph, model->active_node_id)) != NULL)
     {
@@ -1083,6 +1431,7 @@ node_direction_action(struct graph_model* model, double dx, double dy)
                 model->reconnect_edge_id,
                 model->reconnect_node_id,
                 model->active_node_id);
+            notify_graph_changed(model);
             break;
     }
 }
@@ -1113,7 +1462,7 @@ shortcut_node_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    node_direction_action(&editor->model, -1, 0);
+    node_direction_action(editor->model, -1, 0);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1127,7 +1476,7 @@ shortcut_node_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    node_direction_action(&editor->model, 1, 0);
+    node_direction_action(editor->model, 1, 0);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1141,7 +1490,7 @@ shortcut_node_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    node_direction_action(&editor->model, 0, -1);
+    node_direction_action(editor->model, 0, -1);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1155,7 +1504,7 @@ shortcut_node_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    node_direction_action(&editor->model, 0, 1);
+    node_direction_action(editor->model, 0, 1);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1169,7 +1518,7 @@ shortcut_edge_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    edge_direction_action(&editor->model, -1, 0);
+    edge_direction_action(editor->model, -1, 0);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1183,7 +1532,7 @@ shortcut_edge_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    edge_direction_action(&editor->model, 1, 0);
+    edge_direction_action(editor->model, 1, 0);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1197,7 +1546,7 @@ shortcut_edge_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    edge_direction_action(&editor->model, 0, -1);
+    edge_direction_action(editor->model, 0, -1);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1211,7 +1560,7 @@ shortcut_edge_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    edge_direction_action(&editor->model, 0, 1);
+    edge_direction_action(editor->model, 0, 1);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1224,7 +1573,7 @@ static gboolean
 shortcut_move_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     switch (model->mode)
     {
@@ -1251,10 +1600,10 @@ static gboolean
 shortcut_new_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     model->active_node_id =
-        create_new_node(&editor->model, model->active_node_id);
+        create_new_node(editor->model, model->active_node_id);
     model->active_edge_id    = -1;
     model->reconnect_node_id = -1;
     model->reconnect_edge_id = -1;
@@ -1272,16 +1621,16 @@ static gboolean shortcut_new_node_and_edge_cb(
     GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     int prev_active_node_id   = model->active_node_id;
     (void)widget, (void)unused;
     model->active_node_id =
-        create_new_node(&editor->model, model->active_node_id);
+        create_new_node(editor->model, model->active_node_id);
     model->active_edge_id    = -1;
     model->reconnect_node_id = -1;
     model->reconnect_edge_id = -1;
     model->mode              = MODE_NORMAL;
-    create_new_edge(&editor->model, prev_active_node_id, model->active_node_id);
+    create_new_edge(editor->model, prev_active_node_id, model->active_node_id);
     notify_graph_changed(model);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
@@ -1295,12 +1644,10 @@ static gboolean
 shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
-    editor->model.active_node_id =
-        delete_node(model, editor->model.active_node_id);
-    editor->model.active_edge_id =
-        delete_edge(model, editor->model.active_edge_id);
+    model->active_node_id    = delete_node(model, model->active_node_id);
+    model->active_edge_id    = delete_edge(model, model->active_edge_id);
     model->reconnect_node_id = -1;
     model->reconnect_edge_id = -1;
     model->mode              = MODE_NORMAL;
@@ -1317,7 +1664,7 @@ static gboolean
 shortcut_mark_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     if (model->marked_node_id == model->active_node_id)
         model->marked_node_id = -1;
@@ -1336,7 +1683,7 @@ static gboolean
 shortcut_new_edge_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     create_new_edge(model, model->marked_node_id, model->active_node_id);
     notify_graph_changed(model);
@@ -1353,7 +1700,7 @@ shortcut_set_in_node_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor = user_data;
     (void)widget, (void)unused;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     model->node_in_id         = model->active_node_id;
     notify_graph_changed(model);
     gtk_widget_queue_draw(editor->drawing_area);
@@ -1368,7 +1715,7 @@ static gboolean shortcut_set_out_node_cb(
     GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     model->node_out_id = model->active_node_id;
     notify_graph_changed(model);
@@ -1396,32 +1743,71 @@ static gboolean shortcut_reconnect_edge_cb(
     GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
+    struct csfg_edge* e;
+    int e_id;
     (void)widget, (void)unused;
-    switch (editor->model.mode)
+    switch (model->mode)
     {
         case MODE_NORMAL:
         case MODE_MOVE:
             model->reconnect_node_id = -1;
             model->reconnect_edge_id = -1;
             if (model->active_node_id > -1)
+            {
                 model->reconnect_node_id = model->active_node_id;
+                select_nearest_connected_edge(model, model->reconnect_node_id);
+            }
             else if (model->active_edge_id > -1)
+            {
                 model->reconnect_edge_id = model->active_edge_id;
+                select_nearest_connected_node(model, model->reconnect_edge_id);
+            }
             else
                 break;
 
-            model->mode = MODE_RECONNECT_FROM;
+            /* QoL: If it's a loop, we can skip selecting the "from" node
+             * because there's no ambiguity */
+            e = find_edge(model->graph, model->reconnect_edge_id);
+            if (e != NULL && e->n_idx_from == e->n_idx_to)
+            {
+                model->reconnect_node_id =
+                    csfg_graph_get_node(model->graph, e->n_idx_to)->id;
+                model->mode = MODE_RECONNECT_TO;
+            }
+            /* QoL: If there is only one edge connected to this node, we can
+             * skip the "from" edge because there's no ambiguity */
+            else if (
+                (e_id = find_single_node_edge(
+                     model->graph, model->reconnect_node_id)) > -1)
+            {
+                model->reconnect_edge_id = e_id;
+                model->active_node_id    = model->reconnect_node_id;
+                model->active_edge_id    = -1;
+                model->mode              = MODE_RECONNECT_TO;
+            }
+            else
+                model->mode = MODE_RECONNECT_FROM;
+
             break;
 
         case MODE_RECONNECT_FROM:
             if (model->reconnect_node_id > -1)
+            {
                 model->reconnect_edge_id = model->active_edge_id;
-            else
-                model->reconnect_node_id = model->active_node_id;
+                /* Set valid active node so that the next node move command
+                 * finds the nearest node, instead of snapping to the furthest
+                 * node */
+                model->active_node_id = model->reconnect_node_id;
+                model->active_edge_id = -1;
 
-            if (model->reconnect_node_id > -1 && model->reconnect_edge_id > -1)
                 model->mode = MODE_RECONNECT_TO;
+            }
+            else if (model->reconnect_edge_id > -1)
+            {
+                model->reconnect_node_id = model->active_node_id;
+                model->mode              = MODE_RECONNECT_TO;
+            }
             else
                 model->mode = MODE_NORMAL;
             break;
@@ -1432,11 +1818,27 @@ static gboolean shortcut_reconnect_edge_cb(
             model->mode              = MODE_NORMAL;
             break;
     }
+    gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
 static void button_reconnect_edge_cb(GtkButton* button, gpointer user_data)
 {
-    (void)button, shortcut_edit_node_or_edge_cb(NULL, NULL, user_data);
+    (void)button, shortcut_reconnect_edge_cb(NULL, NULL, user_data);
+}
+
+static gboolean
+shortcut_flip_edge_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    (void)widget, (void)unused;
+    flip_active_edge(editor->model);
+    notify_graph_changed(editor->model);
+    gtk_widget_queue_draw(editor->drawing_area);
+    return TRUE;
+}
+static void button_flip_edge_cb(GtkButton* button, gpointer user_data)
+{
+    (void)button, shortcut_flip_edge_cb(NULL, NULL, user_data);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1475,6 +1877,7 @@ static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
         {GDK_KEY_o, GDK_NO_MODIFIER_MASK, shortcut_set_out_node_cb},
         {GDK_KEY_i, GDK_SHIFT_MASK,       shortcut_edit_node_or_edge_cb},
         {GDK_KEY_r, GDK_NO_MODIFIER_MASK, shortcut_reconnect_edge_cb},
+        {GDK_KEY_f, GDK_NO_MODIFIER_MASK, shortcut_flip_edge_cb},
         /* clang-format on */
     };
 
@@ -1503,6 +1906,12 @@ static void setup_global_shortcuts(GraphEditor* editor, GtkBox* toolbar)
         {"Set Output Node\n"               "Shortcut: o",
          "/ch/thecomet/dpsfg/graph-editor/icons/output-node.svg",
          button_set_out_node_cb},
+        {"Reconnect Edge\n"                "Shortcut: r",
+         "/ch/thecomet/dpsfg/graph-editor/icons/reconnect-edge.svg",
+         button_reconnect_edge_cb},
+        {"Flip Edge\n"                     "Shortcut: f",
+         "/ch/thecomet/dpsfg/graph-editor/icons/flip-edge.svg",
+         button_flip_edge_cb},
         {"Delete\n"                        "Shortcut: x",
          "/ch/thecomet/dpsfg/graph-editor/icons/delete.svg",
          button_delete_cb},
@@ -1706,37 +2115,56 @@ static void draw_edge(
 {
     int orientation;
     double cx, cy, radius, a1, a2;
+    double text_angle, arrow_angle;
 
     orientation = calc_circle(
         &cx, &cy, &radius, src_x, src_y, control_x, control_y, dst_x, dst_y);
-    if (orientation == 0)
+    if (orientation)
     {
-        double arrow_angle = atan2(dst_y - src_y, dst_x - src_x);
-        double text_angle  = arrow_angle + M_PI / 2;
-        if (text_angle < M_PI)
-            text_angle += M_PI;
+        a1 = atan2(src_y - cy, src_x - cx);
+        a2 = atan2(dst_y - cy, dst_x - cx);
+        cairo_new_path(cr);
+        cairo_set_source_rgb(cr, r, g, b);
+        if (orientation > 0)
+            cairo_arc(cr, cx, cy, radius, a1, a2);
+        else
+            cairo_arc(cr, cx, cy, radius, a2, a1);
+        cairo_stroke(cr);
+
+        text_angle = atan2(cy - control_y, cx - control_x);
+        arrow_angle =
+            orientation < 0 ? text_angle + M_PI / 2 : text_angle - M_PI / 2;
+    }
+    else if (calc_circle_two_points_overlapping(
+                 &cx,
+                 &cy,
+                 &radius,
+                 src_x,
+                 src_y,
+                 control_x,
+                 control_y,
+                 dst_x,
+                 dst_y))
+    {
+        arrow_angle = atan2(src_x - control_x, control_y - src_y);
+        text_angle  = arrow_angle - M_PI / 2;
+        cairo_new_path(cr);
+        cairo_set_source_rgb(cr, r, g, b);
+        cairo_arc(cr, cx, cy, radius, 0, 2 * M_PI);
+        cairo_stroke(cr);
+    }
+    else
+    {
+        arrow_angle = atan2(dst_y - src_y, dst_x - src_x);
+        text_angle  = arrow_angle + M_PI / 2;
         cairo_set_source_rgb(cr, r, g, b);
         cairo_move_to(cr, src_x, src_y);
         cairo_line_to(cr, dst_x, dst_y);
         cairo_stroke(cr);
-        draw_arrow(cr, control_x, control_y, arrow_angle, r, g, b);
-        draw_text(cr, expr_str, control_x, control_y, text_angle);
-        return;
     }
 
-    a1 = atan2(src_y - cy, src_x - cx);
-    a2 = atan2(dst_y - cy, dst_x - cx);
-    cairo_new_path(cr);
-    cairo_set_source_rgb(cr, r, g, b);
-    if (orientation > 0)
-        cairo_arc(cr, cx, cy, radius, a1, a2);
-    else
-        cairo_arc(cr, cx, cy, radius, a2, a1);
-    cairo_stroke(cr);
-
-    double text_angle = atan2(control_y - cy, control_x - cx);
-    double arrow_angle =
-        orientation > 0 ? text_angle + M_PI / 2 : text_angle - M_PI / 2;
+    if (text_angle < M_PI)
+        text_angle += M_PI;
     draw_arrow(cr, control_x, control_y, arrow_angle, r, g, b);
     draw_text(cr, expr_str, control_x, control_y, text_angle);
 }
@@ -1752,7 +2180,7 @@ static void draw_cb(
     const struct csfg_node* n;
     const struct csfg_edge* e;
     GraphEditor* editor             = user_data;
-    const struct graph_model* model = &editor->model;
+    const struct graph_model* model = editor->model;
     (void)area;
     cairo_translate(cr, editor->pan_x, editor->pan_y);
     cairo_scale(cr, editor->zoom, editor->zoom);
@@ -1776,6 +2204,8 @@ static void draw_cb(
             continue;
         if (e->id == model->active_edge_id)
             r = 0.8, g = 0.5;
+        if (e->id == model->reconnect_edge_id)
+            r = 0.5, g = 0.8;
         draw_edge(
             cr,
             n_src->x,
@@ -1801,6 +2231,8 @@ static void draw_cb(
             continue;
         if (n->id == model->active_node_id)
             r = 0.8, g = 0.5;
+        if (n->id == model->reconnect_node_id)
+            r = 0.5, g = 0.8;
         draw_node(
             cr,
             n->x,
@@ -1827,18 +2259,68 @@ static void click_begin(
     gpointer user_data)
 {
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     (void)gesture;
 
     gtk_widget_grab_focus(GTK_WIDGET(editor));
 
-    try_select_edge_or_node(
-        model,
-        x = (x - editor->pan_x) / editor->zoom,
-        y = (y - editor->pan_y) / editor->zoom);
+    x = (x - editor->pan_x) / editor->zoom;
+    y = (y - editor->pan_y) / editor->zoom;
 
-    if (n_press == 2 /* double-click */)
-        start_editing_active_node_or_edge(editor);
+    switch (model->mode)
+    {
+        case MODE_NORMAL:
+            try_select_edge_or_node(model, x, y);
+            if (n_press == 2 /* double-click */)
+                start_editing_active_node_or_edge(editor);
+            break;
+        case MODE_MOVE: break;
+        case MODE_RECONNECT_FROM:
+            if (model->reconnect_node_id > -1)
+            {
+                int e_id = try_select_edge(x, y, model->graph);
+                if (node_is_connected_to_edge(
+                        model->graph, model->reconnect_node_id, e_id))
+                {
+                    model->active_edge_id    = e_id;
+                    model->active_node_id    = -1;
+                    model->reconnect_edge_id = e_id;
+                    model->mode              = MODE_RECONNECT_TO;
+                }
+            }
+            if (model->reconnect_edge_id > -1)
+            {
+                int n_id =
+                    try_select_node(x, y, model->graph, model->node_attrs);
+                if (node_is_connected_to_edge(
+                        model->graph, n_id, model->reconnect_edge_id))
+                {
+                    model->active_edge_id    = -1;
+                    model->active_node_id    = n_id;
+                    model->reconnect_node_id = n_id;
+                    model->mode              = MODE_RECONNECT_TO;
+                }
+            }
+            break;
+        case MODE_RECONNECT_TO: {
+            int n_id = try_select_node(x, y, model->graph, model->node_attrs);
+            if (n_id > -1)
+            {
+                model->active_node_id = reconnect_edge(
+                    model,
+                    model->reconnect_edge_id,
+                    model->reconnect_node_id,
+                    n_id);
+                notify_graph_changed(model);
+            }
+
+            model->reconnect_node_id = -1;
+            model->reconnect_edge_id = -1;
+            model->active_edge_id    = -1;
+            model->mode              = MODE_NORMAL;
+        }
+        break;
+    }
 
     gtk_widget_queue_draw(editor->drawing_area);
 }
@@ -1862,22 +2344,36 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
     const struct csfg_edge* e;
 
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
     (void)gesture;
 
-    try_select_edge_or_node(model, x, y);
-    n = find_node(model->graph, model->active_node_id);
-    e = find_edge(model->graph, model->active_edge_id);
+    x = (x - editor->pan_x) / editor->zoom;
+    y = (y - editor->pan_y) / editor->zoom;
 
-    if (n != NULL)
+    switch (model->mode)
     {
-        editor->drag_offset_x = round((x - n->x) / 20) * 20;
-        editor->drag_offset_y = round((y - n->y) / 20) * 20;
-    }
-    else if (e != NULL)
-    {
-        editor->drag_offset_x = round((x - e->x) / 20) * 20;
-        editor->drag_offset_y = round((y - e->y) / 20) * 20;
+        case MODE_NORMAL:
+        case MODE_MOVE:
+            try_select_edge_or_node(model, x, y);
+            n = find_node(model->graph, model->active_node_id);
+            e = find_edge(model->graph, model->active_edge_id);
+            if (n != NULL)
+            {
+                editor->drag_offset_x =
+                    round((x - n->x) / GRID_WIDTH) * GRID_WIDTH;
+                editor->drag_offset_y =
+                    round((y - n->y) / GRID_WIDTH) * GRID_WIDTH;
+            }
+            else if (e != NULL)
+            {
+                editor->drag_offset_x =
+                    round((x - e->x) / GRID_WIDTH) * GRID_WIDTH;
+                editor->drag_offset_y =
+                    round((y - e->y) / GRID_WIDTH) * GRID_WIDTH;
+            }
+            break;
+        case MODE_RECONNECT_FROM:
+        case MODE_RECONNECT_TO  : break;
     }
 }
 
@@ -1894,16 +2390,13 @@ static void drag_update(
     double start_x, start_y, x, y;
     GdkEvent* event;
     GraphEditor* editor       = user_data;
-    struct graph_model* model = &editor->model;
+    struct graph_model* model = editor->model;
 
     gtk_gesture_drag_get_start_point(gesture, &start_x, &start_y);
     x = (start_x + offset_x - editor->pan_x) / editor->zoom;
     y = (start_y + offset_y - editor->pan_y) / editor->zoom;
 
-    n = find_node(model->graph, model->active_node_id);
-    e = find_edge(model->graph, model->active_edge_id);
-
-    snap_size = 20;
+    snap_size = GRID_WIDTH;
     event =
         gtk_event_controller_get_current_event(GTK_EVENT_CONTROLLER(gesture));
     if (event)
@@ -1913,21 +2406,35 @@ static void drag_update(
             snap_size *= 6;
     }
 
-    if (n != NULL)
+    switch (model->mode)
     {
-        int node_x = round((x - editor->drag_offset_x) / snap_size) * snap_size;
-        int node_y = round((y - editor->drag_offset_y) / snap_size) * snap_size;
+        case MODE_NORMAL:
+        case MODE_MOVE:
+            n = find_node(model->graph, model->active_node_id);
+            e = find_edge(model->graph, model->active_edge_id);
 
-        drag_edge_with_node(
-            model->graph, model->active_node_id, node_x, node_y);
-
-        n->x = node_x;
-        n->y = node_y;
-    }
-    else if (e != NULL)
-    {
-        e->x = round((x - editor->drag_offset_x) / snap_size) * snap_size;
-        e->y = round((y - editor->drag_offset_y) / snap_size) * snap_size;
+            if (n != NULL)
+            {
+                double old_x = n->x;
+                double old_y = n->y;
+                n->x =
+                    round((x - editor->drag_offset_x) / snap_size) * snap_size;
+                n->y =
+                    round((y - editor->drag_offset_y) / snap_size) * snap_size;
+                log_dbg("%d, %d\n", n->x, n->y);
+                drag_all_edges_connected_to_node(
+                    model->graph, model->active_node_id, old_x, old_y);
+            }
+            else if (e != NULL)
+            {
+                e->x =
+                    round((x - editor->drag_offset_x) / snap_size) * snap_size;
+                e->y =
+                    round((y - editor->drag_offset_y) / snap_size) * snap_size;
+            }
+            break;
+        case MODE_RECONNECT_FROM:
+        case MODE_RECONNECT_TO  : break;
     }
 
     gtk_widget_queue_draw(editor->drawing_area);
@@ -2011,20 +2518,6 @@ static gboolean mouse_motion_cb(
 /* -------------------------------------------------------------------------- */
 static void graph_editor_init(GraphEditor* self)
 {
-    struct graph_model* model = &self->model;
-
-    model->graph = NULL;
-    node_attr_hmap_init(&model->node_attrs);
-    edge_attr_hmap_init(&model->edge_attrs);
-    model->node_in_id        = -1;
-    model->node_out_id       = -1;
-    model->active_node_id    = -1;
-    model->active_edge_id    = -1;
-    model->marked_node_id    = -1;
-    model->reconnect_node_id = -1;
-    model->reconnect_edge_id = -1;
-    model->mode              = MODE_NORMAL;
-
     self->overlay      = NULL;
     self->drawing_area = NULL;
     self->entry        = NULL;
@@ -2085,25 +2578,9 @@ static void graph_editor_init(GraphEditor* self)
 }
 
 /* -------------------------------------------------------------------------- */
-static void graph_editor_finalize(GObject* obj)
-{
-    GraphEditor* self         = PLUGIN_GRAPH_EDITOR(obj);
-    struct graph_model* model = &self->model;
-    int idx, id;
-    struct edge_attr* ea;
-
-    hmap_for_each (model->edge_attrs, idx, id, ea)
-        (void)id, edge_attr_deinit(ea);
-
-    edge_attr_hmap_deinit(model->edge_attrs);
-    node_attr_hmap_deinit(model->node_attrs);
-}
-
-/* -------------------------------------------------------------------------- */
 static void graph_editor_class_init(GraphEditorClass* class)
 {
-    GObjectClass* object_class = G_OBJECT_CLASS(class);
-    object_class->finalize     = graph_editor_finalize;
+    (void)class;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -2127,85 +2604,15 @@ void graph_editor_register_type_internal(GTypeModule* type_module)
 }
 
 /* -------------------------------------------------------------------------- */
-GraphEditor* graph_editor_new(
-    struct plugin_ctx* plugin_ctx,
-    const struct plugin_notify_interface* icb,
-    struct plugin_notify_context* cb)
+GraphEditor* graph_editor_new(struct graph_model* model)
 {
-    GraphEditor* editor       = g_object_new(PLUGIN_TYPE_GRAPH_EDITOR, NULL);
-    struct graph_model* model = &editor->model;
-    model->plugin_ctx         = plugin_ctx;
-    model->icb                = icb;
-    model->cb                 = cb;
+    GraphEditor* editor = g_object_new(PLUGIN_TYPE_GRAPH_EDITOR, NULL);
+    editor->model       = model;
     return editor;
-}
-
-/* -------------------------------------------------------------------------- */
-void graph_editor_set_graph(
-    GraphEditor* editor, struct csfg_graph* g, int node_in, int node_out)
-{
-    editor->model.graph = g;
-    graph_editor_rebuild_graph(editor, node_in, node_out);
-}
-
-/* -------------------------------------------------------------------------- */
-void graph_editor_clear_graph(GraphEditor* editor)
-{
-    editor->model.graph = NULL;
-    graph_editor_rebuild_graph(editor, -1, -1);
-}
-
-/* -------------------------------------------------------------------------- */
-void graph_editor_rebuild_graph(GraphEditor* editor, int node_in, int node_out)
-{
-    rebuild_graph(&editor->model, node_in, node_out);
 }
 
 /* -------------------------------------------------------------------------- */
 void graph_editor_redraw_graph(GraphEditor* editor)
 {
     gtk_widget_queue_draw(editor->drawing_area);
-}
-
-/* -------------------------------------------------------------------------- */
-struct edge_attr_hmap* graph_editor_take_edge_attributes(GraphEditor* editor)
-{
-    struct edge_attr_hmap* edge_attrs = editor->model.edge_attrs;
-    editor->model.edge_attrs          = NULL;
-    return edge_attrs;
-}
-
-/* -------------------------------------------------------------------------- */
-void graph_editor_set_edge_attributes(
-    GraphEditor* editor, struct edge_attr_hmap* edge_attrs)
-{
-    int i, id;
-    struct edge_attr* ea;
-
-    if (editor->model.edge_attrs != NULL)
-        hmap_for_each (editor->model.edge_attrs, i, id, ea)
-        {
-            (void)id, (void)ea;
-            edge_attr_deinit(
-                edge_attr_hmap_erase_slot(editor->model.edge_attrs, i));
-        }
-    edge_attr_hmap_deinit(editor->model.edge_attrs);
-
-    editor->model.edge_attrs = edge_attrs;
-}
-
-/* -------------------------------------------------------------------------- */
-void graph_editor_clear_attrs(GraphEditor* editor)
-{
-    int i, id;
-    struct edge_attr* ea;
-
-    if (editor->model.edge_attrs != NULL)
-        hmap_for_each (editor->model.edge_attrs, i, id, ea)
-        {
-            (void)id, (void)ea;
-            edge_attr_deinit(
-                edge_attr_hmap_erase_slot(editor->model.edge_attrs, i));
-        }
-    edge_attr_hmap_clear(editor->model.edge_attrs);
 }

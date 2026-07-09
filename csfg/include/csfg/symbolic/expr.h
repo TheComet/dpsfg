@@ -155,11 +155,11 @@ int csfg_expr_set_pow(struct csfg_expr_pool* pool, int n, int base, int exp);
 
 /* Recursively duplicate a subtree */
 int csfg_expr_dup_recurse_from(
-    struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n);
+    struct csfg_expr_pool** dst, struct csfg_expr_pool* const* src, int n);
 int csfg_expr_dup_recurse(struct csfg_expr_pool** pool, int n);
 /* Copy a single node. All fields. */
 int csfg_expr_dup_shallow_from(
-    struct csfg_expr_pool** dst, const struct csfg_expr_pool* src, int n);
+    struct csfg_expr_pool** dst, struct csfg_expr_pool* const* src, int n);
 int csfg_expr_dup_shallow(struct csfg_expr_pool** pool, int n);
 
 /* Mark for deletion (does not modify any other nodes, i.e. iterators remain

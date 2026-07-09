@@ -1,25 +1,19 @@
 #include "csfg/io/deserialize.h"
 #include "csfg/io/serialize.h"
 #include "csfg/util/mem.h"
-#include "csfg/util/str.h"
 #include "dpsfg-plugin.h"
 #include "graph-editor/graph_editor.h"
 
 struct plugin_ctx
 {
-    const struct plugin_notify_interface* notify_interface;
-    struct plugin_notify_context* notify_ctx;
-    struct edge_attr_hmap* edge_attrs;
-
+    struct graph_model graph_model;
     GraphEditor* graph_editor;
-    GtkWidget* pole_zero_plot;
 };
 
 /* -------------------------------------------------------------------------- */
 static GtkWidget* ui_center_create(struct plugin_ctx* ctx)
 {
-    ctx->graph_editor =
-        graph_editor_new(ctx, ctx->notify_interface, ctx->notify_ctx);
+    ctx->graph_editor = graph_editor_new(&ctx->graph_model);
     return GTK_WIDGET(g_object_ref_sink(ctx->graph_editor));
 }
 static void ui_center_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
@@ -32,20 +26,20 @@ static void ui_center_destroy(struct plugin_ctx* ctx, GtkWidget* ui)
 static void graph_on_load(
     struct plugin_ctx* ctx, struct csfg_graph* g, int node_in, int node_out)
 {
-    graph_editor_set_edge_attributes(ctx->graph_editor, ctx->edge_attrs);
-    graph_editor_set_graph(ctx->graph_editor, g, node_in, node_out);
-    ctx->edge_attrs = NULL;
+    graph_model_set_graph(&ctx->graph_model, g, node_in, node_out);
+    graph_editor_redraw_graph(ctx->graph_editor);
 }
 static void graph_on_unload(struct plugin_ctx* ctx)
 {
-    ctx->edge_attrs = graph_editor_take_edge_attributes(ctx->graph_editor);
-    graph_editor_clear_graph(ctx->graph_editor);
+    graph_model_clear_graph(&ctx->graph_model);
+    graph_editor_redraw_graph(ctx->graph_editor);
 }
 static void
 graph_on_structure_changed(struct plugin_ctx* ctx, int node_in, int node_out)
 {
-    graph_editor_clear_attrs(ctx->graph_editor);
-    graph_editor_rebuild_graph(ctx->graph_editor, node_in, node_out);
+    graph_model_clear_attrs(&ctx->graph_model);
+    graph_model_rebuild_graph(&ctx->graph_model, node_in, node_out);
+    graph_editor_redraw_graph(ctx->graph_editor);
 }
 static void graph_on_layout_changed(struct plugin_ctx* ctx)
 {
@@ -55,58 +49,18 @@ static void graph_on_layout_changed(struct plugin_ctx* ctx)
 /* -------------------------------------------------------------------------- */
 static int io_on_save(struct plugin_ctx* ctx, struct serializer** ser)
 {
-    struct edge_attr* ea;
-    int i, id, err = 0;
-
-    if (ctx->edge_attrs == NULL)
-        return 0;
-
-    err += serialize_lu16(ser, 0x0000); /* version */
-
-    err += serialize_li16(ser, hmap_count(ctx->edge_attrs));
-    hmap_for_each (ctx->edge_attrs, i, id, ea)
-    {
-        err += serialize_li32(ser, id);
-        err += serialize_cstr(ser, str_cstr(ea->expr_str));
-    }
-
-    return err;
+    serialize_lu16(ser, 0x0000); /* version */
+    return graph_model_save_attrs(&ctx->graph_model, ser);
 }
 static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
 {
-    int i, id, count, edge_id;
-    const char* edge_expr;
-    struct edge_attr* ea;
-    uint16_t version;
-
-    if (ctx->edge_attrs == NULL)
-        return 0;
-
-    hmap_for_each (ctx->edge_attrs, i, id, ea)
-    {
-        (void)id, (void)ea;
-        edge_attr_deinit(edge_attr_hmap_erase_slot(ctx->edge_attrs, i));
-    }
-
-    version = deserialize_lu16(des);
+    uint16_t version = deserialize_lu16(des);
     if (deserializer_err(des))
         return 0;
 
     switch (version)
     {
-        case 0x000: {
-            count = deserialize_li16(des);
-            while (count-- > 0)
-            {
-                edge_id   = deserialize_li32(des);
-                edge_expr = deserialize_cstr(des);
-                ea = edge_attr_hmap_emplace_new(&ctx->edge_attrs, edge_id);
-                if (ea == NULL)
-                    return -1;
-                str_init(&ea->expr_str);
-                str_set_cstr(&ea->expr_str, edge_expr);
-            }
-        }
+        case 0x000: graph_model_load_attrs(&ctx->graph_model, des); break;
     }
 
     return 0;
@@ -119,9 +73,8 @@ static struct plugin_ctx* create(
     GTypeModule* type_module)
 {
     struct plugin_ctx* ctx = mem_alloc(sizeof(struct plugin_ctx));
-    ctx->notify_interface  = notify_interface;
-    ctx->notify_ctx        = notify_ctx;
-    edge_attr_hmap_init(&ctx->edge_attrs);
+
+    graph_model_init(&ctx->graph_model, ctx, notify_interface, notify_ctx);
 
     graph_editor_register_type_internal(type_module);
     GResource* graph_editor_get_resource(void);
@@ -131,17 +84,8 @@ static struct plugin_ctx* create(
 }
 static void destroy(struct plugin_ctx* ctx, GTypeModule* type_module)
 {
-    int i, id;
-    struct edge_attr* ea;
     (void)type_module;
-
-    hmap_for_each (ctx->edge_attrs, i, id, ea)
-    {
-        (void)id, (void)ea;
-        edge_attr_deinit(edge_attr_hmap_erase_slot(ctx->edge_attrs, i));
-    }
-    edge_attr_hmap_deinit(ctx->edge_attrs);
-
+    graph_model_deinit(&ctx->graph_model);
     mem_free(ctx);
 }
 

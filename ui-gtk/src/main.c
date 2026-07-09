@@ -432,7 +432,7 @@ static int load_pipeline_plugin_data_on_row(
     struct deserializer des = deserializer(data, data_len);
     return plugin->lib.i->io->on_load(plugin->ctx, &des);
 }
-static int load_from_db(
+static int load_project(
     const struct db_interface* dbi,
     struct db* db,
     int project_id,
@@ -441,29 +441,51 @@ static int load_from_db(
 {
     struct plugin* plugin;
 
-    if (dbi->graph_data.exists(db, project_id) &&
+    math_pipeline_clear(pipeline);
+
+    if (dbi->graph_data.exists(db, project_id))
         dbi->graph_data.load(
-            db, project_id, load_pipeline_graph_data_on_row, pipeline) != 0)
+            db, project_id, load_pipeline_graph_data_on_row, pipeline);
+
+    vec_for_each (plugins, plugin)
     {
-        return -1;
+        if (plugin->lib.i->graph)
+            plugin->lib.i->graph->on_load(
+                plugin->ctx,
+                &pipeline->graph,
+                pipeline->node_in,
+                pipeline->node_out);
+        if (plugin->lib.i->substitutions)
+            plugin->lib.i->substitutions->on_load(
+                plugin->ctx, &pipeline->substitutions);
+        if (plugin->lib.i->parameters)
+            plugin->lib.i->parameters->on_load(
+                plugin->ctx, &pipeline->parameters);
     }
 
     vec_for_each (plugins, plugin)
         if (plugin->lib.i->io != NULL &&
-            dbi->plugin_data.exists(db, project_id, plugin->lib.i->info->name))
-            if (dbi->plugin_data.load(
-                    db,
-                    project_id,
-                    plugin->lib.i->info->name,
-                    load_pipeline_plugin_data_on_row,
-                    plugin) != 0)
-            {
-                return -1;
-            }
+            dbi->plugin_data.exists(
+                db, project_id, plugin->lib.i->info->name) &&
+            dbi->plugin_data.load(
+                db,
+                project_id,
+                plugin->lib.i->info->name,
+                load_pipeline_plugin_data_on_row,
+                plugin) != 0)
+        {
+            return -1;
+        }
+
+    math_pipeline_update(pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+    /* Don't notify graph structure changing, because on_load() handles that
+     * already */
+    notify_plugins_about_change(
+        plugins, NULL, pipeline, MATH_PIPELINE_SUBSTITUTIONS_CHANGED);
 
     return 0;
 }
-static int save_to_db(
+static int unload_project(
     const struct db_interface* dbi,
     struct db* db,
     int project_id,
@@ -475,78 +497,22 @@ static int save_to_db(
 
     serializer_init(&ser);
 
-    if (math_pipeline_save(pipeline, &ser) != 0)
-        goto serialize_failed;
-    dbi->graph_data.save(db, project_id, vec_data(ser), vec_count(ser));
-
     vec_for_each (plugins, plugin)
-    {
-        if (plugin->lib.i->io == NULL)
-            continue;
-
-        serializer_clear(ser);
-        if (plugin->lib.i->io->on_save(plugin->ctx, &ser) != 0 ||
-            vec_count(ser) == 0)
-            continue;
-
-        if (dbi->plugin_data.save(
-                db,
-                project_id,
-                plugin->lib.i->info->name,
-                vec_data(ser),
-                vec_count(ser)) != 0)
-            goto serialize_failed;
-    }
-
-    serializer_deinit(ser);
-    return 0;
-
-serialize_failed:
-    serializer_deinit(ser);
-    return -1;
-}
-static int load_project(
-    const struct db_interface* dbi,
-    struct db* db,
-    int project_id,
-    struct math_pipeline* pipeline,
-    struct plugin_vec* plugins)
-{
-    struct plugin* plugin;
-
-    math_pipeline_clear(pipeline);
-    if (load_from_db(dbi, db, project_id, pipeline, plugins) == 0)
-        vec_for_each (plugins, plugin)
+        if (plugin->lib.i->io != NULL)
         {
-            if (plugin->lib.i->graph)
-                plugin->lib.i->graph->on_load(
-                    plugin->ctx,
-                    &pipeline->graph,
-                    pipeline->node_in,
-                    pipeline->node_out);
-            if (plugin->lib.i->substitutions)
-                plugin->lib.i->substitutions->on_load(
-                    plugin->ctx, &pipeline->substitutions);
-            if (plugin->lib.i->parameters)
-                plugin->lib.i->parameters->on_load(
-                    plugin->ctx, &pipeline->parameters);
+            serializer_clear(ser);
+            if (plugin->lib.i->io->on_save(plugin->ctx, &ser) != 0)
+                continue;
+            if (vec_count(ser) == 0)
+                continue;
+            if (dbi->plugin_data.save(
+                    db,
+                    project_id,
+                    plugin->lib.i->info->name,
+                    vec_data(ser),
+                    vec_count(ser)) != 0)
+                goto serialize_failed;
         }
-
-    math_pipeline_update(pipeline, MATH_PIPELINE_GRAPH_CHANGED);
-    notify_plugins_about_change(
-        plugins, NULL, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
-
-    return 0;
-}
-static int unload_project(
-    const struct db_interface* dbi,
-    struct db* db,
-    int project_id,
-    struct math_pipeline* pipeline,
-    struct plugin_vec* plugins)
-{
-    int rc;
-    struct plugin* plugin;
 
     vec_for_each (plugins, plugin)
     {
@@ -558,10 +524,21 @@ static int unload_project(
             plugin->lib.i->parameters->on_unload(plugin->ctx);
     }
 
-    rc = save_to_db(dbi, db, project_id, pipeline, plugins);
+    serializer_clear(ser);
+    if (math_pipeline_save(pipeline, &ser) != 0)
+        goto serialize_failed;
+    if (dbi->graph_data.save(db, project_id, vec_data(ser), vec_count(ser)) !=
+        0)
+        goto serialize_failed;
+
     math_pipeline_clear(pipeline);
 
-    return rc;
+    serializer_deinit(ser);
+    return 0;
+
+serialize_failed:
+    serializer_deinit(ser);
+    return 0;
 }
 static void on_project_selected(
     DPSFGProjectBrowser* project_browser, int project_id, gpointer user_data)
@@ -579,6 +556,18 @@ static void on_project_deselected(
     unload_project(
         ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
     ctx->active_project_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void focus_first_center_plugin(struct plugin_vec* plugins)
+{
+    struct plugin* plugin;
+    vec_for_each (plugins, plugin)
+        if (plugin->ui_center != NULL)
+        {
+            gtk_widget_grab_focus(plugin->ui_center);
+            break;
+        }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -650,6 +639,8 @@ static void activate(GtkApplication* app, gpointer user_data)
     gtk_window_set_child(GTK_WINDOW(window), ctx->paned1);
     gtk_window_maximize(GTK_WINDOW(window));
     gtk_widget_set_visible(window, 1);
+
+    focus_first_center_plugin(*ctx->plugins);
 }
 
 /* -------------------------------------------------------------------------- */

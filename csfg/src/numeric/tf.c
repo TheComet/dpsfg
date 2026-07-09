@@ -4,9 +4,9 @@
 
 /* -------------------------------------------------------------------------- */
 int csfg_tf_from_symbolic(
-    struct csfg_tf*              tf,
-    struct csfg_expr_pool*       pool,
-    const struct csfg_tf_expr*   tf_expr,
+    struct csfg_tf* tf,
+    struct csfg_expr_pool* pool,
+    const struct csfg_tf_expr* tf_expr,
     const struct csfg_var_table* vt)
 {
     if (csfg_cpoly_from_symbolic(&tf->num, pool, vt, tf_expr->num) != 0)
@@ -35,8 +35,6 @@ int csfg_tf_interesting_frequency_interval(
     vec_for_each (tf->poles, c)
     {
         double mag = csfg_complex_mag(*c);
-        /* In case of zero poles, avoid setting 0.0 as a range so logarithmic
-         * plots don't lose their shit */
         if (mag == 0.0)
             continue;
 
@@ -46,6 +44,8 @@ int csfg_tf_interesting_frequency_interval(
             min_x = mag;
     }
 
+    /* In case of zero poles, avoid setting 0.0 as a range so logarithmic
+     * plots don't lose their shit */
     if (max_x == 0.0)
     {
         min_x = 1.0;
@@ -56,7 +56,7 @@ int csfg_tf_interesting_frequency_interval(
         return -1;
 
     *f_start_hz = min_x * 0.01;
-    *f_end_hz = max_x * 100;
+    *f_end_hz   = max_x * 100;
     return 0;
 }
 
@@ -77,11 +77,23 @@ int csfg_tf_interesting_time_interval(
     if (closest_pole == DBL_MAX || closest_pole == 0.0 || isinf(closest_pole) ||
         isnan(closest_pole))
     {
+        closest_pole = DBL_MAX;
+        vec_for_each (tf->zeros, c)
+        {
+            double real = fabs(c->real);
+            if (closest_pole > real)
+                closest_pole = real;
+        }
+    }
+
+    if (closest_pole == DBL_MAX || closest_pole == 0.0 || isinf(closest_pole) ||
+        isnan(closest_pole))
+    {
         return -1;
     }
 
     *t_start_s = 0.0;
-    *t_end_s = 10 / closest_pole;
+    *t_end_s   = 10 / closest_pole;
     return 0;
 }
 
@@ -91,7 +103,7 @@ csfg_tf_eval(const struct csfg_tf* tf, struct csfg_complex s)
 {
     struct csfg_complex num = csfg_cpoly_eval(tf->num, s);
     struct csfg_complex den = csfg_cpoly_eval(tf->den, s);
-    struct csfg_complex c1 = csfg_complex_mul(num, tf->factor);
-    struct csfg_complex c2 = csfg_complex_div(c1, den);
+    struct csfg_complex c1  = csfg_complex_mul(num, tf->factor);
+    struct csfg_complex c2  = csfg_complex_div(c1, den);
     return c2;
 }

@@ -2,15 +2,22 @@
 #include <string.h>
 
 /* -------------------------------------------------------------------------- */
-void deserialize_data(struct deserializer* des, void* dst, int len)
+const void* deserialize_data1(struct deserializer* des, int len)
 {
-    if (des->size - des->read_offset < len)
-    {
-        des->err = 1;
-        return;
-    }
-    memcpy(dst, des->data + des->read_offset, len);
+    const void* data = des->data + des->read_offset;
     des->read_offset += len;
+    if (des->read_offset > des->size)
+    {
+        des->read_offset = des->size;
+        des->err         = 1;
+    }
+    return data;
+}
+void deserialize_data2(struct deserializer* des, void* dst, int len)
+{
+    const void* src = deserialize_data1(des, len);
+    if (!deserializer_err(des))
+        memcpy(dst, src, len);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -70,7 +77,7 @@ int32_t deserialize_li32(struct deserializer* des)
 /* -------------------------------------------------------------------------- */
 float deserialize_lf32(struct deserializer* des)
 {
-    float    value;
+    float value;
     uint32_t u32 = deserialize_lu32(des);
     memcpy(&value, &u32, 4);
     return value;
@@ -90,4 +97,10 @@ const char* deserialize_cstr(struct deserializer* des)
 int deserializer_err(const struct deserializer* des)
 {
     return des->err;
+}
+
+/* -------------------------------------------------------------------------- */
+int deserializer_bytes_left(const struct deserializer* des)
+{
+    return des->size - des->read_offset;
 }

@@ -5,29 +5,29 @@
 /* -------------------------------------------------------------------------- */
 static int move_reciprocs(
     struct csfg_expr_pool** from,
-    int                     from_root,
+    int from_root,
     struct csfg_expr_pool** to,
-    int                     to_root)
+    int to_root)
 {
     double value;
-    int    base, exp;
+    int base, exp;
 
     if ((*from)->nodes[from_root].type == CSFG_EXPR_MUL)
     {
         int child_modified = 0;
-        int left = (*from)->nodes[from_root].child[0];
-        int right = (*from)->nodes[from_root].child[1];
+        int left           = (*from)->nodes[from_root].child[0];
+        int right          = (*from)->nodes[from_root].child[1];
         switch (move_reciprocs(from, left, to, to_root))
         {
             case -1: return -1;
-            case 0: break;
-            case 1: child_modified = 1; break;
+            case 0 : break;
+            case 1 : child_modified = 1; break;
         }
         switch (move_reciprocs(from, right, to, to_root))
         {
             case -1: return -1;
-            case 0: break;
-            case 1: child_modified = 1; break;
+            case 0 : break;
+            case 1 : child_modified = 1; break;
         }
         return child_modified;
     }
@@ -36,7 +36,7 @@ static int move_reciprocs(
         return 0;
 
     base = (*from)->nodes[from_root].child[0];
-    exp = (*from)->nodes[from_root].child[1];
+    exp  = (*from)->nodes[from_root].child[1];
     if ((*from)->nodes[exp].type != CSFG_EXPR_LIT)
         return 0;
 
@@ -49,7 +49,7 @@ static int move_reciprocs(
             to_root,
             csfg_expr_pow(
                 to,
-                csfg_expr_dup_recurse_from(to, *from, base),
+                csfg_expr_dup_recurse_from(to, from, base),
                 csfg_expr_lit(to, -value)),
             csfg_expr_dup_shallow(to, to_root)) == -1)
     {
@@ -66,22 +66,22 @@ static int move_reciprocs(
 /* -------------------------------------------------------------------------- */
 int csfg_expr_rebalance_fraction(
     struct csfg_expr_pool** num_pool,
-    int                     num_root,
+    int num_root,
     struct csfg_expr_pool** den_pool,
-    int                     den_root)
+    int den_root)
 {
     int modified = 0;
     switch (move_reciprocs(num_pool, num_root, den_pool, den_root))
     {
         case -1: return -1;
-        case 0: break;
-        case 1: modified = 1; break;
+        case 0 : break;
+        case 1 : modified = 1; break;
     }
     switch (move_reciprocs(den_pool, den_root, num_pool, num_root))
     {
         case -1: return -1;
-        case 0: break;
-        case 1: modified = 1; break;
+        case 0 : break;
+        case 1 : modified = 1; break;
     }
     return modified;
 }

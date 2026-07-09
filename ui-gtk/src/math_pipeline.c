@@ -240,7 +240,7 @@ void math_pipeline_update(
          * other expression */
         csfg_expr_pool_clear(pl->pool);
         pl->graph_expr = csfg_expr_dup_recurse_from(
-            &pl->pool, pl->prev_pool, pl->graph_expr);
+            &pl->pool, &pl->prev_pool, pl->graph_expr);
     }
     else if (state == MATH_PIPELINE_PARAMETERS_CHANGED)
     {

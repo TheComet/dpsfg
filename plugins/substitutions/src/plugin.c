@@ -253,12 +253,17 @@ static void substitutions_on_load(
     struct plugin_ctx* ctx, struct csfg_var_table* substitutions)
 {
     ctx->substitutions_table = substitutions;
-    if (gtk_text_buffer_get_char_count(ctx->text_buffer) == 0)
-        set_text_buffer_from_substitutions_table(ctx);
+    set_text_buffer_from_substitutions_table(ctx);
 }
 static void substitutions_on_unload(struct plugin_ctx* ctx)
 {
     ctx->substitutions_table = NULL;
+
+    g_signal_handler_block(
+        ctx->text_buffer, ctx->on_text_buffer_changed_handler_id);
+    gtk_text_buffer_set_text(ctx->text_buffer, "", -1);
+    g_signal_handler_unblock(
+        ctx->text_buffer, ctx->on_text_buffer_changed_handler_id);
 }
 static void substitutions_on_changed(struct plugin_ctx* ctx)
 {
@@ -320,7 +325,7 @@ static struct plugin_ctx* create(
     ctx->notify_interface = notify_interface;
     ctx->notify_ctx       = notify_ctx;
     str_init(&ctx->str);
-    ctx->substitutions_table = NULL;
+    ctx->substitutions_table               = NULL;
     ctx->on_text_buffer_changed_handler_id = -1;
     return ctx;
 }

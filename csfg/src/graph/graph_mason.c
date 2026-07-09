@@ -24,7 +24,7 @@ static int path_gain(
     for (edge_idx = path.edge_idxs; *edge_idx != -1; ++edge_idx)
     {
         const struct csfg_edge* edge = vec_get(graph->edges, *edge_idx);
-        int factor = csfg_expr_dup_recurse_from(pool, edge->pool, edge->expr);
+        int factor = csfg_expr_dup_recurse_from(pool, &edge->pool, edge->expr);
         if (expr == -1)
             expr = factor;
         else

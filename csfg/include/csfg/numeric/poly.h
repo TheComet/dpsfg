@@ -25,7 +25,7 @@ VEC_DECLARE(csfg_cpoly, struct csfg_complex, 8)
 VEC_DECLARE(csfg_rpoly, struct csfg_complex, 8)
 
 /*!
- * @brief Stores one term of a Partial Fraction Decomposition
+ * @brief Stores one term of a Partial Fraction Decomposition (PFD)
  *
  *              A
  *    T(s) = ------- + ...
