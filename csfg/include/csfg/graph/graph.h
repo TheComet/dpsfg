@@ -4,14 +4,16 @@
 #include "csfg/util/strview.h"
 #include "csfg/util/vec.h"
 
+#define CSFG_GRAPH_GC_ID ((uint16_t)-1)
+
 struct csfg_path_vec;
 struct str;
 
 struct csfg_node
 {
     struct str* name;
-    int id;
     int x, y;
+    uint16_t id;
     unsigned visited : 1;
 };
 
@@ -20,13 +22,13 @@ struct csfg_edge
     struct csfg_expr_pool* pool;
     int expr;
 
-    int id;
-
     /* Use vec_get(g->nodes, from/to) to get node */
     int n_idx_from;
     int n_idx_to;
 
     int x, y; /* Position of the arrow */
+
+    uint16_t id;
 };
 
 VEC_DECLARE(csfg_node_vec, struct csfg_node, 16)
@@ -36,7 +38,7 @@ struct csfg_graph
 {
     struct csfg_node_vec* nodes;
     struct csfg_edge_vec* edges;
-    int id_counter;
+    uint16_t id_counter;
 };
 
 void csfg_graph_init(struct csfg_graph* g);

@@ -64,6 +64,8 @@ static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
         case 0x000: graph_model_load_attrs(&ctx->graph_model, des); break;
     }
 
+    graph_model_reinit_undo_stack(&ctx->graph_model);
+
     return 0;
 }
 

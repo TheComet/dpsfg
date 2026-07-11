@@ -26,6 +26,7 @@ int csfg_io_graph_save(
     err += serialize_li16(ser, csfg_graph_node_count(graph));
     csfg_graph_for_each_node (graph, n)
     {
+        err += serialize_lu16(ser, n->id);
         err += serialize_cstr(ser, str_cstr(n->name));
         err += serialize_li16(ser, n->x);
         err += serialize_li16(ser, n->y);
@@ -34,6 +35,7 @@ int csfg_io_graph_save(
     err += serialize_li16(ser, csfg_graph_edge_count(graph));
     csfg_graph_for_each_edge (graph, e)
     {
+        err += serialize_lu16(ser, e->id);
         err += serialize_li16(ser, e->n_idx_from);
         err += serialize_li16(ser, e->n_idx_to);
         err += serialize_li16(ser, e->x);
@@ -62,8 +64,9 @@ static int load_0(
     for (i = 0; i != node_count; ++i)
     {
         const char* name;
-        int n_idx, x, y;
+        int n_id, n_idx, x, y;
 
+        n_id = deserialize_lu16(des);
         name = deserialize_cstr(des);
         x    = deserialize_li16(des);
         y    = deserialize_li16(des);
@@ -71,8 +74,9 @@ static int load_0(
         n_idx = csfg_graph_add_node(graph, name);
         if (n_idx < 0)
             return -1;
-        csfg_graph_get_node(graph, n_idx)->x = x;
-        csfg_graph_get_node(graph, n_idx)->y = y;
+        csfg_graph_get_node(graph, n_idx)->id = n_id;
+        csfg_graph_get_node(graph, n_idx)->x  = x;
+        csfg_graph_get_node(graph, n_idx)->y  = y;
     }
 
     edge_count = deserialize_li16(des);
@@ -81,10 +85,11 @@ static int load_0(
     for (i = 0; i != edge_count; ++i)
     {
         struct csfg_expr_pool* pool;
-        int expr, e_idx, n_idx_from, n_idx_to, x, y;
+        int expr, e_id, e_idx, n_idx_from, n_idx_to, x, y;
 
         csfg_expr_pool_init(&pool);
 
+        e_id       = deserialize_lu16(des);
         n_idx_from = deserialize_li16(des);
         n_idx_to   = deserialize_li16(des);
         x          = deserialize_li16(des);
@@ -97,8 +102,9 @@ static int load_0(
         if (e_idx < 0)
             goto fail;
 
-        csfg_graph_get_edge(graph, e_idx)->x = x;
-        csfg_graph_get_edge(graph, e_idx)->y = y;
+        csfg_graph_get_edge(graph, e_idx)->id = e_id;
+        csfg_graph_get_edge(graph, e_idx)->x  = x;
+        csfg_graph_get_edge(graph, e_idx)->y  = y;
         continue;
 
     fail:

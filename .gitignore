@@ -4,6 +4,7 @@ __pycache__
 /compile_commands.json
 /*.sfg
 /*.db
+/images
 
 # sourcetrail
 *.srctrlprj

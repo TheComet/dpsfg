@@ -78,6 +78,7 @@ void graph_model_set_graph(
 void graph_model_clear_graph(struct graph_model* model);
 void graph_model_rebuild_graph(
     struct graph_model* model, int node_in, int node_out);
+void graph_model_reinit_undo_stack(struct graph_model* model);
 
 #define PLUGIN_TYPE_GRAPH_EDITOR (graph_editor_get_type())
 G_DECLARE_FINAL_TYPE(GraphEditor, graph_editor, PLUGIN, GRAPH_EDITOR, GtkBox)

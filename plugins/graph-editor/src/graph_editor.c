@@ -287,23 +287,45 @@ static int redo(struct graph_model* model)
 
     return 0;
 }
+void graph_model_reinit_undo_stack(struct graph_model* model)
+{
+    while (vec_count(model->undo_stack) - 1 > model->undo_stack_ptr)
+        serializer_deinit(*undo_stack_vec_pop(model->undo_stack));
+    push_undo_state(model);
+}
 
 /* -------------------------------------------------------------------------- */
 int graph_model_save_attrs(struct graph_model* model, struct serializer** ser)
 {
+    const struct csfg_node* n;
     const struct csfg_edge* e;
+    const struct node_attr* na;
     const struct edge_attr* ea;
-    int err;
+    int err = 0;
 
     if (model->graph == NULL)
         return -1;
 
-    err = serialize_li16(ser, csfg_graph_edge_count(model->graph));
+    err += serialize_li16(ser, csfg_graph_node_count(model->graph));
+    csfg_graph_for_each_node (model->graph, n)
+    {
+        na = node_attr_hmap_find(model->node_attrs, n->id);
+        err += serialize_li32(ser, n->id);
+        err += serialize_u8(ser, na->radius);
+        err += serialize_u8(ser, na->color.r);
+        err += serialize_u8(ser, na->color.g);
+        err += serialize_u8(ser, na->color.b);
+    }
+
+    err += serialize_li16(ser, csfg_graph_edge_count(model->graph));
     csfg_graph_for_each_edge (model->graph, e)
     {
         ea = edge_attr_hmap_find(model->edge_attrs, e->id);
         err += serialize_li32(ser, e->id);
         err += serialize_cstr(ser, str_cstr(ea->expr_str));
+        err += serialize_u8(ser, ea->color.r);
+        err += serialize_u8(ser, ea->color.g);
+        err += serialize_u8(ser, ea->color.b);
     }
     return err;
 }
@@ -311,23 +333,45 @@ int graph_model_save_attrs(struct graph_model* model, struct serializer** ser)
 /* -------------------------------------------------------------------------- */
 int graph_model_load_attrs(struct graph_model* model, struct deserializer* des)
 {
-    int count, edge_id;
-    const char* edge_expr;
+    int count, node_id, edge_id;
+    struct node_attr* na;
     struct edge_attr* ea;
 
     count = deserialize_li16(des);
+    if (deserializer_err(des))
+        return -1;
     while (count-- > 0)
     {
-        edge_id   = deserialize_li32(des);
-        edge_expr = deserialize_cstr(des);
+        node_id = deserialize_li32(des);
+        switch (node_attr_hmap_emplace_or_get(&model->node_attrs, node_id, &na))
+        {
+            case HMAP_OOM   : return -1;
+            case HMAP_NEW   : node_attr_init(na, rgb(0, 0, 0));
+            case HMAP_EXISTS: break;
+        }
+        na->radius  = deserialize_u8(des);
+        na->color.r = deserialize_u8(des);
+        na->color.g = deserialize_u8(des);
+        na->color.b = deserialize_u8(des);
+    }
+
+    count = deserialize_li16(des);
+    if (deserializer_err(des))
+        return -1;
+    while (count-- > 0)
+    {
+        edge_id = deserialize_li32(des);
         switch (edge_attr_hmap_emplace_or_get(&model->edge_attrs, edge_id, &ea))
         {
             case HMAP_OOM   : return -1;
-            case HMAP_NEW   : edge_attr_init(ea, model->graph_color);
+            case HMAP_NEW   : edge_attr_init(ea, rgb(0, 0, 0));
             case HMAP_EXISTS: break;
         }
-        if (str_set_cstr(&ea->expr_str, edge_expr) != 0)
+        if (str_set_cstr(&ea->expr_str, deserialize_cstr(des)) != 0)
             return -1;
+        ea->color.r = deserialize_u8(des);
+        ea->color.g = deserialize_u8(des);
+        ea->color.b = deserialize_u8(des);
     }
 
     return 0;
@@ -351,7 +395,6 @@ void graph_model_set_graph(
 {
     model->graph = g;
     graph_model_rebuild_graph(model, node_in, node_out);
-    push_undo_state(model);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -2047,7 +2090,7 @@ static void shortcut_color_cb(GraphEditor* editor, int idx)
         GtkWidget* widget, GVariant* unused, gpointer user_data)               \
     {                                                                          \
         (void)widget, (void)unused;                                            \
-        shortcut_color_cb(user_data, idx);                                     \
+        shortcut_color_cb(user_data, idx - 1);                                 \
         return TRUE;                                                           \
     }
 COLOR_BUTTONS_LIST
@@ -2279,11 +2322,14 @@ static void draw_edge(
 }
 
 /* -------------------------------------------------------------------------- */
-static void draw_help(cairo_t* cr, RsvgHandle* svg_7steps, int show_7steps)
+static void draw_help(
+    cairo_t* cr, RsvgHandle* svg_7steps, int show_7steps, int show_shortcuts)
 {
     RsvgRectangle viewport = {20, 20, 136, 334};
     if (show_7steps)
         rsvg_handle_render_document(svg_7steps, cr, &viewport, NULL);
+    if (show_shortcuts)
+        draw_text(cr, "(TODO)", 0, show_7steps ? 380 : 20, 0);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -2300,7 +2346,11 @@ static void draw_cb(
     const struct graph_model* model = editor->model;
     (void)area;
 
-    draw_help(cr, editor->seven_steps, editor->show_seven_steps);
+    draw_help(
+        cr,
+        editor->seven_steps,
+        editor->show_seven_steps,
+        editor->show_shortcuts);
 
     cairo_translate(cr, editor->pan_x, editor->pan_y);
     cairo_scale(cr, editor->zoom, editor->zoom);
