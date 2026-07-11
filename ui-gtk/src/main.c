@@ -362,62 +362,6 @@ static gboolean set_initial_pane_widths(gpointer user_data)
 }
 
 /* -------------------------------------------------------------------------- */
-static void save_graphviz(const struct math_pipeline* pl)
-{
-    struct serializer* ser;
-    FILE* fp;
-    serializer_init(&ser);
-    if (csfg_io_save(
-            &ser,
-            &pl->substitutions,
-            &pl->parameters,
-            &pl->graph,
-            pl->node_in,
-            pl->node_out,
-            "graphviz") != 0)
-        goto serialize_failed;
-    fp = fopen("graph.dot", "w");
-    if (fp == NULL)
-        goto fopen_failed;
-    fwrite(ser->data, ser->count, 1, fp);
-    fclose(fp);
-    serializer_deinit(ser);
-    return;
-
-fopen_failed:
-    serializer_deinit(ser);
-serialize_failed:
-    return;
-}
-static void save_latex(const struct math_pipeline* pl)
-{
-    struct serializer* ser;
-    FILE* fp;
-    serializer_init(&ser);
-    if (csfg_io_save(
-            &ser,
-            &pl->substitutions,
-            &pl->parameters,
-            &pl->graph,
-            pl->node_in,
-            pl->node_out,
-            "tikz") != 0)
-        goto serialize_failed;
-    fp = fopen("graph.tex", "w");
-    if (fp == NULL)
-        goto fopen_failed;
-    fwrite(ser->data, ser->count, 1, fp);
-    fclose(fp);
-    serializer_deinit(ser);
-    return;
-
-fopen_failed:
-    serializer_deinit(ser);
-serialize_failed:
-    return;
-}
-
-/* -------------------------------------------------------------------------- */
 static int
 load_pipeline_graph_data_on_row(const void* data, int data_len, void* user_data)
 {
@@ -432,6 +376,34 @@ static int load_pipeline_plugin_data_on_row(
     struct deserializer des = deserializer(data, data_len);
     return plugin->lib.i->io->on_load(plugin->ctx, &des);
 }
+static int
+load_empty_project(struct math_pipeline* pipeline, struct plugin_vec* plugins)
+{
+    struct plugin* plugin;
+
+    math_pipeline_clear(pipeline);
+    math_pipeline_update(pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+    notify_plugins_about_change(
+        plugins, NULL, pipeline, MATH_PIPELINE_GRAPH_CHANGED);
+
+    vec_for_each (plugins, plugin)
+    {
+        if (plugin->lib.i->graph)
+            plugin->lib.i->graph->on_load(
+                plugin->ctx,
+                &pipeline->graph,
+                pipeline->node_in,
+                pipeline->node_out);
+        if (plugin->lib.i->substitutions)
+            plugin->lib.i->substitutions->on_load(
+                plugin->ctx, &pipeline->substitutions);
+        if (plugin->lib.i->parameters)
+            plugin->lib.i->parameters->on_load(
+                plugin->ctx, &pipeline->parameters);
+    }
+
+    return 0;
+}
 static int load_project(
     const struct db_interface* dbi,
     struct db* db,
@@ -444,8 +416,9 @@ static int load_project(
     math_pipeline_clear(pipeline);
 
     if (dbi->graph_data.exists(db, project_id))
-        dbi->graph_data.load(
-            db, project_id, load_pipeline_graph_data_on_row, pipeline);
+        if (dbi->graph_data.load(
+                db, project_id, load_pipeline_graph_data_on_row, pipeline) != 0)
+            return -1;
 
     vec_for_each (plugins, plugin)
     {
@@ -545,7 +518,14 @@ static void on_project_selected(
 {
     struct app_ctx* ctx = user_data;
     (void)project_browser;
-    load_project(ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
+    if (load_project(
+            ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins) != 0)
+    {
+        if (project_id == SCRATCH_PROJECT_ID)
+            load_empty_project(&ctx->pipeline, *ctx->plugins);
+        else
+            project_id = -1;
+    }
     ctx->active_project_id = project_id;
 }
 static void on_project_deselected(
@@ -553,8 +533,9 @@ static void on_project_deselected(
 {
     struct app_ctx* ctx = user_data;
     (void)project_browser;
-    unload_project(
-        ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
+    if (ctx->active_project_id > -1)
+        unload_project(
+            ctx->dbi, ctx->db, project_id, &ctx->pipeline, *ctx->plugins);
     ctx->active_project_id = -1;
 }
 

@@ -68,6 +68,14 @@ set (GTK4_graphene_INCLUDE_DIRS
 find_path (GTK4_epoxy_INCLUDE_DIRS
     NAMES "epoxy/gl.h"
     PATHS ${_GTK4_INCLUDE_PATH_HINTS})
+find_path (GTK4_libpanel_INCLUDE_DIRS
+    NAMES "libpanel.h"
+    PATHS ${_GTK4_INCLUDE_PATH_HINTS}
+    PATH_SUFFIXES "libpanel-1")
+find_path (GTK4_librsvg_INCLUDE_DIRS
+    NAMES "librsvg/rsvg.h"
+    PATHS ${_GTK4_INCLUDE_PATH_HINTS}
+    PATH_SUFFIXES "librsvg-2.0")
 
 find_library (GTK4_gtk_LIBRARY
     NAMES "gtk-4"
@@ -104,6 +112,12 @@ find_library (GTK4_graphene_LIBRARY
     PATHS ${_GTK4_LIB_PATH_HINTS})
 find_library (GTK4_epoxy_LIBRARY
     NAMES "epoxy"
+    PATHS ${_GTK4_LIB_PATH_HINTS})
+find_library (GTK4_libpanel_LIBRARY
+    NAMES "panel-1"
+    PATHS ${_GTK4_LIB_PATH_HINTS})
+find_library (GTK4_librsvg_LIBRARY
+    NAMES "rsvg-2"
     PATHS ${_GTK4_LIB_PATH_HINTS})
 
 find_file (GTK4_gtk_RUNTIME
@@ -178,6 +192,12 @@ find_file (GTK4_pcre_RUNTIME
 find_file (GTK4_freetype_RUNTIME
     NAMES "freetype-6.dll"
     PATHS ${_GTK4_BIN_PATH_HINTS})
+find_file (GTK4_libpanel_RUNTIME
+    NAMES "libpanel-1.dll"
+    PATHS ${_GTK4_BIN_PATH_HINTS})
+find_file (GTK4_librsvg_RUNTIME
+    NAMES "librsvg-2.dll"
+    PATHS ${_GTK4_BIN_PATH_HINTS})
 
 find_program (GTK4_glib_compile_resources_PROGRAM
     NAMES "glib-compile-resources")
@@ -206,7 +226,9 @@ set (GTK4_RUNTIMES
     ${GTK4_ffi_RUNTIME}
     ${GTK4_z_RUNTIME}
     ${GTK4_pcre_RUNTIME}
-    ${GTK4_freetype_RUNTIME})
+    ${GTK4_freetype_RUNTIME}
+    ${GTK4_libpanel_RUNTIME}
+    ${GTK4_librsvg_RUNTIME})
 file (GLOB GTK4_RUNTIMES "${GTK4_ROOT}/bin/*.dll")
 set (GTK4_RUNTIMES "${GTK4_RUNTIMES}" PARENT_SCOPE)
 

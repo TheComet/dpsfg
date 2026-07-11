@@ -5,7 +5,7 @@ project ("graph-editor"
     LANGUAGES C)
 
 find_package (GTK4 REQUIRED COMPONENTS
-    gtk glib cairo pango pangocairo harfbuzz gdk-pixbuf graphene)
+    gtk glib cairo pango pangocairo harfbuzz gdk-pixbuf graphene librsvg)
 
 gtk_compile_resource (
     "res/graph-editor.gresource.xml"
@@ -16,8 +16,9 @@ dpsfg_add_plugin ("graph-editor"
     SOURCES
         "${PROJECT_BINARY_DIR}/src/graph-editor.gresource.c"
         "res/graph-editor.gresource.xml"
-        "src/plugin.c"
+        "src/color_picker.c"
         "src/graph_editor.c"
+        "src/plugin.c"
     INCLUDES
         "include"
         "${PROJECT_BINARY_DIR}/include"
@@ -31,4 +32,5 @@ dpsfg_add_plugin ("graph-editor"
         GTK4::harfbuzz
         GTK4::gdk-pixbuf
         GTK4::graphene
-        GTK4::gtk)
+        GTK4::gtk
+        GTK4::librsvg)

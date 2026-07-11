@@ -10,6 +10,8 @@
 //%option debug-layer
 
 %header-preamble {
+#define SCRATCH_PROJECT_ID    1
+#define SCRATCH_PROJECT_NAME  "Scratch"
 }
 
 %source-includes {

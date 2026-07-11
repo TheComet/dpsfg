@@ -625,6 +625,20 @@ int csfg_expr_equal(
 }
 
 /* -------------------------------------------------------------------------- */
+int csfg_expr_count(const struct csfg_expr_pool* pool, int expr)
+{
+    if (expr < 0)
+        return 0;
+    return (pool->nodes[expr].child[0] < 0
+                ? 0
+                : csfg_expr_count(pool, pool->nodes[expr].child[0])) +
+           (pool->nodes[expr].child[1] < 0
+                ? 0
+                : csfg_expr_count(pool, pool->nodes[expr].child[1])) +
+           1;
+}
+
+/* -------------------------------------------------------------------------- */
 static int rank(const struct csfg_expr_pool* pool, int n)
 {
     switch ((enum csfg_expr_type)pool->nodes[n].type)

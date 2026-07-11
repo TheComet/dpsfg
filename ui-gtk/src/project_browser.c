@@ -19,9 +19,6 @@ enum column
         COLUMN_COUNT
 };
 
-static const int SCRATCH_PROJECT_ID     = 1;
-static const char* SCRATCH_PROJECT_NAME = "Scratch";
-
 /* -------------------------------------------------------------------------- */
 /* Project List Item */
 /* -------------------------------------------------------------------------- */

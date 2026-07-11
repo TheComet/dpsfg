@@ -99,6 +99,3 @@ static int load(
     (void)graph, (void)node_in, (void)node_out;
     return log_err("Loading Graphviz DOT not implemented\n");
 }
-
-/* -------------------------------------------------------------------------- */
-const struct csfg_io csfg_graph_io_graphviz = {"graphviz", save, load};

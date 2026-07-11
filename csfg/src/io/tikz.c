@@ -164,6 +164,3 @@ static int load(
     (void)graph, (void)node_in, (void)node_out;
     return 0;
 }
-
-/* -------------------------------------------------------------------------- */
-const struct csfg_io csfg_graph_io_tikz = {"tikz", save, load};

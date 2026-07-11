@@ -82,6 +82,9 @@ int csfg_expr_equal(
     const struct csfg_expr_pool* pool2,
     int expr2);
 
+/*! Counts (recursively) the number of nodes in an expression */
+int csfg_expr_count(const struct csfg_expr_pool* pool, int expr);
+
 int csfg_expr_lexicographical_compare(
     const struct csfg_expr_pool* pool, int a, int b);
 

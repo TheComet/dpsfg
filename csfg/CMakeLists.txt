@@ -40,10 +40,9 @@ set (csfg_SOURCES
     # io
     "src/io/deserialize.c"
     "src/io/serialize.c"
-    "src/io/io.c"
-    "src/io/binary.c"
-    "src/io/graphviz.c"
-    "src/io/tikz.c"
+    "src/io/expr.c"
+    "src/io/graph.c"
+    "src/io/var_table.c"
 
     # graph
     "src/graph/graph.c"

@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/ch/thecomet/dpsfg/graph-editor">
+    <file>icons/help-shortcuts.svg</file>
+    <file>icons/help-7-steps.svg</file>
+    <file>icons/rotate-ccw.svg</file>
+    <file>icons/rotate-cw.svg</file>
     <file>icons/new-node.svg</file>
     <file>icons/new-node-with-edge.svg</file>
     <file>icons/new-edge.svg</file>
@@ -8,5 +12,11 @@
     <file>icons/delete.svg</file>
     <file>icons/input-node.svg</file>
     <file>icons/output-node.svg</file>
+    <file>icons/reconnect-edge.svg</file>
+    <file>icons/flip-edge.svg</file>
+    <file>icons/mouse.svg</file>
+    <file>icons/draw.svg</file>
+
+    <file>images/7-steps.svg</file>
   </gresource>
 </gresources>

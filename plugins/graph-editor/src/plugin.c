@@ -2,6 +2,7 @@
 #include "csfg/io/serialize.h"
 #include "csfg/util/mem.h"
 #include "dpsfg-plugin.h"
+#include "graph-editor/color_picker.h"
 #include "graph-editor/graph_editor.h"
 
 struct plugin_ctx
@@ -77,6 +78,8 @@ static struct plugin_ctx* create(
     graph_model_init(&ctx->graph_model, ctx, notify_interface, notify_ctx);
 
     graph_editor_register_type_internal(type_module);
+    color_picker_register_type_internal(type_module);
+
     GResource* graph_editor_get_resource(void);
     g_resources_register(graph_editor_get_resource());
 

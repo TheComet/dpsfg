@@ -92,27 +92,25 @@ void math_pipeline_clear(struct math_pipeline* pl)
 /* -------------------------------------------------------------------------- */
 int math_pipeline_load(struct math_pipeline* pl, struct deserializer* des)
 {
-    return csfg_io_load(
-        des,
-        &pl->substitutions,
-        &pl->parameters,
-        &pl->graph,
-        &pl->node_in,
-        &pl->node_out,
-        "binary");
+    if (csfg_io_graph_load(des, &pl->graph, &pl->node_in, &pl->node_out) != 0)
+        return -1;
+    if (csfg_io_var_table_load(des, &pl->substitutions) != 0)
+        return -1;
+    if (csfg_io_var_table_load(des, &pl->parameters) != 0)
+        return -1;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
 int math_pipeline_save(const struct math_pipeline* pl, struct serializer** ser)
 {
-    return csfg_io_save(
-        ser,
-        &pl->substitutions,
-        &pl->parameters,
-        &pl->graph,
-        pl->node_in,
-        pl->node_out,
-        "binary");
+    if (csfg_io_graph_save(ser, &pl->graph, pl->node_in, pl->node_out) != 0)
+        return -1;
+    if (csfg_io_var_table_save(ser, &pl->substitutions) != 0)
+        return -1;
+    if (csfg_io_var_table_save(ser, &pl->parameters) != 0)
+        return -1;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
