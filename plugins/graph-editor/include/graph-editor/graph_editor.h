@@ -1,6 +1,5 @@
 #pragma once
 
-#include "csfg/util/hmap.h"
 #include <gtk/gtk.h>
 
 struct csfg_graph;
@@ -9,6 +8,9 @@ struct deserializer;
 struct plugin_ctx;
 struct plugin_notify_interface;
 struct plugin_notify_context;
+struct line_vec;
+struct node_attr_hmap;
+struct edge_attr_hmap;
 
 struct color
 {
@@ -21,22 +23,8 @@ enum graph_model_mode
     MODE_MOVE,
     MODE_RECONNECT_FROM,
     MODE_RECONNECT_TO,
+    MODE_DRAW,
 };
-
-struct node_attr
-{
-    int radius;
-    struct color color;
-};
-
-struct edge_attr
-{
-    struct str* expr_str;
-    struct color color;
-};
-
-HMAP_DECLARE(extern, node_attr_hmap, int, struct node_attr, 16)
-HMAP_DECLARE(extern, edge_attr_hmap, int, struct edge_attr, 16)
 
 struct graph_model
 {
@@ -48,6 +36,7 @@ struct graph_model
     struct node_attr_hmap* node_attrs;
     struct edge_attr_hmap* edge_attrs;
     struct undo_stack_vec* undo_stack;
+    struct line_vec* line_vec;
 
     struct color graph_color;
     struct color draw_color;
@@ -70,9 +59,15 @@ void graph_model_init(
     const struct plugin_notify_interface* icb,
     struct plugin_notify_context* cb);
 void graph_model_deinit(struct graph_model* model);
-int graph_model_save_attrs(struct graph_model* model, struct serializer** ser);
+int graph_model_save_attrs(
+    const struct graph_model* model, struct serializer** ser);
 int graph_model_load_attrs(struct graph_model* model, struct deserializer* des);
 void graph_model_clear_attrs(struct graph_model* model);
+int graph_model_save_drawings(
+    const struct graph_model* model, struct serializer** ser);
+int graph_model_load_drawings(
+    struct graph_model* model, struct deserializer* des);
+void graph_model_clear_drawings(struct graph_model* model);
 void graph_model_set_graph(
     struct graph_model* model, struct csfg_graph* g, int node_in, int node_out);
 void graph_model_clear_graph(struct graph_model* model);

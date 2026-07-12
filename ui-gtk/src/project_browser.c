@@ -193,6 +193,7 @@ struct _DPSFGProjectBrowser
     DPSFGProjectList* project_list;
     GtkSingleSelection* selection_model;
     int current_project_id;
+    int block_outgoing_signals;
 };
 struct _DPSFGProjectBrowserClass
 {
@@ -243,6 +244,8 @@ static void handle_list_or_selection_changed(DPSFGProjectBrowser* self)
         g_object_unref(item);
 
     if (new_project_id == self->current_project_id)
+        return;
+    if (self->block_outgoing_signals)
         return;
 
     if (self->current_project_id != -1)
@@ -331,23 +334,34 @@ editable_label_text_changed_cb(DPSFGEditableLabel* editable, gpointer user_data)
         dpsfg_editable_label_set_text(editable, SCRATCH_PROJECT_NAME);
 
         /* The "Scratch" project has probably not saved all of its data to the
-         * db yet. By selecting the new project, we emit the selection signals,
-         * which will cause all data to be saved */
-        n_items = g_list_model_get_n_items(
-            G_LIST_MODEL(project_browser->project_list));
-        gtk_single_selection_set_selected(
-            project_browser->selection_model, n_items - 1);
+         * db yet. Deselecting it will cause all data to be saved */
+        g_signal_emit(
+            project_browser,
+            signals[SIGNAL_PROJECT_DESELECTED],
+            0,
+            SCRATCH_PROJECT_ID);
 
         /* Move the data from the "Scratch" project to the new project */
         dbi->graph_data.move(db, SCRATCH_PROJECT_ID, new_project_id);
         dbi->plugin_data.move(db, SCRATCH_PROJECT_ID, new_project_id);
+        project_browser->current_project_id = new_project_id;
 
-        /* Reselect the new project so the moved data gets loaded */
+        /* Select the new project so the moved data gets loaded */
         g_signal_emit(
             project_browser,
             signals[SIGNAL_PROJECT_SELECTED],
             0,
             new_project_id);
+
+        /* Update UI without triggering any signals */
+        project_browser->block_outgoing_signals = 1;
+        {
+            n_items = g_list_model_get_n_items(
+                G_LIST_MODEL(project_browser->project_list));
+            gtk_single_selection_set_selected(
+                project_browser->selection_model, n_items - 1);
+        }
+        project_browser->block_outgoing_signals = 0;
 
         return;
     }
@@ -420,9 +434,12 @@ shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
         return TRUE;
     }
 
-    /* Force reload of scratch project */
-    dbi->graph_data.delete(db, project_id);
-    dbi->plugin_data.delete(db, project_id);
+    g_signal_emit(
+        self, signals[SIGNAL_PROJECT_DESELECTED], 0, SCRATCH_PROJECT_ID);
+
+    dbi->graph_data.delete(db, SCRATCH_PROJECT_ID);
+    dbi->plugin_data.delete(db, SCRATCH_PROJECT_ID);
+
     g_signal_emit(
         self, signals[SIGNAL_PROJECT_SELECTED], 0, SCRATCH_PROJECT_ID);
 
@@ -477,6 +494,7 @@ static void dpsfg_project_browser_init(DPSFGProjectBrowser* self)
     self->project_list       = dpsfg_project_list_new(self);
     self->selection_model =
         gtk_single_selection_new(G_LIST_MODEL(self->project_list));
+    self->block_outgoing_signals = 0;
 
     column_view =
         gtk_column_view_new(GTK_SELECTION_MODEL(self->selection_model));

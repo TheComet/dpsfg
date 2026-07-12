@@ -33,6 +33,7 @@ static void graph_on_load(
 static void graph_on_unload(struct plugin_ctx* ctx)
 {
     graph_model_clear_graph(&ctx->graph_model);
+    graph_model_clear_drawings(&ctx->graph_model);
     graph_editor_redraw_graph(ctx->graph_editor);
 }
 static void
@@ -51,7 +52,11 @@ static void graph_on_layout_changed(struct plugin_ctx* ctx)
 static int io_on_save(struct plugin_ctx* ctx, struct serializer** ser)
 {
     serialize_lu16(ser, 0x0000); /* version */
-    return graph_model_save_attrs(&ctx->graph_model, ser);
+    if (graph_model_save_attrs(&ctx->graph_model, ser) != 0)
+        return -1;
+    if (graph_model_save_drawings(&ctx->graph_model, ser) != 0)
+        return -1;
+    return 0;
 }
 static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
 {
@@ -61,7 +66,10 @@ static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
 
     switch (version)
     {
-        case 0x000: graph_model_load_attrs(&ctx->graph_model, des); break;
+        case 0x000:
+            graph_model_load_attrs(&ctx->graph_model, des);
+            graph_model_load_drawings(&ctx->graph_model, des);
+            break;
     }
 
     graph_model_reinit_undo_stack(&ctx->graph_model);

@@ -3,6 +3,7 @@
   <gresource prefix="/ch/thecomet/dpsfg/graph-editor">
     <file>icons/help-shortcuts.svg</file>
     <file>icons/help-7-steps.svg</file>
+    <file>icons/physical-units.svg</file>
     <file>icons/rotate-ccw.svg</file>
     <file>icons/rotate-cw.svg</file>
     <file>icons/new-node.svg</file>

@@ -415,7 +415,7 @@ static int load_project(
 
     math_pipeline_clear(pipeline);
 
-    if (dbi->graph_data.exists(db, project_id))
+    if (dbi->graph_data.exists(db, project_id) != 0)
         if (dbi->graph_data.load(
                 db, project_id, load_pipeline_graph_data_on_row, pipeline) != 0)
             return -1;

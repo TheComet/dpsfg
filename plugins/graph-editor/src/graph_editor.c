@@ -3,6 +3,7 @@
 #include "csfg/io/io.h"
 #include "csfg/io/serialize.h"
 #include "csfg/symbolic/expr.h"
+#include "csfg/util/hmap.h"
 #include "csfg/util/str.h"
 #include "csfg/util/vec.h"
 #include "dpsfg-plugin.h"
@@ -32,11 +33,44 @@ enum color_button
         COLOR_BUTTONS_COUNT
 };
 
+struct node_attr
+{
+    int radius;
+    struct color color;
+    unsigned selected : 1;
+};
+
+struct edge_attr
+{
+    struct str* expr_str;
+    struct color color;
+    unsigned selected : 1;
+};
+
+HMAP_DECLARE(static, node_attr_hmap, int, struct node_attr, 16)
+HMAP_DECLARE(static, edge_attr_hmap, int, struct edge_attr, 16)
+HMAP_DEFINE(static, node_attr_hmap, int, struct node_attr, 16)
+HMAP_DEFINE(static, edge_attr_hmap, int, struct edge_attr, 16)
+
+struct point
+{
+    int x, y;
+};
+
+VEC_DECLARE(point_vec, struct point, 16)
+VEC_DEFINE(point_vec, struct point, 16)
+
+struct line
+{
+    struct point_vec* points;
+    struct color color;
+};
+
+VEC_DECLARE(line_vec, struct line, 16)
+VEC_DEFINE(line_vec, struct line, 16)
+
 VEC_DECLARE(undo_stack_vec, struct serializer*, 32)
 VEC_DEFINE(undo_stack_vec, struct serializer*, 32)
-
-HMAP_DEFINE(extern, node_attr_hmap, int, struct node_attr, 16)
-HMAP_DEFINE(extern, edge_attr_hmap, int, struct edge_attr, 16)
 
 struct _GraphEditor
 {
@@ -51,6 +85,8 @@ struct _GraphEditor
     RsvgHandle* seven_steps;
 
     GtkToggleButton* color_buttons[COLOR_BUTTONS_COUNT];
+    GtkToggleButton* graph_mode_button;
+    GtkToggleButton* draw_mode_button;
 
     /* It's difficult to get the mouse coordinates in some callbacks, so we use
      * GtkEventControllerMotion to store them here */
@@ -66,8 +102,9 @@ struct _GraphEditor
 
     struct graph_model* model;
 
-    unsigned show_shortcuts   : 1;
-    unsigned show_seven_steps : 1;
+    unsigned show_shortcuts     : 1;
+    unsigned show_seven_steps   : 1;
+    unsigned fix_physical_units : 1;
 };
 
 G_DEFINE_DYNAMIC_TYPE(GraphEditor, graph_editor, GTK_TYPE_BOX)
@@ -79,6 +116,14 @@ static struct color rgb(uint8_t r, uint8_t g, uint8_t b)
     color.r = r;
     color.g = g;
     color.b = b;
+    return color;
+}
+static struct color hex_rgb(uint32_t rgb)
+{
+    struct color color;
+    color.r = (rgb >> 16) & 0xFF;
+    color.g = (rgb >> 8) & 0xFF;
+    color.b = (rgb >> 0) & 0xFF;
     return color;
 }
 static GdkRGBA hex_gdk(uint32_t rgb)
@@ -109,7 +154,8 @@ static struct color highlight_color(struct color color)
 /* -------------------------------------------------------------------------- */
 static void edge_attr_init(struct edge_attr* ea, struct color color)
 {
-    ea->color = color;
+    ea->selected = 0;
+    ea->color    = color;
     str_init(&ea->expr_str);
 }
 static void edge_attr_deinit(struct edge_attr* ea)
@@ -120,8 +166,9 @@ static void edge_attr_deinit(struct edge_attr* ea)
 /* -------------------------------------------------------------------------- */
 static void node_attr_init(struct node_attr* na, struct color color)
 {
-    na->radius = DEFAULT_NODE_RADIUS;
-    na->color  = color;
+    na->radius   = DEFAULT_NODE_RADIUS;
+    na->color    = color;
+    na->selected = 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -142,8 +189,10 @@ void graph_model_init(
     undo_stack_vec_init(&model->undo_stack);
     model->undo_stack_ptr = -1;
 
-    model->graph_color = rgb(50, 50, 50);
-    model->draw_color  = rgb(80, 80, 80);
+    line_vec_init(&model->line_vec);
+
+    model->graph_color = hex_rgb(0x333333);
+    model->draw_color  = hex_rgb(0x333333);
 
     model->node_in_id        = -1;
     model->node_out_id       = -1;
@@ -162,6 +211,11 @@ void graph_model_deinit(struct graph_model* model)
     int idx, id;
     struct edge_attr* ea;
     struct serializer** ser;
+    struct line* line;
+
+    vec_for_each (model->line_vec, line)
+        point_vec_deinit(line->points);
+    line_vec_deinit(model->line_vec);
 
     hmap_for_each (model->edge_attrs, idx, id, ea)
         (void)id, edge_attr_deinit(ea);
@@ -238,7 +292,8 @@ static int push_undo_state(struct graph_model* model)
             model->graph,
             find_node_idx(model->graph, model->node_in_id),
             find_node_idx(model->graph, model->node_out_id)) != 0 ||
-        graph_model_save_attrs(model, ser) != 0)
+        graph_model_save_attrs(model, ser) != 0 ||
+        graph_model_save_drawings(model, ser) != 0)
     {
         serializer_deinit(*undo_stack_vec_pop(model->undo_stack));
         return -1;
@@ -262,6 +317,8 @@ static int undo(struct graph_model* model)
         graph_model_rebuild_graph(model, node_in, node_out);
         if (graph_model_load_attrs(model, &des) != 0)
             return -1;
+        if (graph_model_load_drawings(model, &des) != 0)
+            return -1;
         model->undo_stack_ptr--;
     }
 
@@ -282,6 +339,8 @@ static int redo(struct graph_model* model)
         graph_model_rebuild_graph(model, node_in, node_out);
         if (graph_model_load_attrs(model, &des) != 0)
             return -1;
+        if (graph_model_load_drawings(model, &des) != 0)
+            return -1;
         model->undo_stack_ptr++;
     }
 
@@ -289,13 +348,15 @@ static int redo(struct graph_model* model)
 }
 void graph_model_reinit_undo_stack(struct graph_model* model)
 {
-    while (vec_count(model->undo_stack) - 1 > model->undo_stack_ptr)
+    while (vec_count(model->undo_stack))
         serializer_deinit(*undo_stack_vec_pop(model->undo_stack));
+    model->undo_stack_ptr = -1;
     push_undo_state(model);
 }
 
 /* -------------------------------------------------------------------------- */
-int graph_model_save_attrs(struct graph_model* model, struct serializer** ser)
+int graph_model_save_attrs(
+    const struct graph_model* model, struct serializer** ser)
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
@@ -387,6 +448,74 @@ void graph_model_clear_attrs(struct graph_model* model)
         (void)id, (void)ea;
         edge_attr_deinit(edge_attr_hmap_erase_slot(model->edge_attrs, i));
     }
+}
+
+/* -------------------------------------------------------------------------- */
+int graph_model_save_drawings(
+    const struct graph_model* model, struct serializer** ser)
+{
+    const struct line* line;
+    const struct point* point;
+    int err = 0;
+
+    err += serialize_lu16(ser, vec_count(model->line_vec));
+    vec_for_each (model->line_vec, line)
+    {
+        err += serialize_u8(ser, line->color.r);
+        err += serialize_u8(ser, line->color.g);
+        err += serialize_u8(ser, line->color.b);
+
+        err += serialize_lu16(ser, vec_count(line->points));
+        vec_for_each (line->points, point)
+        {
+            err += serialize_li16(ser, point->x);
+            err += serialize_li16(ser, point->y);
+        }
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------- */
+int graph_model_load_drawings(
+    struct graph_model* model, struct deserializer* des)
+{
+    int line_count, point_count;
+    struct line* line;
+    struct point* point;
+
+    graph_model_clear_drawings(model);
+
+    line_count = deserialize_lu16(des);
+    while (line_count-- > 0)
+    {
+        line = line_vec_emplace(&model->line_vec);
+        if (line == NULL)
+            return -1;
+        point_vec_init(&line->points);
+        line->color.r = deserialize_u8(des);
+        line->color.g = deserialize_u8(des);
+        line->color.b = deserialize_u8(des);
+
+        point_count = deserialize_lu16(des);
+        while (point_count-- > 0)
+        {
+            point = point_vec_emplace(&line->points);
+            if (point == NULL)
+                return -1;
+            point->x = deserialize_li16(des);
+            point->y = deserialize_li16(des);
+        }
+    }
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+void graph_model_clear_drawings(struct graph_model* model)
+{
+    while (vec_count(model->line_vec))
+        point_vec_deinit(line_vec_pop(model->line_vec)->points);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1598,6 +1727,7 @@ node_direction_action(struct graph_model* model, double dx, double dy)
             notify_graph_changed(model);
             push_undo_state(model);
             break;
+        case MODE_DRAW: break;
     }
 }
 static void
@@ -1619,6 +1749,7 @@ edge_direction_action(struct graph_model* model, double dx, double dy)
             select_next_connected_edge_in_direction(
                 model, model->reconnect_node_id, dx, dy);
         case MODE_RECONNECT_TO: break;
+        case MODE_DRAW        : break;
     }
 }
 
@@ -1637,6 +1768,14 @@ static void button_show_7steps_cb(GtkButton* button, gpointer user_data)
         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == TRUE;
     gtk_widget_queue_draw(editor->drawing_area);
 }
+
+static void button_fix_physical_units_cb(GtkButton* button, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    editor->fix_physical_units =
+        gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button)) == TRUE;
+}
+
 static gboolean
 shortcut_undo_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
@@ -1795,6 +1934,7 @@ shortcut_move_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
             model->mode              = MODE_MOVE;
             break;
         case MODE_RECONNECT_TO: break;
+        case MODE_DRAW        : break;
     }
 
     gtk_widget_queue_draw(editor->drawing_area);
@@ -2032,6 +2172,8 @@ static gboolean shortcut_reconnect_edge_cb(
             model->reconnect_edge_id = -1;
             model->mode              = MODE_NORMAL;
             break;
+
+        case MODE_DRAW: break;
     }
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
@@ -2057,30 +2199,85 @@ static void button_flip_edge_cb(GtkButton* button, gpointer user_data)
     (void)button, shortcut_flip_edge_cb(NULL, NULL, user_data);
 }
 
-static gboolean
-shortcut_graph_mode_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    return TRUE;
-}
 static void button_graph_mode_cb(GtkButton* button, gpointer user_data)
 {
-    (void)button, shortcut_graph_mode_cb(NULL, NULL, user_data);
-}
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
+    (void)button;
+    switch (model->mode)
+    {
+        case MODE_NORMAL:
+        case MODE_MOVE:
+        case MODE_RECONNECT_FROM:
+        case MODE_RECONNECT_TO  : break;
 
-static gboolean
-shortcut_draw_mode_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
-{
-    GraphEditor* editor = user_data;
-    (void)widget, (void)unused;
-    return TRUE;
+        case MODE_DRAW: model->mode = MODE_NORMAL; break;
+    }
 }
 static void button_draw_mode_cb(GtkButton* button, gpointer user_data)
 {
-    (void)button, shortcut_draw_mode_cb(NULL, NULL, user_data);
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
+    (void)button;
+    switch (model->mode)
+    {
+        case MODE_NORMAL:
+        case MODE_MOVE  : model->mode = MODE_DRAW; break;
+
+        case MODE_RECONNECT_FROM: break;
+        case MODE_RECONNECT_TO  :
+        case MODE_DRAW          : break;
+    }
+}
+static void
+select_color_button_for_mode_switch(GraphEditor* editor, struct color color)
+{
+    int i;
+    struct color other_color;
+    for (i = 0; i != COLOR_BUTTONS_COUNT; ++i)
+    {
+        other_color = gdk_to_color(color_picker_get_color(
+            PLUGIN_COLOR_PICKER(editor->color_buttons[i])));
+        if (color.r == other_color.r && color.g == other_color.g &&
+            color.b == other_color.b)
+        {
+            gtk_toggle_button_set_active(editor->color_buttons[i], TRUE);
+            break;
+        }
+    }
+}
+static gboolean shortcut_draw_and_graph_mode_cb(
+    GtkWidget* widget, GVariant* unused, gpointer user_data)
+{
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
+    (void)widget, (void)unused;
+    if (gtk_toggle_button_get_active(editor->draw_mode_button))
+    {
+        button_graph_mode_cb(NULL, user_data);
+        gtk_toggle_button_set_active(editor->graph_mode_button, TRUE);
+        select_color_button_for_mode_switch(editor, model->graph_color);
+    }
+    else
+    {
+        button_draw_mode_cb(NULL, user_data);
+        gtk_toggle_button_set_active(editor->draw_mode_button, TRUE);
+        select_color_button_for_mode_switch(editor, model->draw_color);
+    }
+    return TRUE;
 }
 
+/* -------------------------------------------------------------------------- */
+static void button_color_cb(ColorPicker* picker, gpointer user_data)
+{
+    GraphEditor* editor = user_data;
+    if (gtk_toggle_button_get_active(editor->graph_mode_button))
+        editor->model->graph_color =
+            gdk_to_color(color_picker_get_color(picker));
+    if (gtk_toggle_button_get_active(editor->draw_mode_button))
+        editor->model->draw_color =
+            gdk_to_color(color_picker_get_color(picker));
+}
 static void shortcut_color_cb(GraphEditor* editor, int idx)
 {
     gtk_toggle_button_set_active(editor->color_buttons[idx], TRUE);
@@ -2333,6 +2530,30 @@ static void draw_help(
 }
 
 /* -------------------------------------------------------------------------- */
+static void draw_lines(cairo_t* cr, const struct line_vec* lines)
+{
+    int i;
+    const struct line* line;
+    const struct point* point;
+    vec_for_each (lines, line)
+    {
+        cairo_set_source_rgb(
+            cr,
+            line->color.r / 255.0,
+            line->color.g / 255.0,
+            line->color.b / 255.0);
+        vec_enumerate (line->points, i, point)
+        {
+            if (i == 0)
+                cairo_move_to(cr, point->x, point->y);
+            else
+                cairo_line_to(cr, point->x, point->y);
+        }
+        cairo_stroke(cr);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 static void draw_cb(
     GtkDrawingArea* area,
     cairo_t* cr,
@@ -2440,10 +2661,12 @@ static void draw_cb(
                 color.b / 255.0);
         }
     }
+
+    draw_lines(cr, model->line_vec);
 }
 
 /* -------------------------------------------------------------------------- */
-static void click_begin(
+static void click_down(
     GtkGestureClick* gesture,
     int n_press,
     double x,
@@ -2512,13 +2735,14 @@ static void click_begin(
             model->mode              = MODE_NORMAL;
         }
         break;
+        case MODE_DRAW: break;
     }
 
     gtk_widget_queue_draw(editor->drawing_area);
 }
 
 /* -------------------------------------------------------------------------- */
-static void click_end(
+static void click_up(
     GtkGestureClick* gesture,
     int n_press,
     double x,
@@ -2534,6 +2758,8 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
+    struct line* line;
+    struct point* point;
 
     GraphEditor* editor       = user_data;
     struct graph_model* model = editor->model;
@@ -2559,8 +2785,20 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
                 editor->drag_offset_y = round((y - n->y) / GRID) * GRID;
             }
             break;
-        case MODE_RECONNECT_FROM:
+        case MODE_RECONNECT_FROM: break;
         case MODE_RECONNECT_TO  : break;
+        case MODE_DRAW:
+            line = line_vec_emplace(&model->line_vec);
+            if (line == NULL)
+                return;
+            line->color = model->draw_color;
+            point_vec_init(&line->points);
+            point = point_vec_emplace(&line->points);
+            if (point == NULL)
+                return;
+            point->x = (int)x;
+            point->y = (int)y;
+            break;
     }
 }
 
@@ -2574,6 +2812,8 @@ static void drag_update(
     int snap_size;
     struct csfg_node* n;
     struct csfg_edge* e;
+    struct line* line;
+    struct point* point;
     double start_x, start_y, x, y;
     GdkEvent* event;
     GraphEditor* editor       = user_data;
@@ -2619,8 +2859,18 @@ static void drag_update(
                     round((y - editor->drag_offset_y) / snap_size) * snap_size;
             }
             break;
-        case MODE_RECONNECT_FROM:
+        case MODE_RECONNECT_FROM: break;
         case MODE_RECONNECT_TO  : break;
+        case MODE_DRAW:
+            if (vec_count(model->line_vec) == 0)
+                return;
+            line  = vec_last(model->line_vec);
+            point = point_vec_emplace(&line->points);
+            if (point == NULL)
+                return;
+            point->x = (int)x;
+            point->y = (int)y;
+            break;
     }
 
     gtk_widget_queue_draw(editor->drawing_area);
@@ -2630,6 +2880,16 @@ static void drag_update(
 static void
 drag_end(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
+    switch (model->mode)
+    {
+        case MODE_NORMAL        : break;
+        case MODE_MOVE          : break;
+        case MODE_RECONNECT_FROM: break;
+        case MODE_RECONNECT_TO  : break;
+        case MODE_DRAW          : push_undo_state(model); break;
+    }
     (void)gesture, (void)x, (void)y, (void)user_data;
 }
 
@@ -2748,8 +3008,7 @@ static void setup_global_shortcuts(GraphEditor* editor)
         {GDK_KEY_i, GDK_SHIFT_MASK,       shortcut_edit_node_or_edge_cb},
         {GDK_KEY_r, GDK_NO_MODIFIER_MASK, shortcut_reconnect_edge_cb},
         {GDK_KEY_f, GDK_NO_MODIFIER_MASK, shortcut_flip_edge_cb},
-        {GDK_KEY_d, GDK_NO_MODIFIER_MASK, shortcut_draw_mode_cb},
-        {GDK_KEY_g, GDK_NO_MODIFIER_MASK, shortcut_graph_mode_cb},
+        {GDK_KEY_d, GDK_NO_MODIFIER_MASK, shortcut_draw_and_graph_mode_cb},
 #define X(idx, shortcut, default_color) \
         {GDK_KEY_##idx, GDK_NO_MODIFIER_MASK,shortcut_color##idx##_cb},
         COLOR_BUTTONS_LIST
@@ -2795,23 +3054,25 @@ static void add_toolbar_buttons(GraphEditor* editor, GtkBox* toolbar)
         unsigned is_initially_pressed : 1;
     } buttons[] = {
         /* clang-format off */
-        {"Show Shortcut List",          NULL,           "help-shortcuts.svg",     button_show_shortcuts_cb,    1, 0, 0},
-        {"Show the '7 Steps'",          NULL,           "help-7-steps.svg",       button_show_7steps_cb,       1, 0, 0},
-        {"Undo",                        "ctrl+z",       "rotate-ccw.svg",         button_undo_cb,              0, 0, 0},
-        {"Redo",                        "ctrl+shift+z", "rotate-cw.svg",          button_redo_cb,              0, 0, 0},
-        {NULL,                          NULL,           NULL,                     NULL,                        0, 0, 0},
-        {"New Node",                    "n",            "new-node.svg",           button_new_node_cb,          0, 0, 0},
-        {"New Connected Node",          "shift+n",      "new-node-with-edge.svg", button_new_node_and_edge_cb, 0, 0, 0},
-        {"New Edge",                    "e",            "new-edge.svg",           button_new_edge_cb,          0, 0, 0},
-        {"Mark Node (for connections)", "s",            "mark-node.svg",          button_mark_node_cb,         0, 0, 0},
-        {"Set Input Node",              "i",            "input-node.svg",         button_set_in_node_cb,       0, 0, 0},
-        {"Set Output Node",             "o",            "output-node.svg",        button_set_out_node_cb,      0, 0, 0},
-        {"Reconnect Edge",              "r",            "reconnect-edge.svg",     button_reconnect_edge_cb,    0, 0, 0},
-        {"Flip Edge",                   "f",            "flip-edge.svg",          button_flip_edge_cb,         0, 0, 0},
-        {"Delete",                      "x",            "delete.svg",             button_delete_cb,            0, 0, 0},
-        {NULL,                          NULL,           NULL,                     NULL,                        0, 0, 0},
-        {"Graph Mode",                  "g",            "mouse.svg",              button_graph_mode_cb,        1, 0, 1},
-        {"Draw Mode",                   "d",            "draw.svg",               button_draw_mode_cb,         1, 1, 0},
+        {"Show Shortcut List",          NULL,           "help-shortcuts.svg",     button_show_shortcuts_cb,     1, 0, 0},
+        {"Show the '7 Steps'",          NULL,           "help-7-steps.svg",       button_show_7steps_cb,        1, 0, 0},
+        {"Try to fix physical units",   NULL,           "physical-units.svg",     button_fix_physical_units_cb, 1, 0, 1},
+        {NULL,                          NULL,           NULL,                     NULL,                         0, 0, 0},
+        {"Delete",                      "x",            "delete.svg",             button_delete_cb,             0, 0, 0},
+        {"Undo",                        "ctrl+z",       "rotate-ccw.svg",         button_undo_cb,               0, 0, 0},
+        {"Redo",                        "ctrl+shift+z", "rotate-cw.svg",          button_redo_cb,               0, 0, 0},
+        {NULL,                          NULL,           NULL,                     NULL,                         0, 0, 0},
+        {"New Node",                    "n",            "new-node.svg",           button_new_node_cb,           0, 0, 0},
+        {"New Connected Node",          "shift+n",      "new-node-with-edge.svg", button_new_node_and_edge_cb,  0, 0, 0},
+        {"New Edge",                    "e",            "new-edge.svg",           button_new_edge_cb,           0, 0, 0},
+        {"Mark Node (for connections)", "s",            "mark-node.svg",          button_mark_node_cb,          0, 0, 0},
+        {"Set Input Node",              "i",            "input-node.svg",         button_set_in_node_cb,        0, 0, 0},
+        {"Set Output Node",             "o",            "output-node.svg",        button_set_out_node_cb,       0, 0, 0},
+        {"Reconnect Edge",              "r",            "reconnect-edge.svg",     button_reconnect_edge_cb,     0, 0, 0},
+        {"Flip Edge",                   "f",            "flip-edge.svg",          button_flip_edge_cb,          0, 0, 0},
+        {NULL,                          NULL,           NULL,                     NULL,                         0, 0, 0},
+        {"Graph Mode",                  "d (again)",    "mouse.svg",              button_graph_mode_cb,         1, 0, 1},
+        {"Draw Mode",                   "d",            "draw.svg",               button_draw_mode_cb,          1, 1, 0},
         /* clang-format on */
     };
 
@@ -2828,16 +3089,20 @@ static void add_toolbar_buttons(GraphEditor* editor, GtkBox* toolbar)
                                              : gtk_button_new();
         gtk_box_append(toolbar, button);
 
+        if (buttons[i].callback == button_graph_mode_cb)
+            editor->graph_mode_button = GTK_TOGGLE_BUTTON(button);
+        if (buttons[i].callback == button_draw_mode_cb)
+            editor->draw_mode_button = GTK_TOGGLE_BUTTON(button);
+
         str_set_cstr(&str, "/ch/thecomet/dpsfg/graph-editor/icons/");
         str_append_cstr(&str, buttons[i].icon);
         image = gtk_image_new_from_resource(str_cstr(str));
         gtk_button_set_child(GTK_BUTTON(button), image);
 
         str_set_cstr(&str, buttons[i].tooltip);
-        str_append_cstr(&str, "\n");
         if (buttons[i].shortcut != NULL)
         {
-            str_append_cstr(&str, "Shortcut: ");
+            str_append_cstr(&str, "\nShortcut: ");
             str_append_cstr(&str, buttons[i].shortcut);
         }
         gtk_widget_set_tooltip_text(button, str_cstr(str));
@@ -2862,13 +3127,6 @@ static void add_toolbar_buttons(GraphEditor* editor, GtkBox* toolbar)
 }
 
 /* -------------------------------------------------------------------------- */
-static void pick_color_cb(ColorPicker* picker, gpointer user_data)
-{
-    GraphEditor* editor        = user_data;
-    editor->model->graph_color = gdk_to_color(color_picker_get_color(picker));
-}
-
-/* -------------------------------------------------------------------------- */
 static void
 add_toolbar_color_picker_buttons(GraphEditor* editor, GtkBox* toolbar)
 {
@@ -2882,24 +3140,33 @@ add_toolbar_color_picker_buttons(GraphEditor* editor, GtkBox* toolbar)
     editor->color_buttons[0] =
         GTK_TOGGLE_BUTTON(color_picker_new(hex_gdk(default_colors[0])));
     gtk_toggle_button_set_active(editor->color_buttons[0], TRUE);
+    gtk_widget_set_tooltip_text(
+        GTK_WIDGET(editor->color_buttons[0]), "Shortcut: 1");
+    gtk_widget_set_margin_start(GTK_WIDGET(editor->color_buttons[0]), 8);
     gtk_box_append(toolbar, GTK_WIDGET(editor->color_buttons[0]));
     g_signal_connect(
         editor->color_buttons[0],
         "color-selected",
-        G_CALLBACK(pick_color_cb),
+        G_CALLBACK(button_color_cb),
         editor);
 
     for (i = 1; i != COLOR_BUTTONS_COUNT; ++i)
     {
+        char tooltip[] = "Shortcut: 1";
+        tooltip[10]    = '1' + i;
+
         editor->color_buttons[i] =
             GTK_TOGGLE_BUTTON(color_picker_new(hex_gdk(default_colors[i])));
         gtk_toggle_button_set_group(
             editor->color_buttons[i], editor->color_buttons[0]);
+        gtk_widget_set_tooltip_text(
+            GTK_WIDGET(editor->color_buttons[i]), tooltip);
         gtk_box_append(toolbar, GTK_WIDGET(editor->color_buttons[i]));
+
         g_signal_connect(
             editor->color_buttons[i],
             "color-selected",
-            G_CALLBACK(pick_color_cb),
+            G_CALLBACK(button_color_cb),
             editor);
     }
 }
@@ -2909,7 +3176,6 @@ static GtkWidget* create_toolbar(GraphEditor* editor)
 {
     GtkBox* toolbar = GTK_BOX(gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0));
     add_toolbar_buttons(editor, toolbar);
-    add_toolbar_separator(toolbar);
     add_toolbar_color_picker_buttons(editor, toolbar);
     return GTK_WIDGET(toolbar);
 }
@@ -2971,8 +3237,8 @@ static void graph_editor_init(GraphEditor* self)
         GTK_DRAWING_AREA(self->drawing_area), draw_cb, self, NULL);
 
     GtkGesture* click = gtk_gesture_click_new();
-    g_signal_connect(click, "pressed", G_CALLBACK(click_begin), self);
-    g_signal_connect(click, "released", G_CALLBACK(click_end), self);
+    g_signal_connect(click, "pressed", G_CALLBACK(click_down), self);
+    g_signal_connect(click, "released", G_CALLBACK(click_up), self);
     gtk_widget_add_controller(self->drawing_area, GTK_EVENT_CONTROLLER(click));
 
     GtkGesture* drag = gtk_gesture_drag_new();
