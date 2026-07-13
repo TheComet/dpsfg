@@ -35,8 +35,9 @@ enum color_button
 
 struct node_attr
 {
-    int radius;
     struct color color;
+    int radius;
+    int drag_begin_x, drag_begin_y;
     unsigned selected : 1;
 };
 
@@ -44,7 +45,7 @@ struct edge_attr
 {
     struct str* expr_str;
     struct color color;
-    unsigned selected : 1;
+    int drag_begin_x, drag_begin_y;
 };
 
 HMAP_DECLARE(static, node_attr_hmap, int, struct node_attr, 16)
@@ -98,13 +99,15 @@ struct _GraphEditor
     double pan_offset_x, pan_offset_y;
 
     /* Drag state */
-    double drag_offset_x, drag_offset_y;
+    int drag_begin_x, drag_begin_y;
+    int drag_end_x, drag_end_y;
 
     struct graph_model* model;
 
     unsigned show_shortcuts     : 1;
     unsigned show_seven_steps   : 1;
     unsigned fix_physical_units : 1;
+    unsigned is_box_selecting   : 1;
 };
 
 G_DEFINE_DYNAMIC_TYPE(GraphEditor, graph_editor, GTK_TYPE_BOX)
@@ -154,9 +157,11 @@ static struct color highlight_color(struct color color)
 /* -------------------------------------------------------------------------- */
 static void edge_attr_init(struct edge_attr* ea, struct color color)
 {
-    ea->selected = 0;
-    ea->color    = color;
     str_init(&ea->expr_str);
+    ea->color = color;
+
+    ea->drag_begin_x = 0;
+    ea->drag_begin_y = 0;
 }
 static void edge_attr_deinit(struct edge_attr* ea)
 {
@@ -166,9 +171,12 @@ static void edge_attr_deinit(struct edge_attr* ea)
 /* -------------------------------------------------------------------------- */
 static void node_attr_init(struct node_attr* na, struct color color)
 {
-    na->radius   = DEFAULT_NODE_RADIUS;
-    na->color    = color;
-    na->selected = 0;
+    na->radius = DEFAULT_NODE_RADIUS;
+    na->color  = color;
+
+    na->drag_begin_x = 0;
+    na->drag_begin_y = 0;
+    na->selected     = 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -961,12 +969,6 @@ static void drag_edge_connected_to_node(
         e->x = (n1->x + n2->x) / 2;
         e->y = (n1->y + n2->y) / 2;
     }
-
-    if (is_near_any_other_node(e->x, e->y, g, NULL) ||
-        is_near_any_other_edge(e->x, e->y, g, e))
-    {
-        auto_position_edge(g, e, n1, n2);
-    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -987,6 +989,34 @@ static void drag_all_edges_connected_to_node(
     csfg_graph_for_each_edge (g, e)
         drag_edge_connected_to_node(
             g, e, n_idx, n1_prev_x, n1_prev_y, is_reconnect_operation);
+}
+
+/* -------------------------------------------------------------------------- */
+static void bump_edge(struct csfg_graph* g, struct csfg_edge* e)
+{
+    struct csfg_node *n1, *n2;
+    if (is_near_any_other_node(e->x, e->y, g, NULL) ||
+        is_near_any_other_edge(e->x, e->y, g, e))
+    {
+        n1 = csfg_graph_get_node(g, e->n_idx_from);
+        n2 = csfg_graph_get_node(g, e->n_idx_to);
+        auto_position_edge(g, e, n1, n2);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static void bump_all_edges_connected_to_node(struct csfg_graph* g, int n_id)
+{
+    struct csfg_edge* e;
+    int n_idx;
+
+    n_idx = find_node_idx(g, n_id);
+    if (n_idx < 0)
+        return;
+
+    csfg_graph_for_each_edge (g, e)
+        if (e->n_idx_from == n_idx || e->n_idx_to == n_idx)
+            bump_edge(g, e);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1217,6 +1247,7 @@ static int reconnect_edge(
         e->n_idx_to = target_node_idx;
         drag_edge_connected_to_node(
             model->graph, e, e->n_idx_to, n1->x, n1->y, 1);
+        bump_edge(model->graph, e);
         current_node_id = target_node_id;
     }
     else if (e->n_idx_from == current_node_idx)
@@ -1224,6 +1255,7 @@ static int reconnect_edge(
         e->n_idx_from = target_node_idx;
         drag_edge_connected_to_node(
             model->graph, e, e->n_idx_from, n1->x, n1->y, 1);
+        bump_edge(model->graph, e);
         current_node_id = target_node_id;
     }
 
@@ -1247,6 +1279,7 @@ move_active_node_in_direction(struct graph_model* model, double dx, double dy)
     n1->y += dy * DEFAULT_NODE_SPACING;
     drag_all_edges_connected_to_node(
         model->graph, model->active_node_id, n1_prev_x, n1_prev_y, 0);
+    bump_all_edges_connected_to_node(model->graph, model->active_node_id);
 
     model->icb->graph_layout_changed(model->cb, model->plugin_ctx);
 }
@@ -1498,6 +1531,47 @@ try_select_edge_or_node(struct graph_model* model, double x, double y)
     /* Edge has priority when clicking with the mouse -- feels better */
     if (model->active_edge_id > -1)
         model->active_node_id = -1;
+}
+
+/* -------------------------------------------------------------------------- */
+static void multi_select_nodes_and_drawings(
+    struct graph_model* model, int x1, int y1, int x2, int y2, int append)
+{
+    struct csfg_node* n;
+    struct node_attr* na;
+    double tmp;
+
+    if (model->graph == NULL)
+        return;
+
+    if (x1 > x2)
+        tmp = x1, x1 = x2, x2 = tmp;
+    if (y1 > y2)
+        tmp = y1, y1 = y2, y2 = tmp;
+
+    csfg_graph_for_each_node (model->graph, n)
+    {
+        na = node_attr_hmap_find(model->node_attrs, n->id);
+        if (x1 <= n->x + na->radius && x2 >= n->x - na->radius &&
+            y1 <= n->y + na->radius && y2 >= n->y - na->radius)
+        {
+            na->selected = append;
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static void multi_deselect_all(struct graph_model* model)
+{
+    struct csfg_node* n;
+    struct node_attr* na;
+    if (model->graph == NULL)
+        return;
+    csfg_graph_for_each_node (model->graph, n)
+    {
+        na           = node_attr_hmap_find(model->node_attrs, n->id);
+        na->selected = 0;
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -2405,6 +2479,22 @@ static void draw_move_active_symbol(
 }
 
 /* -------------------------------------------------------------------------- */
+static void draw_selected_symbol(
+    cairo_t* cr,
+    double x,
+    double y,
+    double radius,
+    double r,
+    double g,
+    double b)
+{
+    radius += 2;
+    cairo_set_source_rgb(cr, r, g, b);
+    cairo_rectangle(cr, x - radius, y - radius, 2 * radius, 2 * radius);
+    cairo_stroke(cr);
+}
+
+/* -------------------------------------------------------------------------- */
 static void draw_node(
     cairo_t* cr,
     double x,
@@ -2554,6 +2644,15 @@ static void draw_lines(cairo_t* cr, const struct line_vec* lines)
 }
 
 /* -------------------------------------------------------------------------- */
+static void
+draw_multi_selection(cairo_t* cr, double x1, double y1, double x2, double y2)
+{
+    cairo_set_source_rgb(cr, 0.8, 0.5, 0.0);
+    cairo_rectangle(cr, x1, y1, x2 - x1, y2 - y1);
+    cairo_stroke(cr);
+}
+
+/* -------------------------------------------------------------------------- */
 static void draw_cb(
     GtkDrawingArea* area,
     cairo_t* cr,
@@ -2660,9 +2759,28 @@ static void draw_cb(
                 color.g / 255.0,
                 color.b / 255.0);
         }
+        if (na->selected)
+        {
+            draw_selected_symbol(
+                cr,
+                n->x,
+                n->y,
+                na->radius,
+                color.r / 255.0,
+                color.g / 255.0,
+                color.b / 255.0);
+        }
     }
 
     draw_lines(cr, model->line_vec);
+
+    if (editor->is_box_selecting)
+        draw_multi_selection(
+            cr,
+            editor->drag_begin_x,
+            editor->drag_begin_y,
+            editor->drag_end_x,
+            editor->drag_end_y);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -2685,7 +2803,6 @@ static void click_down(
     switch (model->mode)
     {
         case MODE_NORMAL:
-            try_select_edge_or_node(model, x, y);
             if (n_press == 2 /* double-click */)
                 start_editing_active_node_or_edge(editor);
             break;
@@ -2758,8 +2875,15 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
+    struct node_attr* na;
+    struct edge_attr* ea;
     struct line* line;
     struct point* point;
+    GdkEvent* event;
+    int n_id;
+
+    int add_to_multiselect      = 0;
+    int remove_from_multiselect = 0;
 
     GraphEditor* editor       = user_data;
     struct graph_model* model = editor->model;
@@ -2768,22 +2892,57 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
     x = (x - editor->pan_x) / editor->zoom;
     y = (y - editor->pan_y) / editor->zoom;
 
+    event =
+        gtk_event_controller_get_current_event(GTK_EVENT_CONTROLLER(gesture));
+    if (event)
+    {
+        GdkModifierType mods = gdk_event_get_modifier_state(event);
+        if (mods & GDK_CONTROL_MASK)
+            remove_from_multiselect = 1;
+        if (mods & GDK_SHIFT_MASK)
+            add_to_multiselect = 1;
+    }
+
     switch (model->mode)
     {
         case MODE_NORMAL:
         case MODE_MOVE:
+            editor->drag_begin_x = x;
+            editor->drag_begin_y = y;
+            editor->drag_end_x   = x;
+            editor->drag_end_y   = y;
+
+            if (add_to_multiselect || remove_from_multiselect)
+            {
+                n_id = try_select_node(x, y, model->graph, model->node_attrs);
+                na   = node_attr_hmap_find(model->node_attrs, n_id);
+                if (na != NULL)
+                    na->selected =
+                        add_to_multiselect || !remove_from_multiselect;
+            }
+
+            /* We select here and not in click_down() because GTK emits both
+             * signals. It's better to have the selection logic in one place and
+             * not spread over 2 event handlers */
             try_select_edge_or_node(model, x, y);
-            if ((e = find_edge(model->graph, model->active_edge_id)) != NULL)
-            {
-                editor->drag_offset_x = round((x - e->x) / GRID) * GRID;
-                editor->drag_offset_y = round((y - e->y) / GRID) * GRID;
-            }
-            else if (
-                (n = find_node(model->graph, model->active_node_id)) != NULL)
-            {
-                editor->drag_offset_x = round((x - n->x) / GRID) * GRID;
-                editor->drag_offset_y = round((y - n->y) / GRID) * GRID;
-            }
+
+            if (find_edge(model->graph, model->active_edge_id) != NULL)
+                csfg_graph_for_each_edge (model->graph, e)
+                {
+                    ea = edge_attr_hmap_find(model->edge_attrs, e->id);
+                    ea->drag_begin_x = e->x;
+                    ea->drag_begin_y = e->y;
+                }
+            else if (find_node(model->graph, model->active_node_id) != NULL)
+                csfg_graph_for_each_node (model->graph, n)
+                {
+                    na = node_attr_hmap_find(model->node_attrs, n->id);
+                    na->drag_begin_x = n->x;
+                    na->drag_begin_y = n->y;
+                }
+            else
+                editor->is_box_selecting = 1;
+
             break;
         case MODE_RECONNECT_FROM: break;
         case MODE_RECONNECT_TO  : break;
@@ -2812,16 +2971,21 @@ static void drag_update(
     int snap_size;
     struct csfg_node* n;
     struct csfg_edge* e;
+    struct node_attr* na;
+    struct edge_attr* ea;
     struct line* line;
     struct point* point;
     double start_x, start_y, x, y;
     GdkEvent* event;
     GraphEditor* editor       = user_data;
     struct graph_model* model = editor->model;
+    int multi_select_append   = 1;
 
     gtk_gesture_drag_get_start_point(gesture, &start_x, &start_y);
     x = (start_x + offset_x - editor->pan_x) / editor->zoom;
     y = (start_y + offset_y - editor->pan_y) / editor->zoom;
+    offset_x /= editor->zoom;
+    offset_y /= editor->zoom;
 
     snap_size = GRID;
     event =
@@ -2830,33 +2994,82 @@ static void drag_update(
     {
         GdkModifierType mods = gdk_event_get_modifier_state(event);
         if (mods & GDK_CONTROL_MASK)
+        {
             snap_size *= 6;
+            multi_select_append = 0;
+        }
     }
 
     switch (model->mode)
     {
         case MODE_NORMAL:
         case MODE_MOVE:
-            n = find_node(model->graph, model->active_node_id);
-            e = find_edge(model->graph, model->active_edge_id);
+            if (find_node(model->graph, model->active_node_id) != NULL)
+            {
+                csfg_graph_for_each_node (model->graph, n)
+                {
+                    int n_x, n_y, prev_x, prev_y;
+                    na = node_attr_hmap_find(model->node_attrs, n->id);
+                    if (!na->selected && model->active_node_id != n->id)
+                        continue;
 
-            if (n != NULL)
-            {
-                double old_x = n->x;
-                double old_y = n->y;
-                n->x =
-                    round((x - editor->drag_offset_x) / snap_size) * snap_size;
-                n->y =
-                    round((y - editor->drag_offset_y) / snap_size) * snap_size;
-                drag_all_edges_connected_to_node(
-                    model->graph, model->active_node_id, old_x, old_y, 0);
+                    prev_x = n->x, prev_y = n->y;
+                    n_x = na->drag_begin_x + (int)offset_x;
+                    n_y = na->drag_begin_y + (int)offset_y;
+                    n_x += n_x >= 0 ? +GRID / 2 : -GRID / 2 + 1;
+                    n_y += n_y >= 0 ? +GRID / 2 : -GRID / 2 + 1;
+                    n->x = (n_x / snap_size) * snap_size;
+                    n->y = (n_y / snap_size) * snap_size;
+
+                    drag_all_edges_connected_to_node(
+                        model->graph, n->id, prev_x, prev_y, 0);
+                }
+
+                csfg_graph_for_each_edge (model->graph, e)
+                {
+                    struct csfg_node* n1 =
+                        csfg_graph_get_node(model->graph, e->n_idx_from);
+                    struct csfg_node* n2 =
+                        csfg_graph_get_node(model->graph, e->n_idx_to);
+                    struct node_attr* na1 =
+                        node_attr_hmap_find(model->node_attrs, n1->id);
+                    struct node_attr* na2 =
+                        node_attr_hmap_find(model->node_attrs, n2->id);
+                    int n1_selected =
+                        na1->selected || model->active_node_id == n1->id;
+                    int n2_selected =
+                        na2->selected || model->active_node_id == n2->id;
+                    if ((n1_selected && !n2_selected) ||
+                        (n2_selected && !n1_selected))
+                        bump_edge(model->graph, e);
+                }
             }
-            else if (e != NULL)
+            else if (find_edge(model->graph, model->active_edge_id) != NULL)
+                csfg_graph_for_each_edge (model->graph, e)
+                {
+                    int e_x, e_y;
+                    ea = edge_attr_hmap_find(model->edge_attrs, e->id);
+                    if (model->active_edge_id != e->id)
+                        continue;
+
+                    e_x = ea->drag_begin_x + (int)offset_x;
+                    e_y = ea->drag_begin_y + (int)offset_y;
+                    e_x += e_x >= 0 ? +GRID / 2 : -GRID / 2 + 1;
+                    e_y += e_y >= 0 ? +GRID / 2 : -GRID / 2 + 1;
+                    e->x = (e_x / snap_size) * snap_size;
+                    e->y = (e_y / snap_size) * snap_size;
+                }
+            else if (editor->is_box_selecting)
             {
-                e->x =
-                    round((x - editor->drag_offset_x) / snap_size) * snap_size;
-                e->y =
-                    round((y - editor->drag_offset_y) / snap_size) * snap_size;
+                editor->drag_end_x = x;
+                editor->drag_end_y = y;
+                multi_select_nodes_and_drawings(
+                    editor->model,
+                    editor->drag_begin_x,
+                    editor->drag_begin_y,
+                    editor->drag_end_x,
+                    editor->drag_end_y,
+                    multi_select_append);
             }
             break;
         case MODE_RECONNECT_FROM: break;
@@ -2880,12 +3093,20 @@ static void drag_update(
 static void
 drag_end(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
+    int dx, dy;
     GraphEditor* editor       = user_data;
     struct graph_model* model = editor->model;
     switch (model->mode)
     {
-        case MODE_NORMAL        : break;
-        case MODE_MOVE          : break;
+        case MODE_NORMAL:
+        case MODE_MOVE:
+            dx = editor->drag_begin_x - editor->drag_end_x;
+            dy = editor->drag_begin_y - editor->drag_end_y;
+            if (editor->is_box_selecting && dx * dx + dy * dy < GRID * GRID)
+                multi_deselect_all(model);
+            editor->is_box_selecting = 0;
+            gtk_widget_queue_draw(editor->drawing_area);
+            break;
         case MODE_RECONNECT_FROM: break;
         case MODE_RECONNECT_TO  : break;
         case MODE_DRAW          : push_undo_state(model); break;
@@ -3215,17 +3436,19 @@ static void graph_editor_init(GraphEditor* self)
     self->drawing_area = NULL;
     self->entry        = NULL;
 
-    self->zoom          = 1.0;
-    self->pan_x         = 500.0;
-    self->pan_y         = 500.0;
-    self->drag_offset_x = 0.0;
-    self->drag_offset_y = 0.0;
+    self->zoom         = 1.0;
+    self->pan_x        = 500.0;
+    self->pan_y        = 500.0;
+    self->drag_begin_x = 0;
+    self->drag_begin_y = 0;
 
     self->mouse_x = 0.0;
     self->mouse_y = 0.0;
 
-    self->show_shortcuts   = 0;
-    self->show_seven_steps = 0;
+    self->show_shortcuts     = 0;
+    self->show_seven_steps   = 0;
+    self->fix_physical_units = 0;
+    self->is_box_selecting   = 0;
 
     self->seven_steps =
         load_svg("/ch/thecomet/dpsfg/graph-editor/images/7-steps.svg");
