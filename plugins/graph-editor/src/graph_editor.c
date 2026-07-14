@@ -65,6 +65,8 @@ struct line
 {
     struct point_vec* points;
     struct color color;
+    int drag_begin_x, drag_begin_y;
+    unsigned selected : 1;
 };
 
 VEC_DECLARE(line_vec, struct line, 16)
@@ -85,6 +87,7 @@ struct _GraphEditor
     GtkWidget* entry; /* Text entry, when active */
     RsvgHandle* seven_steps;
 
+    gulong color_button_signal_handles[COLOR_BUTTONS_COUNT];
     GtkToggleButton* color_buttons[COLOR_BUTTONS_COUNT];
     GtkToggleButton* graph_mode_button;
     GtkToggleButton* draw_mode_button;
@@ -180,6 +183,22 @@ static void node_attr_init(struct node_attr* na, struct color color)
 }
 
 /* -------------------------------------------------------------------------- */
+static void line_init(struct line* line, struct color color)
+{
+    point_vec_init(&line->points);
+    line->color        = color;
+    line->drag_begin_x = 0;
+    line->drag_begin_y = 0;
+    line->selected     = 0;
+}
+
+/* -------------------------------------------------------------------------- */
+static void line_deinit(struct line* line)
+{
+    point_vec_deinit(line->points);
+}
+
+/* -------------------------------------------------------------------------- */
 void graph_model_init(
     struct graph_model* model,
     struct plugin_ctx* plugin_ctx,
@@ -222,7 +241,7 @@ void graph_model_deinit(struct graph_model* model)
     struct line* line;
 
     vec_for_each (model->line_vec, line)
-        point_vec_deinit(line->points);
+        line_deinit(line);
     line_vec_deinit(model->line_vec);
 
     hmap_for_each (model->edge_attrs, idx, id, ea)
@@ -354,11 +373,65 @@ static int redo(struct graph_model* model)
 
     return 0;
 }
-void graph_model_reinit_undo_stack(struct graph_model* model)
+int graph_model_save_undo_stack(
+    const struct graph_model* model, struct serializer** ser)
+{
+    struct serializer* const* state;
+    int err = 0;
+
+    if (model->graph == NULL)
+        return 0;
+
+    err += serialize_lu16(ser, vec_count(model->undo_stack));
+    err += serialize_lu16(ser, model->undo_stack_ptr);
+    vec_for_each (model->undo_stack, state)
+    {
+        err += serialize_lu16(ser, vec_count(*state));
+        err += serialize_data(ser, vec_data(*state), vec_count(*state));
+    }
+
+    return err;
+}
+int graph_model_load_undo_stack(
+    struct graph_model* model, struct deserializer* des)
+{
+    int state_count, state_size;
+    struct serializer** state;
+
+    if (model->graph == NULL)
+        return 0;
+
+    graph_model_clear_undo_stack(model);
+
+    state_count           = deserialize_lu16(des);
+    model->undo_stack_ptr = deserialize_lu16(des);
+    while (state_count-- > 0)
+    {
+        state_size = deserialize_lu16(des);
+        state      = undo_stack_vec_emplace(&model->undo_stack);
+        if (state == NULL)
+            return -1;
+        serializer_init(state);
+        if (serializer_realloc(state, state_size) != 0)
+            return -1;
+        deserialize_data2(des, vec_data(*state), state_size);
+        (*state)->count = state_size;
+    }
+
+    if (model->undo_stack_ptr > vec_count(model->undo_stack) - 1)
+        model->undo_stack_ptr = vec_count(model->undo_stack) - 1;
+
+    return 0;
+}
+void graph_model_clear_undo_stack(struct graph_model* model)
 {
     while (vec_count(model->undo_stack))
         serializer_deinit(*undo_stack_vec_pop(model->undo_stack));
     model->undo_stack_ptr = -1;
+}
+void graph_model_reinit_undo_stack(struct graph_model* model)
+{
+    graph_model_clear_undo_stack(model);
     push_undo_state(model);
 }
 
@@ -373,7 +446,7 @@ int graph_model_save_attrs(
     int err = 0;
 
     if (model->graph == NULL)
-        return -1;
+        return 0;
 
     err += serialize_li16(ser, csfg_graph_node_count(model->graph));
     csfg_graph_for_each_node (model->graph, n)
@@ -405,6 +478,9 @@ int graph_model_load_attrs(struct graph_model* model, struct deserializer* des)
     int count, node_id, edge_id;
     struct node_attr* na;
     struct edge_attr* ea;
+
+    if (model->graph == NULL)
+        return 0;
 
     count = deserialize_li16(des);
     if (deserializer_err(des))
@@ -443,7 +519,7 @@ int graph_model_load_attrs(struct graph_model* model, struct deserializer* des)
         ea->color.b = deserialize_u8(des);
     }
 
-    return 0;
+    return deserializer_err(des);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -465,6 +541,9 @@ int graph_model_save_drawings(
     const struct line* line;
     const struct point* point;
     int err = 0;
+
+    if (model->graph == NULL)
+        return 0;
 
     err += serialize_lu16(ser, vec_count(model->line_vec));
     vec_for_each (model->line_vec, line)
@@ -491,19 +570,23 @@ int graph_model_load_drawings(
     int line_count, point_count;
     struct line* line;
     struct point* point;
+    struct color color;
+
+    if (model->graph == NULL)
+        return 0;
 
     graph_model_clear_drawings(model);
 
     line_count = deserialize_lu16(des);
     while (line_count-- > 0)
     {
-        line = line_vec_emplace(&model->line_vec);
+        color.r = deserialize_u8(des);
+        color.g = deserialize_u8(des);
+        color.b = deserialize_u8(des);
+        line    = line_vec_emplace(&model->line_vec);
         if (line == NULL)
             return -1;
-        point_vec_init(&line->points);
-        line->color.r = deserialize_u8(des);
-        line->color.g = deserialize_u8(des);
-        line->color.b = deserialize_u8(des);
+        line_init(line, color);
 
         point_count = deserialize_lu16(des);
         while (point_count-- > 0)
@@ -516,7 +599,7 @@ int graph_model_load_drawings(
         }
     }
 
-    return 0;
+    return deserializer_err(des);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1423,6 +1506,8 @@ static int delete_node(struct graph_model* model, int node_id)
 
     if (model->graph == NULL)
         return -1;
+    if (node_id < 0)
+        return -1;
 
     /* Prefer following edges pointing to us */
     csfg_graph_enumerate_edges (model->graph, e_idx, e)
@@ -1470,11 +1555,57 @@ static int delete_node(struct graph_model* model, int node_id)
 }
 
 /* -------------------------------------------------------------------------- */
+void delete_multi_selection_objects(struct graph_model* model)
+{
+    struct csfg_node *n1, *n2;
+    struct csfg_edge* e;
+    int i, n_idx, e_idx, need_graph_gc = 0;
+
+    if (model->graph == NULL)
+        return;
+
+    csfg_graph_enumerate_edges (model->graph, e_idx, e)
+    {
+        n1 = csfg_graph_get_node(model->graph, e->n_idx_from);
+        n2 = csfg_graph_get_node(model->graph, e->n_idx_to);
+        if (node_attr_hmap_find(model->node_attrs, n1->id)->selected ||
+            node_attr_hmap_find(model->node_attrs, n2->id)->selected)
+        {
+            edge_attr_deinit(edge_attr_hmap_erase(model->edge_attrs, e->id));
+            csfg_graph_mark_edge_deleted(model->graph, e_idx);
+            need_graph_gc = 1;
+        }
+    }
+
+    csfg_graph_enumerate_nodes (model->graph, n_idx, n1)
+        if (node_attr_hmap_find(model->node_attrs, n1->id)->selected)
+        {
+            node_attr_hmap_erase(model->node_attrs, n1->id);
+            csfg_graph_mark_node_deleted(model->graph, n_idx);
+            need_graph_gc = 1;
+        }
+
+    for (i = 0; i != vec_count(model->line_vec);)
+    {
+        if (vec_get(model->line_vec, i)->selected)
+        {
+            line_deinit(vec_get(model->line_vec, i));
+            line_vec_erase(model->line_vec, i);
+        }
+        else
+            i++;
+    }
+
+    if (need_graph_gc)
+        csfg_graph_gc(model->graph);
+}
+
+/* -------------------------------------------------------------------------- */
 static int try_select_node(
-    double mouse_x,
-    double mouse_y,
     const struct csfg_graph* graph,
-    const struct node_attr_hmap* attrs)
+    const struct node_attr_hmap* attrs,
+    double mouse_x,
+    double mouse_y)
 {
     double dx, dy;
     int idx;
@@ -1500,16 +1631,16 @@ static int try_select_node(
 
 /* -------------------------------------------------------------------------- */
 static int
-try_select_edge(double mouse_x, double mouse_y, const struct csfg_graph* graph)
+try_select_edge(const struct csfg_graph* g, double mouse_x, double mouse_y)
 {
     double dx, dy;
     int idx;
     const struct csfg_edge* e;
 
-    if (graph == NULL)
+    if (g == NULL)
         return -1;
 
-    csfg_graph_enumerate_edges (graph, idx, e)
+    csfg_graph_enumerate_edges (g, idx, e)
     {
         dx = mouse_x - e->x;
         dy = mouse_y - e->y;
@@ -1521,24 +1652,29 @@ try_select_edge(double mouse_x, double mouse_y, const struct csfg_graph* graph)
 }
 
 /* -------------------------------------------------------------------------- */
-static void
-try_select_edge_or_node(struct graph_model* model, double x, double y)
+static int try_select_line(const struct graph_model* model, double x, double y)
 {
-    model->active_node_id =
-        try_select_node(x, y, model->graph, model->node_attrs);
-    model->active_edge_id = try_select_edge(x, y, model->graph);
-
-    /* Edge has priority when clicking with the mouse -- feels better */
-    if (model->active_edge_id > -1)
-        model->active_node_id = -1;
+    int line_idx;
+    const struct line* line;
+    const struct point* point;
+    vec_enumerate (model->line_vec, line_idx, line)
+        vec_for_each (line->points, point)
+            if (x <= point->x + GRID && x >= point->x - GRID &&
+                y <= point->y + GRID && y >= point->y - GRID)
+            {
+                return line_idx;
+            }
+    return -1;
 }
 
 /* -------------------------------------------------------------------------- */
-static void multi_select_nodes_and_drawings(
+static void multi_select_nodes_and_lines(
     struct graph_model* model, int x1, int y1, int x2, int y2, int append)
 {
     struct csfg_node* n;
     struct node_attr* na;
+    struct line* line;
+    struct point* point;
     double tmp;
 
     if (model->graph == NULL)
@@ -1558,6 +1694,15 @@ static void multi_select_nodes_and_drawings(
             na->selected = append;
         }
     }
+
+    vec_for_each (model->line_vec, line)
+        vec_for_each (line->points, point)
+            if (x1 <= point->x + GRID && x2 >= point->x - GRID &&
+                y1 <= point->y + GRID && y2 >= point->y - GRID)
+            {
+                line->selected = 1;
+                break;
+            }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1565,13 +1710,29 @@ static void multi_deselect_all(struct graph_model* model)
 {
     struct csfg_node* n;
     struct node_attr* na;
+    struct line* line;
+
     if (model->graph == NULL)
         return;
+
     csfg_graph_for_each_node (model->graph, n)
     {
         na           = node_attr_hmap_find(model->node_attrs, n->id);
         na->selected = 0;
     }
+
+    vec_for_each (model->line_vec, line)
+        line->selected = 0;
+}
+
+/* -------------------------------------------------------------------------- */
+static int any_line_is_selected(const struct graph_model* model)
+{
+    const struct line* line;
+    vec_for_each (model->line_vec, line)
+        if (line->selected)
+            return 1;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1587,6 +1748,54 @@ static void flip_active_edge(struct graph_model* model)
     tmp           = e->n_idx_to;
     e->n_idx_to   = e->n_idx_from;
     e->n_idx_from = tmp;
+}
+
+/* -------------------------------------------------------------------------- */
+static void
+recolor_selected_objects(struct graph_model* model, struct color color)
+{
+    struct csfg_node *n1, *n2;
+    struct csfg_edge* e;
+    struct node_attr *na1, *na2;
+    struct edge_attr* ea;
+    struct line* line;
+
+    if (model->graph == NULL)
+        return;
+
+    csfg_graph_for_each_node (model->graph, n1)
+    {
+        na1 = node_attr_hmap_find(model->node_attrs, n1->id);
+        if (n1->id == model->active_node_id || na1->selected)
+            na1->color = color;
+    }
+
+    csfg_graph_for_each_edge (model->graph, e)
+    {
+        n1  = csfg_graph_get_node(model->graph, e->n_idx_from);
+        n2  = csfg_graph_get_node(model->graph, e->n_idx_to);
+        na1 = node_attr_hmap_find(model->node_attrs, n1->id);
+        na2 = node_attr_hmap_find(model->node_attrs, n2->id);
+        ea  = edge_attr_hmap_find(model->edge_attrs, e->id);
+
+        if (e->id == model->active_edge_id)
+            ea->color = color;
+
+        if (n1->id == model->active_node_id || na1->selected)
+            na1->color = color;
+        if (n2->id == model->active_node_id || na2->selected)
+            na2->color = color;
+
+        if ((n1->id == model->active_node_id || na1->selected) &&
+            (n2->id == model->active_node_id || na2->selected))
+        {
+            ea->color = color;
+        }
+    }
+
+    vec_for_each (model->line_vec, line)
+        if (line->selected)
+            line->color = color;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1828,6 +2037,10 @@ edge_direction_action(struct graph_model* model, double dx, double dy)
 }
 
 /* -------------------------------------------------------------------------- */
+static void
+select_matching_color_button_for_node(GraphEditor* editor, int n_id);
+static void
+select_matching_color_button_for_edge(GraphEditor* editor, int e_id);
 static void button_show_shortcuts_cb(GtkButton* button, gpointer user_data)
 {
     GraphEditor* editor = user_data;
@@ -1882,9 +2095,11 @@ static void button_redo_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_node_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
-    node_direction_action(editor->model, -1, 0);
+    node_direction_action(model, -1, 0);
+    select_matching_color_button_for_node(editor, model->active_node_id);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1896,9 +2111,11 @@ static void button_node_left_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_node_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     node_direction_action(editor->model, 1, 0);
+    select_matching_color_button_for_node(editor, model->active_node_id);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1910,9 +2127,11 @@ static void button_node_right_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_node_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     node_direction_action(editor->model, 0, -1);
+    select_matching_color_button_for_node(editor, model->active_node_id);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1924,9 +2143,11 @@ static void button_node_up_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_node_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     node_direction_action(editor->model, 0, 1);
+    select_matching_color_button_for_node(editor, model->active_node_id);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1938,9 +2159,11 @@ static void button_node_down_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_edge_left_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     edge_direction_action(editor->model, -1, 0);
+    select_matching_color_button_for_edge(editor, model->active_edge_id);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1952,9 +2175,11 @@ static void button_edge_left_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_edge_right_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     edge_direction_action(editor->model, 1, 0);
+    select_matching_color_button_for_edge(editor, model->active_edge_id);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1966,9 +2191,11 @@ static void button_edge_right_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_edge_up_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     edge_direction_action(editor->model, 0, -1);
+    select_matching_color_button_for_edge(editor, model->active_edge_id);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -1980,9 +2207,11 @@ static void button_edge_up_cb(GtkButton* button, gpointer user_data)
 static gboolean
 shortcut_edge_down_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor       = user_data;
+    struct graph_model* model = editor->model;
     (void)widget, (void)unused;
     edge_direction_action(editor->model, 0, 1);
+    select_matching_color_button_for_edge(editor, model->active_edge_id);
     gtk_widget_queue_draw(editor->drawing_area);
     return TRUE;
 }
@@ -2071,8 +2300,9 @@ shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     GraphEditor* editor       = user_data;
     struct graph_model* model = editor->model;
     (void)widget, (void)unused;
-    model->active_node_id    = delete_node(model, model->active_node_id);
-    model->active_edge_id    = delete_edge(model, model->active_edge_id);
+    model->active_node_id = delete_node(model, model->active_node_id);
+    model->active_edge_id = delete_edge(model, model->active_edge_id);
+    delete_multi_selection_objects(model);
     model->reconnect_node_id = -1;
     model->reconnect_edge_id = -1;
     model->mode              = MODE_NORMAL;
@@ -2304,7 +2534,7 @@ static void button_draw_mode_cb(GtkButton* button, gpointer user_data)
     }
 }
 static void
-select_color_button_for_mode_switch(GraphEditor* editor, struct color color)
+select_matching_color_button(GraphEditor* editor, struct color color)
 {
     int i;
     struct color other_color;
@@ -2315,10 +2545,59 @@ select_color_button_for_mode_switch(GraphEditor* editor, struct color color)
         if (color.r == other_color.r && color.g == other_color.g &&
             color.b == other_color.b)
         {
+            g_signal_handler_block(
+                editor->color_buttons[i],
+                editor->color_button_signal_handles[i]);
             gtk_toggle_button_set_active(editor->color_buttons[i], TRUE);
+            g_signal_handler_unblock(
+                editor->color_buttons[i],
+                editor->color_button_signal_handles[i]);
             break;
         }
     }
+}
+static void select_matching_color_button_for_node(GraphEditor* editor, int n_id)
+{
+    struct node_attr* na = node_attr_hmap_find(editor->model->node_attrs, n_id);
+    if (na != NULL)
+        select_matching_color_button(editor, na->color);
+}
+static void select_matching_color_button_for_edge(GraphEditor* editor, int e_id)
+{
+    struct edge_attr* ea = edge_attr_hmap_find(editor->model->edge_attrs, e_id);
+    if (ea != NULL)
+        select_matching_color_button(editor, ea->color);
+}
+static void select_matching_color_button_for_selected_lines(
+    GraphEditor* editor, const struct line_vec* lines)
+{
+    const struct line* line;
+    vec_for_each (lines, line)
+        if (line->selected)
+        {
+            select_matching_color_button(editor, line->color);
+            break;
+        }
+}
+static void select_matching_color_button_for_selected_objects(
+    GraphEditor* editor, const struct graph_model* model)
+{
+    const struct csfg_node* n;
+    const struct line* line;
+
+    csfg_graph_for_each_node (model->graph, n)
+        if (node_attr_hmap_find(model->node_attrs, n->id)->selected)
+        {
+            select_matching_color_button_for_node(editor, n->id);
+            return;
+        }
+
+    vec_for_each (model->line_vec, line)
+        if (line->selected)
+        {
+            select_matching_color_button(editor, line->color);
+            return;
+        }
 }
 static gboolean shortcut_draw_and_graph_mode_cb(
     GtkWidget* widget, GVariant* unused, gpointer user_data)
@@ -2330,13 +2609,13 @@ static gboolean shortcut_draw_and_graph_mode_cb(
     {
         button_graph_mode_cb(NULL, user_data);
         gtk_toggle_button_set_active(editor->graph_mode_button, TRUE);
-        select_color_button_for_mode_switch(editor, model->graph_color);
+        select_matching_color_button(editor, model->graph_color);
     }
     else
     {
         button_draw_mode_cb(NULL, user_data);
         gtk_toggle_button_set_active(editor->draw_mode_button, TRUE);
-        select_color_button_for_mode_switch(editor, model->draw_color);
+        select_matching_color_button(editor, model->draw_color);
     }
     return TRUE;
 }
@@ -2344,13 +2623,18 @@ static gboolean shortcut_draw_and_graph_mode_cb(
 /* -------------------------------------------------------------------------- */
 static void button_color_cb(ColorPicker* picker, gpointer user_data)
 {
-    GraphEditor* editor = user_data;
+    GraphEditor* editor    = user_data;
+    struct color new_color = gdk_to_color(color_picker_get_color(picker));
+
     if (gtk_toggle_button_get_active(editor->graph_mode_button))
-        editor->model->graph_color =
-            gdk_to_color(color_picker_get_color(picker));
+        editor->model->graph_color = new_color;
+
     if (gtk_toggle_button_get_active(editor->draw_mode_button))
-        editor->model->draw_color =
-            gdk_to_color(color_picker_get_color(picker));
+        editor->model->draw_color = new_color;
+
+    recolor_selected_objects(editor->model, new_color);
+    push_undo_state(editor->model);
+    gtk_widget_queue_draw(editor->drawing_area);
 }
 static void shortcut_color_cb(GraphEditor* editor, int idx)
 {
@@ -2620,7 +2904,7 @@ static void draw_help(
 }
 
 /* -------------------------------------------------------------------------- */
-static void draw_lines(cairo_t* cr, const struct line_vec* lines)
+static void draw_lines(cairo_t* cr, const struct line_vec* lines, double zoom)
 {
     int i;
     const struct line* line;
@@ -2632,6 +2916,7 @@ static void draw_lines(cairo_t* cr, const struct line_vec* lines)
             line->color.r / 255.0,
             line->color.g / 255.0,
             line->color.b / 255.0);
+        cairo_set_line_width(cr, (line->selected ? 4.0 : 2.0) / zoom);
         vec_enumerate (line->points, i, point)
         {
             if (i == 0)
@@ -2772,7 +3057,8 @@ static void draw_cb(
         }
     }
 
-    draw_lines(cr, model->line_vec);
+    draw_lines(cr, model->line_vec, editor->zoom);
+    cairo_set_line_width(cr, 2.0 / editor->zoom);
 
     if (editor->is_box_selecting)
         draw_multi_selection(
@@ -2810,7 +3096,7 @@ static void click_down(
         case MODE_RECONNECT_FROM:
             if (model->reconnect_node_id > -1)
             {
-                int e_id = try_select_edge(x, y, model->graph);
+                int e_id = try_select_edge(model->graph, x, y);
                 if (node_is_connected_to_edge(
                         model->graph, model->reconnect_node_id, e_id))
                 {
@@ -2823,7 +3109,7 @@ static void click_down(
             if (model->reconnect_edge_id > -1)
             {
                 int n_id =
-                    try_select_node(x, y, model->graph, model->node_attrs);
+                    try_select_node(model->graph, model->node_attrs, x, y);
                 if (node_is_connected_to_edge(
                         model->graph, n_id, model->reconnect_edge_id))
                 {
@@ -2835,7 +3121,7 @@ static void click_down(
             }
             break;
         case MODE_RECONNECT_TO: {
-            int n_id = try_select_node(x, y, model->graph, model->node_attrs);
+            int n_id = try_select_node(model->graph, model->node_attrs, x, y);
             if (n_id > -1)
             {
                 model->active_node_id = reconnect_edge(
@@ -2880,7 +3166,7 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
     struct line* line;
     struct point* point;
     GdkEvent* event;
-    int n_id;
+    int id, line_idx;
 
     int add_to_multiselect      = 0;
     int remove_from_multiselect = 0;
@@ -2912,36 +3198,73 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
             editor->drag_end_x   = x;
             editor->drag_end_y   = y;
 
-            if (add_to_multiselect || remove_from_multiselect)
-            {
-                n_id = try_select_node(x, y, model->graph, model->node_attrs);
-                na   = node_attr_hmap_find(model->node_attrs, n_id);
-                if (na != NULL)
-                    na->selected =
-                        add_to_multiselect || !remove_from_multiselect;
-            }
-
             /* We select here and not in click_down() because GTK emits both
              * signals. It's better to have the selection logic in one place and
              * not spread over 2 event handlers */
-            try_select_edge_or_node(model, x, y);
+            /* Priorities: Drawing > Edge > Node -- feels better */
 
-            if (find_edge(model->graph, model->active_edge_id) != NULL)
+            model->active_node_id = -1;
+            model->active_edge_id = -1;
+
+            if ((id = try_select_edge(model->graph, x, y)) > -1)
+            {
+                if (id != model->active_edge_id)
+                    multi_deselect_all(model);
+                model->active_edge_id = id;
+
+                select_matching_color_button_for_edge(editor, id);
                 csfg_graph_for_each_edge (model->graph, e)
                 {
                     ea = edge_attr_hmap_find(model->edge_attrs, e->id);
                     ea->drag_begin_x = e->x;
                     ea->drag_begin_y = e->y;
                 }
-            else if (find_node(model->graph, model->active_node_id) != NULL)
+            }
+            else if (
+                (id = try_select_node(model->graph, model->node_attrs, x, y)) >
+                -1)
+            {
+                if (add_to_multiselect)
+                    node_attr_hmap_find(model->node_attrs, id)->selected = 1;
+                if (remove_from_multiselect)
+                    node_attr_hmap_find(model->node_attrs, id)->selected = 0;
+                if (id != model->active_node_id &&
+                    !node_attr_hmap_find(model->node_attrs, id)->selected)
+                {
+                    multi_deselect_all(model);
+                }
+                model->active_node_id = id;
+
+                select_matching_color_button_for_node(editor, id);
                 csfg_graph_for_each_node (model->graph, n)
                 {
                     na = node_attr_hmap_find(model->node_attrs, n->id);
                     na->drag_begin_x = n->x;
                     na->drag_begin_y = n->y;
                 }
+            }
+            else if ((line_idx = try_select_line(model, x, y)) > -1)
+            {
+                if (!vec_get(model->line_vec, line_idx)->selected)
+                    multi_deselect_all(model);
+                vec_get(model->line_vec, line_idx)->selected = 1;
+                if (remove_from_multiselect)
+                    vec_get(model->line_vec, line_idx)->selected = 0;
+
+                select_matching_color_button(
+                    editor, vec_get(model->line_vec, line_idx)->color);
+                vec_for_each (model->line_vec, line)
+                {
+                    line->drag_begin_x = 0;
+                    line->drag_begin_y = 0;
+                }
+            }
             else
+            {
+                if (!add_to_multiselect && !remove_from_multiselect)
+                    multi_deselect_all(model);
                 editor->is_box_selecting = 1;
+            }
 
             break;
         case MODE_RECONNECT_FROM: break;
@@ -2950,8 +3273,7 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
             line = line_vec_emplace(&model->line_vec);
             if (line == NULL)
                 return;
-            line->color = model->draw_color;
-            point_vec_init(&line->points);
+            line_init(line, model->draw_color);
             point = point_vec_emplace(&line->points);
             if (point == NULL)
                 return;
@@ -3004,8 +3326,11 @@ static void drag_update(
     {
         case MODE_NORMAL:
         case MODE_MOVE:
-            if (find_node(model->graph, model->active_node_id) != NULL)
+            editor->drag_end_x = x;
+            editor->drag_end_y = y;
+            if (!editor->is_box_selecting)
             {
+                /* Drag around nodes */
                 csfg_graph_for_each_node (model->graph, n)
                 {
                     int n_x, n_y, prev_x, prev_y;
@@ -3024,7 +3349,9 @@ static void drag_update(
                     drag_all_edges_connected_to_node(
                         model->graph, n->id, prev_x, prev_y, 0);
                 }
-
+#if 0
+                /* Try to fix any edges that end up overlapping stuff they
+                 * shouldn't as a result of dragging around nodes */
                 csfg_graph_for_each_edge (model->graph, e)
                 {
                     struct csfg_node* n1 =
@@ -3043,8 +3370,9 @@ static void drag_update(
                         (n2_selected && !n1_selected))
                         bump_edge(model->graph, e);
                 }
-            }
-            else if (find_edge(model->graph, model->active_edge_id) != NULL)
+#endif
+
+                /* Drag around edges */
                 csfg_graph_for_each_edge (model->graph, e)
                 {
                     int e_x, e_y;
@@ -3059,11 +3387,27 @@ static void drag_update(
                     e->x = (e_x / snap_size) * snap_size;
                     e->y = (e_y / snap_size) * snap_size;
                 }
-            else if (editor->is_box_selecting)
+
+                /* Drag around lines/drawings */
+                vec_for_each (model->line_vec, line)
+                    if (line->selected && !editor->is_box_selecting)
+                    {
+                        vec_for_each (line->points, point)
+                        {
+                            point->x -= line->drag_begin_x;
+                            point->y -= line->drag_begin_y;
+                            point->x += (int)offset_x;
+                            point->y += (int)offset_y;
+                        }
+                        line->drag_begin_x = (int)offset_x;
+                        line->drag_begin_y = (int)offset_y;
+                    }
+            }
+
+            /* Update selection of objects if box selecting is active */
+            if (editor->is_box_selecting)
             {
-                editor->drag_end_x = x;
-                editor->drag_end_y = y;
-                multi_select_nodes_and_drawings(
+                multi_select_nodes_and_lines(
                     editor->model,
                     editor->drag_begin_x,
                     editor->drag_begin_y,
@@ -3093,17 +3437,26 @@ static void drag_update(
 static void
 drag_end(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 {
-    int dx, dy;
+    int dx, dy, drag_was_significant;
     GraphEditor* editor       = user_data;
     struct graph_model* model = editor->model;
+    (void)gesture, (void)x, (void)y;
+
+    dx                   = editor->drag_begin_x - editor->drag_end_x;
+    dy                   = editor->drag_begin_y - editor->drag_end_y;
+    drag_was_significant = dx * dx + dy * dy > GRID * GRID / 4;
+
     switch (model->mode)
     {
         case MODE_NORMAL:
         case MODE_MOVE:
-            dx = editor->drag_begin_x - editor->drag_end_x;
-            dy = editor->drag_begin_y - editor->drag_end_y;
-            if (editor->is_box_selecting && dx * dx + dy * dy < GRID * GRID)
-                multi_deselect_all(model);
+            if (editor->is_box_selecting)
+                select_matching_color_button_for_selected_objects(
+                    editor, model);
+
+            if (!editor->is_box_selecting && drag_was_significant)
+                push_undo_state(model);
+
             editor->is_box_selecting = 0;
             gtk_widget_queue_draw(editor->drawing_area);
             break;
@@ -3111,7 +3464,6 @@ drag_end(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
         case MODE_RECONNECT_TO  : break;
         case MODE_DRAW          : push_undo_state(model); break;
     }
-    (void)gesture, (void)x, (void)y, (void)user_data;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -3365,7 +3717,7 @@ add_toolbar_color_picker_buttons(GraphEditor* editor, GtkBox* toolbar)
         GTK_WIDGET(editor->color_buttons[0]), "Shortcut: 1");
     gtk_widget_set_margin_start(GTK_WIDGET(editor->color_buttons[0]), 8);
     gtk_box_append(toolbar, GTK_WIDGET(editor->color_buttons[0]));
-    g_signal_connect(
+    editor->color_button_signal_handles[0] = g_signal_connect(
         editor->color_buttons[0],
         "color-selected",
         G_CALLBACK(button_color_cb),
@@ -3384,7 +3736,7 @@ add_toolbar_color_picker_buttons(GraphEditor* editor, GtkBox* toolbar)
             GTK_WIDGET(editor->color_buttons[i]), tooltip);
         gtk_box_append(toolbar, GTK_WIDGET(editor->color_buttons[i]));
 
-        g_signal_connect(
+        editor->color_button_signal_handles[i] = g_signal_connect(
             editor->color_buttons[i],
             "color-selected",
             G_CALLBACK(button_color_cb),

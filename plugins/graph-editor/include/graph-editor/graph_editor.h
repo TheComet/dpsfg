@@ -59,21 +59,30 @@ void graph_model_init(
     const struct plugin_notify_interface* icb,
     struct plugin_notify_context* cb);
 void graph_model_deinit(struct graph_model* model);
+
 int graph_model_save_attrs(
     const struct graph_model* model, struct serializer** ser);
 int graph_model_load_attrs(struct graph_model* model, struct deserializer* des);
 void graph_model_clear_attrs(struct graph_model* model);
+
 int graph_model_save_drawings(
     const struct graph_model* model, struct serializer** ser);
 int graph_model_load_drawings(
     struct graph_model* model, struct deserializer* des);
 void graph_model_clear_drawings(struct graph_model* model);
+
+int graph_model_save_undo_stack(
+    const struct graph_model* model, struct serializer** ser);
+int graph_model_load_undo_stack(
+    struct graph_model* model, struct deserializer* des);
+void graph_model_clear_undo_stack(struct graph_model* model);
+void graph_model_reinit_undo_stack(struct graph_model* model);
+
 void graph_model_set_graph(
     struct graph_model* model, struct csfg_graph* g, int node_in, int node_out);
 void graph_model_clear_graph(struct graph_model* model);
 void graph_model_rebuild_graph(
     struct graph_model* model, int node_in, int node_out);
-void graph_model_reinit_undo_stack(struct graph_model* model);
 
 #define PLUGIN_TYPE_GRAPH_EDITOR (graph_editor_get_type())
 G_DECLARE_FINAL_TYPE(GraphEditor, graph_editor, PLUGIN, GRAPH_EDITOR, GtkBox)
