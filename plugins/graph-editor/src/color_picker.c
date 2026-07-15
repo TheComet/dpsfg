@@ -1,4 +1,3 @@
-#include "csfg/util/log.h"
 #include "graph-editor/color_picker.h"
 
 struct _ColorPicker

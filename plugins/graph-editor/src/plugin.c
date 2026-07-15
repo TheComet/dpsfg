@@ -2,8 +2,12 @@
 #include "csfg/io/serialize.h"
 #include "csfg/util/mem.h"
 #include "dpsfg-plugin.h"
+#include "graph-editor/attr.h"
 #include "graph-editor/color_picker.h"
+#include "graph-editor/drawing.h"
 #include "graph-editor/graph_editor.h"
+#include "graph-editor/graph_model.h"
+#include "graph-editor/undo.h"
 
 struct plugin_ctx
 {
@@ -29,19 +33,19 @@ static void graph_on_load(
 {
     graph_model_set_graph(&ctx->graph_model, g, node_in, node_out);
     graph_editor_redraw_graph(ctx->graph_editor);
-    graph_model_reinit_undo_stack(&ctx->graph_model);
+    undo_reinit_stack(&ctx->graph_model);
 }
 static void graph_on_unload(struct plugin_ctx* ctx)
 {
     graph_model_clear_graph(&ctx->graph_model);
-    graph_model_clear_drawings(&ctx->graph_model);
-    graph_model_clear_undo_stack(&ctx->graph_model);
+    drawing_clear(ctx->graph_model.drawing);
+    undo_clear_stack(&ctx->graph_model);
     graph_editor_redraw_graph(ctx->graph_editor);
 }
 static void
 graph_on_structure_changed(struct plugin_ctx* ctx, int node_in, int node_out)
 {
-    graph_model_clear_attrs(&ctx->graph_model);
+    attrs_clear(ctx->graph_model.node_attrs, ctx->graph_model.edge_attrs);
     graph_model_rebuild_graph(&ctx->graph_model, node_in, node_out);
     graph_editor_redraw_graph(ctx->graph_editor);
 }
@@ -53,17 +57,22 @@ static void graph_on_layout_changed(struct plugin_ctx* ctx)
 /* -------------------------------------------------------------------------- */
 static int io_on_save(struct plugin_ctx* ctx, struct serializer** ser)
 {
+    const struct graph_model* model = &ctx->graph_model;
     serialize_lu16(ser, 0x0000); /* version */
-    if (graph_model_save_attrs(&ctx->graph_model, ser) != 0)
+    if (attrs_save(ser, model->node_attrs, model->edge_attrs, model->graph) !=
+        0)
         return -1;
-    if (graph_model_save_drawings(&ctx->graph_model, ser) != 0)
+    if (drawing_save(ser, ctx->graph_model.drawing, ctx->graph_model.graph) !=
+        0)
         return -1;
-    if (graph_model_save_undo_stack(&ctx->graph_model, ser) != 0)
+    if (undo_save_stack(ser, &ctx->graph_model) != 0)
         return -1;
     return 0;
 }
 static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
 {
+    struct graph_model* model = &ctx->graph_model;
+
     uint16_t version = deserialize_lu16(des);
     if (deserializer_err(des))
         return 0;
@@ -71,11 +80,15 @@ static int io_on_load(struct plugin_ctx* ctx, struct deserializer* des)
     switch (version)
     {
         case 0x000:
-            if (graph_model_load_attrs(&ctx->graph_model, des) != 0)
+            if (attrs_load(
+                    des,
+                    &model->node_attrs,
+                    &model->edge_attrs,
+                    model->graph) != 0)
                 return -1;
-            if (graph_model_load_drawings(&ctx->graph_model, des) != 0)
+            if (drawing_load(des, &model->drawing, model->graph) != 0)
                 return -1;
-            if (graph_model_load_undo_stack(&ctx->graph_model, des) != 0)
+            if (undo_load_stack(des, model) != 0)
                 return -1;
             break;
     }
