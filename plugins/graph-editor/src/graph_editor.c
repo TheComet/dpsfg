@@ -814,6 +814,12 @@ static gboolean shortcut_draw_and_graph_mode_cb(
     return TRUE;
 }
 
+static void paste_complete_cb(void* user_data)
+{
+    GraphEditor* editor = user_data;
+    undo_push_state(editor->model);
+    gtk_widget_queue_draw(editor->drawing_area);
+}
 static gboolean
 shortcut_copy_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
 {
@@ -831,7 +837,13 @@ shortcut_paste_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     GdkClipboard* clipboard =
         gdk_display_get_clipboard(gtk_widget_get_display(GTK_WIDGET(editor)));
     (void)widget, (void)unused;
-    paste_from_clipboard(clipboard, editor->model);
+    paste_from_clipboard(
+        clipboard,
+        editor->model,
+        (editor->mouse_x - editor->pan_x) / editor->zoom,
+        (editor->mouse_y - editor->pan_y) / editor->zoom,
+        paste_complete_cb,
+        editor);
     return TRUE;
 }
 
@@ -1119,7 +1131,6 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
                         model->node_attrs, model->active_node_id)
                         ->selected = 1;
                 }
-                vec_get(model->drawing, line_idx)->selected = 1;
                 if (remove_from_multiselect)
                     vec_get(model->drawing, line_idx)->selected = 0;
                 if (!add_to_multiselect && !remove_from_multiselect &&
@@ -1127,8 +1138,9 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
                 {
                     multi_deselect_all(model);
                 }
-                model->active_edge_id = -1;
-                model->active_node_id = -1;
+                vec_get(model->drawing, line_idx)->selected = 1;
+                model->active_edge_id                       = -1;
+                model->active_node_id                       = -1;
 
                 select_matching_color_button(
                     editor, vec_get(model->drawing, line_idx)->color);
@@ -1448,31 +1460,32 @@ static void setup_global_shortcuts(GraphEditor* editor)
         gboolean (*callback)(GtkWidget*, GVariant*, gpointer);
     } shortcuts[] = {
         /* clang-format off */
-        {GDK_KEY_z, GDK_CONTROL_MASK,     shortcut_undo_cb},
-        {GDK_KEY_z, GDK_CONTROL_MASK | GDK_SHIFT_MASK, shortcut_redo_cb},
-        {GDK_KEY_h, GDK_NO_MODIFIER_MASK, shortcut_node_left_cb},
-        {GDK_KEY_l, GDK_NO_MODIFIER_MASK, shortcut_node_right_cb},
-        {GDK_KEY_j, GDK_NO_MODIFIER_MASK, shortcut_node_down_cb},
-        {GDK_KEY_k, GDK_NO_MODIFIER_MASK, shortcut_node_up_cb},
-        {GDK_KEY_h, GDK_SHIFT_MASK,       shortcut_edge_left_cb},
-        {GDK_KEY_l, GDK_SHIFT_MASK,       shortcut_edge_right_cb},
-        {GDK_KEY_j, GDK_SHIFT_MASK,       shortcut_edge_down_cb},
-        {GDK_KEY_k, GDK_SHIFT_MASK,       shortcut_edge_up_cb},
-        {GDK_KEY_m, GDK_NO_MODIFIER_MASK, shortcut_move_cb},
-        {GDK_KEY_m, GDK_SHIFT_MASK,       shortcut_move_cb},
-        {GDK_KEY_n, GDK_NO_MODIFIER_MASK, shortcut_new_node_cb},
-        {GDK_KEY_e, GDK_NO_MODIFIER_MASK, shortcut_new_edge_cb},
-        {GDK_KEY_n, GDK_SHIFT_MASK,       shortcut_new_node_and_edge_cb},
-        {GDK_KEY_x, GDK_NO_MODIFIER_MASK, shortcut_delete_cb},
-        {GDK_KEY_s, GDK_NO_MODIFIER_MASK, shortcut_mark_node_cb},
-        {GDK_KEY_i, GDK_NO_MODIFIER_MASK, shortcut_set_in_node_cb},
-        {GDK_KEY_o, GDK_NO_MODIFIER_MASK, shortcut_set_out_node_cb},
-        {GDK_KEY_i, GDK_SHIFT_MASK,       shortcut_edit_node_or_edge_cb},
-        {GDK_KEY_r, GDK_NO_MODIFIER_MASK, shortcut_reconnect_edge_cb},
-        {GDK_KEY_f, GDK_NO_MODIFIER_MASK, shortcut_flip_edge_cb},
-        {GDK_KEY_d, GDK_NO_MODIFIER_MASK, shortcut_draw_and_graph_mode_cb},
-        {GDK_KEY_c, GDK_CONTROL_MASK,     shortcut_copy_cb},
-        {GDK_KEY_v, GDK_CONTROL_MASK,     shortcut_paste_cb},
+        {GDK_KEY_z,      GDK_CONTROL_MASK,     shortcut_undo_cb},
+        {GDK_KEY_z,      GDK_CONTROL_MASK | GDK_SHIFT_MASK, shortcut_redo_cb},
+        {GDK_KEY_h,      GDK_NO_MODIFIER_MASK, shortcut_node_left_cb},
+        {GDK_KEY_l,      GDK_NO_MODIFIER_MASK, shortcut_node_right_cb},
+        {GDK_KEY_j,      GDK_NO_MODIFIER_MASK, shortcut_node_down_cb},
+        {GDK_KEY_k,      GDK_NO_MODIFIER_MASK, shortcut_node_up_cb},
+        {GDK_KEY_h,      GDK_SHIFT_MASK,       shortcut_edge_left_cb},
+        {GDK_KEY_l,      GDK_SHIFT_MASK,       shortcut_edge_right_cb},
+        {GDK_KEY_j,      GDK_SHIFT_MASK,       shortcut_edge_down_cb},
+        {GDK_KEY_k,      GDK_SHIFT_MASK,       shortcut_edge_up_cb},
+        {GDK_KEY_m,      GDK_NO_MODIFIER_MASK, shortcut_move_cb},
+        {GDK_KEY_m,      GDK_SHIFT_MASK,       shortcut_move_cb},
+        {GDK_KEY_n,      GDK_NO_MODIFIER_MASK, shortcut_new_node_cb},
+        {GDK_KEY_e,      GDK_NO_MODIFIER_MASK, shortcut_new_edge_cb},
+        {GDK_KEY_n,      GDK_SHIFT_MASK,       shortcut_new_node_and_edge_cb},
+        {GDK_KEY_x,      GDK_NO_MODIFIER_MASK, shortcut_delete_cb},
+        {GDK_KEY_Delete, GDK_NO_MODIFIER_MASK, shortcut_delete_cb},
+        {GDK_KEY_s,      GDK_NO_MODIFIER_MASK, shortcut_mark_node_cb},
+        {GDK_KEY_i,      GDK_NO_MODIFIER_MASK, shortcut_set_in_node_cb},
+        {GDK_KEY_o,      GDK_NO_MODIFIER_MASK, shortcut_set_out_node_cb},
+        {GDK_KEY_i,      GDK_SHIFT_MASK,       shortcut_edit_node_or_edge_cb},
+        {GDK_KEY_r,      GDK_NO_MODIFIER_MASK, shortcut_reconnect_edge_cb},
+        {GDK_KEY_f,      GDK_NO_MODIFIER_MASK, shortcut_flip_edge_cb},
+        {GDK_KEY_d,      GDK_NO_MODIFIER_MASK, shortcut_draw_and_graph_mode_cb},
+        {GDK_KEY_c,      GDK_CONTROL_MASK,     shortcut_copy_cb},
+        {GDK_KEY_v,      GDK_CONTROL_MASK,     shortcut_paste_cb},
 #define X(idx, shortcut, default_color) \
         {GDK_KEY_##idx, GDK_NO_MODIFIER_MASK,shortcut_color##idx##_cb},
         COLOR_BUTTONS_LIST

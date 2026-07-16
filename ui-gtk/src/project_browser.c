@@ -192,7 +192,7 @@ struct _DPSFGProjectBrowser
     struct db* db;
     DPSFGProjectList* project_list;
     GtkSingleSelection* selection_model;
-    int current_project_id;
+    int active_project_id;
     int block_outgoing_signals;
 };
 struct _DPSFGProjectBrowserClass
@@ -243,18 +243,18 @@ static void handle_list_or_selection_changed(DPSFGProjectBrowser* self)
     if (item != NULL)
         g_object_unref(item);
 
-    if (new_project_id == self->current_project_id)
+    if (new_project_id == self->active_project_id)
         return;
     if (self->block_outgoing_signals)
         return;
 
-    if (self->current_project_id != -1)
+    if (self->active_project_id != -1)
     {
         g_signal_emit(
             self,
             signals[SIGNAL_PROJECT_DESELECTED],
             0,
-            self->current_project_id);
+            self->active_project_id);
     }
 
     if (new_project_id != -1)
@@ -263,7 +263,7 @@ static void handle_list_or_selection_changed(DPSFGProjectBrowser* self)
             self, signals[SIGNAL_PROJECT_SELECTED], 0, new_project_id);
     }
 
-    self->current_project_id = new_project_id;
+    self->active_project_id = new_project_id;
 }
 static void items_changed_cb(
     GListModel* self,
@@ -344,7 +344,7 @@ editable_label_text_changed_cb(DPSFGEditableLabel* editable, gpointer user_data)
         /* Move the data from the "Scratch" project to the new project */
         dbi->graph_data.move(db, SCRATCH_PROJECT_ID, new_project_id);
         dbi->plugin_data.move(db, SCRATCH_PROJECT_ID, new_project_id);
-        project_browser->current_project_id = new_project_id;
+        project_browser->active_project_id = new_project_id;
 
         /* Select the new project so the moved data gets loaded */
         g_signal_emit(
@@ -423,12 +423,12 @@ shortcut_delete_cb(GtkWidget* widget, GVariant* unused, gpointer user_data)
     DPSFGProjectBrowser* self      = user_data;
     const struct db_interface* dbi = self->dbi;
     struct db* db                  = self->db;
-    int project_id                 = self->current_project_id;
+    int project_id                 = self->active_project_id;
     (void)widget, (void)unused;
 
     if (project_id != SCRATCH_PROJECT_ID)
     {
-        self->current_project_id = -1;
+        self->active_project_id = -1;
         if (dbi->project.recycle(db, project_id) == 0)
             dpsfg_project_list_remove_by_id(self->project_list, project_id);
         return TRUE;
@@ -490,8 +490,8 @@ static void dpsfg_project_browser_init(DPSFGProjectBrowser* self)
 
     track_mem(self, sizeof *self, "DPSFGProjectBrowser");
 
-    self->current_project_id = -1;
-    self->project_list       = dpsfg_project_list_new(self);
+    self->active_project_id = -1;
+    self->project_list      = dpsfg_project_list_new(self);
     self->selection_model =
         gtk_single_selection_new(G_LIST_MODEL(self->project_list));
     self->block_outgoing_signals = 0;
@@ -584,6 +584,8 @@ static void dpsfg_project_browser_class_init(DPSFGProjectBrowserClass* class)
         1,
         G_TYPE_INT);
 }
+
+/* -------------------------------------------------------------------------- */
 GtkWidget*
 dpsfg_project_browser_new(const struct db_interface* dbi, struct db* db)
 {
@@ -592,9 +594,40 @@ dpsfg_project_browser_new(const struct db_interface* dbi, struct db* db)
     self->db                  = db;
     return GTK_WIDGET(self);
 }
+
+/* -------------------------------------------------------------------------- */
 void dpsfg_project_browser_reload_from_db(DPSFGProjectBrowser* self)
 {
     dpsfg_project_list_clear(self->project_list);
     self->dbi->project.list(self->db, project_list_on_row, self);
-    handle_list_or_selection_changed(self);
+}
+
+/* -------------------------------------------------------------------------- */
+void dpsfg_project_browser_select_project(
+    DPSFGProjectBrowser* self, int project_id)
+{
+    int i, n_items;
+
+    if (project_id <= 0)
+        project_id = SCRATCH_PROJECT_ID;
+
+    n_items = g_list_model_get_n_items(G_LIST_MODEL(self->project_list));
+    for (i = 0; i != n_items; ++i)
+    {
+        DPSFGProjectListItem* item =
+            g_list_model_get_item(G_LIST_MODEL(self->project_list), i);
+        if (item->project_id == project_id)
+        {
+            gtk_single_selection_set_selected(self->selection_model, i);
+            g_object_unref(item);
+            break;
+        }
+        g_object_unref(item);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+int dpsfg_project_browser_get_active_project(const DPSFGProjectBrowser* self)
+{
+    return self->active_project_id;
 }

@@ -26,12 +26,13 @@ VEC_DECLARE(line_vec, struct line, 16)
 
 void line_init(struct line* line, struct color color);
 void line_deinit(struct line* line);
+int line_save(struct serializer** ser, const struct line* line);
+int line_load(struct deserializer* des, struct line* line);
 
 int drawing_save(
     struct serializer** ser,
     const struct line_vec* drawing,
     const struct csfg_graph* g);
-int drawing_save_line(struct serializer** ser, const struct line* line);
 int drawing_load(
     struct deserializer* des,
     struct line_vec** drawing,

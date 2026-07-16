@@ -36,6 +36,45 @@ void node_attr_init(struct node_attr* na, struct color color)
 }
 
 /* -------------------------------------------------------------------------- */
+int node_attr_save(struct serializer** ser, const struct node_attr* na)
+{
+    int err = 0;
+    err += serialize_u8(ser, na->radius);
+    err += serialize_u8(ser, na->color.r);
+    err += serialize_u8(ser, na->color.g);
+    err += serialize_u8(ser, na->color.b);
+    return err;
+}
+int node_attr_load(struct deserializer* des, struct node_attr* na)
+{
+    na->radius  = deserialize_u8(des);
+    na->color.r = deserialize_u8(des);
+    na->color.g = deserialize_u8(des);
+    na->color.b = deserialize_u8(des);
+    return deserializer_err(des);
+}
+
+/* -------------------------------------------------------------------------- */
+int edge_attr_save(struct serializer** ser, const struct edge_attr* ea)
+{
+    int err = 0;
+    err += serialize_cstr(ser, str_cstr(ea->expr_str));
+    err += serialize_u8(ser, ea->color.r);
+    err += serialize_u8(ser, ea->color.g);
+    err += serialize_u8(ser, ea->color.b);
+    return err;
+}
+int edge_attr_load(struct deserializer* des, struct edge_attr* ea)
+{
+    if (str_set_cstr(&ea->expr_str, deserialize_cstr(des)) != 0)
+        return -1;
+    ea->color.r = deserialize_u8(des);
+    ea->color.g = deserialize_u8(des);
+    ea->color.b = deserialize_u8(des);
+    return deserializer_err(des);
+}
+
+/* -------------------------------------------------------------------------- */
 int attrs_save(
     struct serializer** ser,
     const struct node_attr_hmap* node_attrs,
@@ -44,8 +83,6 @@ int attrs_save(
 {
     const struct csfg_node* n;
     const struct csfg_edge* e;
-    const struct node_attr* na;
-    const struct edge_attr* ea;
     int err = 0;
 
     if (g == NULL)
@@ -54,23 +91,15 @@ int attrs_save(
     err += serialize_li16(ser, csfg_graph_node_count(g));
     csfg_graph_for_each_node (g, n)
     {
-        na = node_attr_hmap_find(node_attrs, n->id);
         err += serialize_li32(ser, n->id);
-        err += serialize_u8(ser, na->radius);
-        err += serialize_u8(ser, na->color.r);
-        err += serialize_u8(ser, na->color.g);
-        err += serialize_u8(ser, na->color.b);
+        err += node_attr_save(ser, node_attr_hmap_find(node_attrs, n->id));
     }
 
     err += serialize_li16(ser, csfg_graph_edge_count(g));
     csfg_graph_for_each_edge (g, e)
     {
-        ea = edge_attr_hmap_find(edge_attrs, e->id);
         err += serialize_li32(ser, e->id);
-        err += serialize_cstr(ser, str_cstr(ea->expr_str));
-        err += serialize_u8(ser, ea->color.r);
-        err += serialize_u8(ser, ea->color.g);
-        err += serialize_u8(ser, ea->color.b);
+        err += edge_attr_save(ser, edge_attr_hmap_find(edge_attrs, e->id));
     }
     return err;
 }
@@ -101,10 +130,8 @@ int attrs_load(
             case HMAP_NEW   : node_attr_init(na, rgb(0, 0, 0));
             case HMAP_EXISTS: break;
         }
-        na->radius  = deserialize_u8(des);
-        na->color.r = deserialize_u8(des);
-        na->color.g = deserialize_u8(des);
-        na->color.b = deserialize_u8(des);
+        if (node_attr_load(des, na) != 0)
+            return -1;
     }
 
     count = deserialize_li16(des);
@@ -119,11 +146,8 @@ int attrs_load(
             case HMAP_NEW   : edge_attr_init(ea, rgb(0, 0, 0));
             case HMAP_EXISTS: break;
         }
-        if (str_set_cstr(&ea->expr_str, deserialize_cstr(des)) != 0)
+        if (edge_attr_load(des, ea) != 0)
             return -1;
-        ea->color.r = deserialize_u8(des);
-        ea->color.g = deserialize_u8(des);
-        ea->color.b = deserialize_u8(des);
     }
 
     return deserializer_err(des);

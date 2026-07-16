@@ -23,7 +23,7 @@ void line_deinit(struct line* line)
 }
 
 /* -------------------------------------------------------------------------- */
-int drawing_save_line(struct serializer** ser, const struct line* line)
+int line_save(struct serializer** ser, const struct line* line)
 {
     const struct point* point;
     int err = 0;
@@ -43,6 +43,29 @@ int drawing_save_line(struct serializer** ser, const struct line* line)
 }
 
 /* -------------------------------------------------------------------------- */
+int line_load(struct deserializer* des, struct line* line)
+{
+    int point_count;
+    struct point* point;
+
+    line->color.r = deserialize_u8(des);
+    line->color.g = deserialize_u8(des);
+    line->color.b = deserialize_u8(des);
+
+    point_count = deserialize_lu16(des);
+    while (point_count-- > 0)
+    {
+        point = point_vec_emplace(&line->points);
+        if (point == NULL)
+            return -1;
+        point->x = deserialize_li16(des);
+        point->y = deserialize_li16(des);
+    }
+
+    return deserializer_err(des);
+}
+
+/* -------------------------------------------------------------------------- */
 int drawing_save(
     struct serializer** ser,
     const struct line_vec* drawing,
@@ -56,7 +79,7 @@ int drawing_save(
 
     err += serialize_lu16(ser, vec_count(drawing));
     vec_for_each (drawing, line)
-        err += drawing_save_line(ser, line);
+        err += line_save(ser, line);
 
     return err;
 }
@@ -67,10 +90,8 @@ int drawing_load(
     struct line_vec** drawing,
     const struct csfg_graph* g)
 {
-    int line_count, point_count;
+    int line_count;
     struct line* line;
-    struct point* point;
-    struct color color;
 
     if (g == NULL)
         return 0;
@@ -80,23 +101,11 @@ int drawing_load(
     line_count = deserialize_lu16(des);
     while (line_count-- > 0)
     {
-        color.r = deserialize_u8(des);
-        color.g = deserialize_u8(des);
-        color.b = deserialize_u8(des);
-        line    = line_vec_emplace(drawing);
+        line = line_vec_emplace(drawing);
         if (line == NULL)
             return -1;
-        line_init(line, color);
-
-        point_count = deserialize_lu16(des);
-        while (point_count-- > 0)
-        {
-            point = point_vec_emplace(&line->points);
-            if (point == NULL)
-                return -1;
-            point->x = deserialize_li16(des);
-            point->y = deserialize_li16(des);
-        }
+        line_init(line, rgb(0, 0, 0));
+        line_load(des, line);
     }
 
     return deserializer_err(des);

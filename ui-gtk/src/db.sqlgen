@@ -70,6 +70,10 @@ void db_deinit(void)
 }
 
 %upgrade 1 {
+CREATE TABLE IF NOT EXISTS config (
+    key             TEXT PRIMARY KEY NOT NULL,
+    value           INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS projects (
     id              INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     timestamp       BIGINT NOT NULL DEFAULT (UNIXEPOCH()),
@@ -104,6 +108,21 @@ DROP TABLE IF EXISTS plugin_data;
 DROP TABLE IF EXISTS graph_data;
 DROP TABLE IF EXISTS recycled_projects;
 DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS config;
+}
+
+%query config,get_active_project_id() {
+    type select-first
+    stmt { SELECT value FROM config WHERE key='active_project_id' LIMIT 1 }
+    return value
+}
+%query config,set_active_project_id(int value) {
+    type upsert
+    stmt {
+        INSERT INTO config (key, value)
+        VALUES ('active_project_id', ?)
+        ON CONFLICT DO UPDATE SET value=excluded.value;
+    }
 }
 
 %query project,new(const char* name) {

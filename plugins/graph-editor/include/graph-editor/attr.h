@@ -31,6 +31,11 @@ void node_attr_init(struct node_attr* na, struct color color);
 void edge_attr_init(struct edge_attr* ea, struct color color);
 void edge_attr_deinit(struct edge_attr* ea);
 
+int node_attr_save(struct serializer** ser, const struct node_attr* na);
+int node_attr_load(struct deserializer* des, struct node_attr* na);
+int edge_attr_save(struct serializer** ser, const struct edge_attr* ea);
+int edge_attr_load(struct deserializer* des, struct edge_attr* ea);
+
 int attrs_save(
     struct serializer** ser,
     const struct node_attr_hmap* node_attrs,

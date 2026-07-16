@@ -1,6 +1,8 @@
 #pragma once
 
 struct csfg_graph;
+struct csfg_node;
+struct csfg_edge;
 struct csfg_var_table;
 struct csfg_expr_pool;
 struct deserializer;

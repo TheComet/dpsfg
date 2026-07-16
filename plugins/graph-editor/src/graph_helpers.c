@@ -336,22 +336,19 @@ void auto_position_edge(
     int edge_add_spacing   = spacing_increments;
 
     while (is_near_any_other_node(g, NULL, e->x, e->y) ||
-           is_near_any_other_edge(g, e, e->x, e->y))
+           is_near_any_other_edge(g, e, e->x, e->y) ||
+           /* failsafe */
+           edge_add_spacing > 100000 || edge_add_spacing < -100000)
     {
-        int tmp;
         int nx  = from->x - to->x;
         int ny  = from->y - to->y;
         int den = sqrt(nx * nx + ny * ny);
         if (den != 0)
         {
-            tmp = nx;
-            nx  = -ny / den;
-            ny  = tmp / den;
-
-            e->x -= nx * edge_add_spacing;
-            e->y -= ny * edge_add_spacing;
+            e->x += ny * edge_add_spacing / den;
+            e->y -= nx * edge_add_spacing / den;
             edge_add_spacing = edge_add_spacing > 0
-                                 ? -(edge_add_spacing + spacing_increments)
+                                 ? -edge_add_spacing - spacing_increments
                                  : -edge_add_spacing + spacing_increments;
         }
         else
@@ -390,16 +387,9 @@ void drag_edge_connected_to_node(
         e->x += n1->x - n1_prev_x;
         e->y += n1->y - n1_prev_y;
     }
-    else if (calc_circle(
-                 &cx,
-                 &cy,
-                 &radius,
-                 n1_prev_x,
-                 n1_prev_y,
-                 e->x,
-                 e->y,
-                 n2->x,
-                 n2->y))
+    else if (
+        calc_circle(
+            &cx, &cy, &radius, n1_prev_x, n1_prev_y, e->x, e->y, n2->x, n2->y))
     {
         /* This runs when the edge forms an arc, or if a loop is created from
          * reconnecting */

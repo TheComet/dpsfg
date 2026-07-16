@@ -555,10 +555,10 @@ static void focus_first_center_plugin(struct plugin_vec* plugins)
 static void activate(GtkApplication* app, gpointer user_data)
 {
     GtkWidget* window;
-    GtkWidget* project_browser;
     GtkWidget* center_area;
     GtkWidget* property_pane_container;
     GtkWidget* property_pane_scrolled_window;
+    DPSFGProjectBrowser* project_browser;
 
     struct on_plugin_ctx on_plugin_ctx;
     struct app_ctx* ctx = user_data;
@@ -579,8 +579,9 @@ static void activate(GtkApplication* app, gpointer user_data)
         GTK_SCROLLED_WINDOW(property_pane_scrolled_window),
         property_pane_container);
 
-    center_area     = plugin_view_new();
-    project_browser = dpsfg_project_browser_new(ctx->dbi, ctx->db);
+    center_area = plugin_view_new();
+    project_browser =
+        DPSFG_PROJECT_BROWSER(dpsfg_project_browser_new(ctx->dbi, ctx->db));
 
     ctx->paned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_paned_set_start_child(GTK_PANED(ctx->paned2), center_area);
@@ -590,12 +591,23 @@ static void activate(GtkApplication* app, gpointer user_data)
     gtk_paned_set_resize_end_child(GTK_PANED(ctx->paned2), FALSE);
 
     ctx->paned1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    gtk_paned_set_start_child(GTK_PANED(ctx->paned1), project_browser);
+    gtk_paned_set_start_child(
+        GTK_PANED(ctx->paned1), GTK_WIDGET(project_browser));
     gtk_paned_set_end_child(GTK_PANED(ctx->paned1), ctx->paned2);
     gtk_paned_set_resize_start_child(GTK_PANED(ctx->paned1), FALSE);
     gtk_paned_set_resize_end_child(GTK_PANED(ctx->paned1), TRUE);
 
     g_idle_add(set_initial_pane_widths, ctx);
+
+    on_plugin_ctx.plugins              = ctx->plugins;
+    on_plugin_ctx.center_area          = GTK_NOTEBOOK(center_area);
+    on_plugin_ctx.property_pane        = GTK_BOX(property_pane_container);
+    on_plugin_ctx.plugin_callbacks_ctx = ctx->plugin_callbacks_ctx;
+    plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
+
+    dpsfg_project_browser_reload_from_db(project_browser);
+    dpsfg_project_browser_select_project(
+        project_browser, ctx->dbi->config.get_active_project_id(ctx->db));
 
     g_signal_connect(
         project_browser,
@@ -607,15 +619,10 @@ static void activate(GtkApplication* app, gpointer user_data)
         "project-selected",
         G_CALLBACK(on_project_selected),
         ctx);
-
-    on_plugin_ctx.plugins              = ctx->plugins;
-    on_plugin_ctx.center_area          = GTK_NOTEBOOK(center_area);
-    on_plugin_ctx.property_pane        = GTK_BOX(property_pane_container);
-    on_plugin_ctx.plugin_callbacks_ctx = ctx->plugin_callbacks_ctx;
-    plugin_scan("share/dpsfg/plugins", on_plugin, &on_plugin_ctx);
-
-    dpsfg_project_browser_reload_from_db(
-        DPSFG_PROJECT_BROWSER(project_browser));
+    on_project_selected(
+        project_browser,
+        dpsfg_project_browser_get_active_project(project_browser),
+        ctx);
 
     gtk_window_set_child(GTK_WINDOW(window), ctx->paned1);
     gtk_window_maximize(GTK_WINDOW(window));
@@ -632,12 +639,15 @@ static void shutdown(GtkApplication* app, gpointer user_data)
     (void)app;
 
     if (ctx->active_project_id != -1)
+    {
         unload_project(
             ctx->dbi,
             ctx->db,
             ctx->active_project_id,
             &ctx->pipeline,
             *ctx->plugins);
+        ctx->dbi->config.set_active_project_id(ctx->db, ctx->active_project_id);
+    }
 
     vec_for_each (*ctx->plugins, plugin)
         stop_plugin(plugin);

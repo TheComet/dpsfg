@@ -46,6 +46,7 @@ void csfg_graph_deinit(struct csfg_graph* g);
 void csfg_graph_clear(struct csfg_graph* g);
 
 int csfg_graph_add_node(struct csfg_graph* g, const char* name);
+int csfg_graph_add_node_steal_name(struct csfg_graph* g, struct str* name);
 int csfg_graph_add_edge(
     struct csfg_graph* g,
     int n_idx_from,

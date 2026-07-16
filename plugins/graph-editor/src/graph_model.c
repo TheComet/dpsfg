@@ -1,6 +1,7 @@
 #include "csfg/graph/graph.h"
 #include "csfg/io/serialize.h"
 #include "csfg/symbolic/expr.h"
+#include "csfg/util/str.h"
 #include "dpsfg-plugin.h"
 #include "graph-editor/attr.h"
 #include "graph-editor/constants.h"
@@ -343,8 +344,38 @@ parse_failed:
 }
 
 /* -------------------------------------------------------------------------- */
+static int is_node_number_in_use(
+    const struct graph_model* model, char unit, int node_number)
+{
+    struct csfg_node* n;
+    if (model->graph == NULL)
+        return 0;
+    csfg_graph_for_each_node (model->graph, n)
+    {
+        struct strview sv = str_view(n->name);
+        if (sv.len > 1 && sv.data[sv.off] == unit)
+        {
+            int number = strview_to_integer(strview(sv.data, 1, sv.len - 1));
+            if (number == node_number)
+                return 1;
+        }
+    }
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+static int find_unused_node_number(const struct graph_model* model, char unit)
+{
+    int node_number = 1;
+    while (is_node_number_in_use(model, unit, node_number))
+        node_number++;
+    return node_number;
+}
+
+/* -------------------------------------------------------------------------- */
 int create_new_node(struct graph_model* model, int n_id_prev)
 {
+    struct str* name;
     struct csfg_node* n;
     struct node_attr* na;
     const struct csfg_node* n_prev;
@@ -353,8 +384,21 @@ int create_new_node(struct graph_model* model, int n_id_prev)
     if (model->graph == NULL)
         return -1;
 
-    n_idx = csfg_graph_add_node(model->graph, "V1");
-    n     = csfg_graph_get_node(model->graph, n_idx);
+    str_init(&name);
+    if (str_fmt(&name, "V%d", find_unused_node_number(model, 'V')) != 0)
+    {
+        str_deinit(name);
+        return -1;
+    }
+
+    n_idx = csfg_graph_add_node_steal_name(model->graph, name);
+    if (n_idx < 0)
+    {
+        str_deinit(name);
+        return -1;
+    }
+
+    n = csfg_graph_get_node(model->graph, n_idx);
     switch (node_attr_hmap_emplace_or_get(&model->node_attrs, n->id, &na))
     {
         case HMAP_OOM   : return -1;

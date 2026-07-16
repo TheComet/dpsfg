@@ -278,7 +278,7 @@ draw_drawing(cairo_t* cr, const struct line_vec* drawing, double zoom)
             line->color.r / 255.0,
             line->color.g / 255.0,
             line->color.b / 255.0);
-        cairo_set_line_width(cr, (line->selected ? 4.0 : 2.0) / zoom);
+        cairo_set_line_width(cr, (line->selected ? 5.0 : 3.0) / zoom);
         vec_enumerate (line->points, i, point)
         {
             if (i == 0)

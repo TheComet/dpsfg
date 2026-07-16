@@ -12,3 +12,6 @@ G_DECLARE_FINAL_TYPE(
 GtkWidget*
 dpsfg_project_browser_new(const struct db_interface* dbi, struct db* db);
 void dpsfg_project_browser_reload_from_db(DPSFGProjectBrowser* self);
+void dpsfg_project_browser_select_project(
+    DPSFGProjectBrowser* self, int project_id);
+int dpsfg_project_browser_get_active_project(const DPSFGProjectBrowser* self);

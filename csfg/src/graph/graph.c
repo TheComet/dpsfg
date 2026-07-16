@@ -33,13 +33,12 @@ static uint16_t new_id(struct csfg_graph* g)
 }
 
 /* -------------------------------------------------------------------------- */
-static int node_init(struct csfg_node* n, int id, const char* name)
+static void node_init(struct csfg_node* n, int id, struct str* name)
 {
-    n->id = id;
-    n->x  = 0;
-    n->y  = 0;
-    str_init(&n->name);
-    return str_set_cstr(&n->name, name);
+    n->id   = id;
+    n->x    = 0;
+    n->y    = 0;
+    n->name = name;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -93,14 +92,21 @@ void csfg_graph_clear(struct csfg_graph* g)
 /* -------------------------------------------------------------------------- */
 int csfg_graph_add_node(struct csfg_graph* g, const char* name)
 {
+    struct str* str;
+    str_init(&str);
+    if (str_set_cstr(&str, name) != 0)
+        return -1;
+    return csfg_graph_add_node_steal_name(g, str);
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_graph_add_node_steal_name(struct csfg_graph* g, struct str* name)
+{
     int n_idx           = vec_count(g->nodes);
     struct csfg_node* n = csfg_node_vec_emplace(&g->nodes);
     if (n == NULL)
         return -1;
-
-    if (node_init(n, new_id(g), name) != 0)
-        return -1;
-
+    node_init(n, new_id(g), name);
     return n_idx;
 }
 
