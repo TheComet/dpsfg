@@ -187,7 +187,7 @@ mfile_map_read(struct mfile* mf, const char* file_path, int silence_open_error)
         goto fstat_failed;
     }
 
-    mf->address = mmap(NULL, (size_t)stbuf.st_size, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, fd, 0);
+    mf->address = mmap(NULL, (size_t)stbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (mf->address == MAP_FAILED)
     {
         fprintf(stderr, "Error: Failed to mmap() file \"%s\": %s\n", file_path, strerror(errno));
@@ -279,10 +279,7 @@ mfile_map_write(struct mfile* mf, const char* file_path, int size)
         goto open_failed;
     }
 
-    /* When truncating the file, it must be expanded again, otherwise writes to
-     * the memory will cause SIGBUS.
-     * NOTE: If this ever gets ported to non-Linux, see posix_fallocate() */
-    if (fallocate(fd, 0, 0, size) != 0)
+    if (ftruncate(fd, size) != 0)
     {
         fprintf(stderr, "Error: Failed to resize file \"%s\": %s\n", file_path, strerror(errno));
         goto mmap_failed;

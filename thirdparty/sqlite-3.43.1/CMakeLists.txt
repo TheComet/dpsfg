@@ -66,11 +66,15 @@ add_library (sqlite
 target_include_directories (sqlite
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
-target_link_libraries (sqlite
-    PRIVATE
-        sqlite_def
-        $<$<PLATFORM_ID:Linux>:$<$<BOOL:${SQLITE_EXTENSIONS}>:dl>>
-        $<$<PLATFORM_ID:Linux>:$<$<BOOL:${SQLITE_FTS5}>:m>>)
+if (UNIX)
+    target_link_libraries (sqlite PRIVATE sqlite_def)
+    if (SQLITE_EXTENSIONS})
+        target_link_libraries (sqlite PRIVATE dl)
+    endif ()
+    if (SQLITE_FTS5)
+        target_link_libraries (sqlite PRIVATE m)
+    endif ()
+endif ()
 set_target_properties (sqlite
     PROPERTIES
         MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>

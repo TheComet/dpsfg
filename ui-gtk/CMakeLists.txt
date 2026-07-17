@@ -30,7 +30,8 @@ add_executable (dpsfg-ui
     "src/project_browser.c"
     "src/main.c")
 set_source_files_properties(${SQLGEN_dpsfg-db_OUTPUTS} PROPERTIES
-    COMPILE_FLAGS "$<$<C_COMPILER_ID:GNU>:-Wno-long-long -Wno-overlength-strings>")
+    COMPILE_FLAGS "$<$<C_COMPILER_ID:GNU>:-Wno-long-long -Wno-overlength-strings>"
+    COMPILE_FLAGS "$<$<C_COMPILER_ID:Clang>:-Wno-long-long -Wno-overlength-strings>")
 target_include_directories (dpsfg-ui PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_BINARY_DIR}/include")

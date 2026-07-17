@@ -51,7 +51,7 @@ target_include_directories (mathomatic PUBLIC
 target_compile_options (mathomatic
     PRIVATE
         $<$<C_COMPILER_ID:GNU>:-W -Wall -Wextra -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-missing-field-initializers>
-        $<$<C_COMPILER_ID:Clang>:-W -Wall -Wextra>)
+        $<$<C_COMPILER_ID:Clang>:-W -Wall -Wextra -Wno-deprecated-non-prototype -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-missing-field-initializers>)
 set_target_properties (mathomatic
     PROPERTIES
         C_STANDARD 90
