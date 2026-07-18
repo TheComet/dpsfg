@@ -143,6 +143,7 @@ static int merge_and_select_subgraph(
         }
         if (edge_attr_load(des, ea) != 0)
             return -1;
+        ea->selected = 1;
     }
 
     if (vec_capacity(model_graph->nodes) < total_nodes)
@@ -192,7 +193,6 @@ static int merge_and_select_subgraph(
             point->x += mouse_x - offset_x;
             point->y += mouse_y - offset_y;
         }
-
         line->selected = 1;
     }
 

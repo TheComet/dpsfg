@@ -512,7 +512,8 @@ void delete_multi_selection_objects(struct graph_model* model)
     {
         n1 = csfg_graph_get_node(model->graph, e->n_idx_from);
         n2 = csfg_graph_get_node(model->graph, e->n_idx_to);
-        if (node_attr_hmap_find(model->node_attrs, n1->id)->selected ||
+        if (edge_attr_hmap_find(model->edge_attrs, e->id)->selected ||
+            node_attr_hmap_find(model->node_attrs, n1->id)->selected ||
             node_attr_hmap_find(model->node_attrs, n2->id)->selected)
         {
             edge_attr_deinit(edge_attr_hmap_erase(model->edge_attrs, e->id));
@@ -549,6 +550,7 @@ void multi_select_nodes_and_lines(
     struct graph_model* model, int x1, int y1, int x2, int y2, int append)
 {
     struct csfg_node* n;
+    struct csfg_edge* e;
     struct node_attr* na;
     struct line* line;
     struct point* point;
@@ -572,12 +574,19 @@ void multi_select_nodes_and_lines(
         }
     }
 
+    csfg_graph_for_each_edge (model->graph, e)
+        if (x1 <= e->x + GRID / 2.0 && x2 >= e->x - GRID / 2.0 &&
+            y1 <= e->y + GRID / 2.0 && y2 >= e->y - GRID / 2.0)
+        {
+            edge_attr_hmap_find(model->edge_attrs, e->id)->selected = append;
+        }
+
     vec_for_each (model->drawing, line)
         vec_for_each (line->points, point)
             if (x1 <= point->x + GRID && x2 >= point->x - GRID &&
                 y1 <= point->y + GRID && y2 >= point->y - GRID)
             {
-                line->selected = 1;
+                line->selected = append;
                 break;
             }
 }
@@ -586,17 +595,16 @@ void multi_select_nodes_and_lines(
 void multi_deselect_all(struct graph_model* model)
 {
     struct csfg_node* n;
-    struct node_attr* na;
+    struct csfg_edge* e;
     struct line* line;
 
     if (model->graph == NULL)
         return;
 
     csfg_graph_for_each_node (model->graph, n)
-    {
-        na           = node_attr_hmap_find(model->node_attrs, n->id);
-        na->selected = 0;
-    }
+        node_attr_hmap_find(model->node_attrs, n->id)->selected = 0;
+    csfg_graph_for_each_edge (model->graph, e)
+        edge_attr_hmap_find(model->edge_attrs, e->id)->selected = 0;
 
     vec_for_each (model->drawing, line)
         line->selected = 0;
@@ -654,7 +662,7 @@ void recolor_selected_objects(struct graph_model* model, struct color color)
         na2 = node_attr_hmap_find(model->node_attrs, n2->id);
         ea  = edge_attr_hmap_find(model->edge_attrs, e->id);
 
-        if (e->id == model->active_edge_id)
+        if (e->id == model->active_edge_id || ea->selected)
             ea->color = color;
 
         if (n1->id == model->active_node_id || na1->selected)

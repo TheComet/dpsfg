@@ -777,12 +777,20 @@ static void select_matching_color_button_for_selected_objects(
     GraphEditor* editor, const struct graph_model* model)
 {
     const struct csfg_node* n;
+    const struct csfg_edge* e;
     const struct line* line;
 
     csfg_graph_for_each_node (model->graph, n)
         if (node_attr_hmap_find(model->node_attrs, n->id)->selected)
         {
             select_matching_color_button_for_node(editor, n->id);
+            return;
+        }
+
+    csfg_graph_for_each_edge (model->graph, e)
+        if (edge_attr_hmap_find(model->edge_attrs, e->id)->selected)
+        {
+            select_matching_color_button_for_edge(editor, e->id);
             return;
         }
 
@@ -1070,10 +1078,21 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
 
             if ((id = try_select_edge(model->graph, x, y)) > -1)
             {
+                ea = edge_attr_hmap_find(model->edge_attrs, id);
+                if (add_to_multiselect)
+                    ea->selected = 1;
+                if (remove_from_multiselect)
+                    ea->selected = 0;
                 if (add_to_multiselect && model->active_node_id > -1)
                 {
                     node_attr_hmap_find(
                         model->node_attrs, model->active_node_id)
+                        ->selected = 1;
+                }
+                if (add_to_multiselect && model->active_edge_id > -1)
+                {
+                    edge_attr_hmap_find(
+                        model->edge_attrs, model->active_edge_id)
                         ->selected = 1;
                 }
                 if (!add_to_multiselect && !remove_from_multiselect &&
@@ -1101,16 +1120,22 @@ drag_begin(GtkGestureDrag* gesture, double x, double y, gpointer user_data)
                     na->selected = 1;
                 if (remove_from_multiselect)
                     na->selected = 0;
-                if (!add_to_multiselect && !remove_from_multiselect &&
-                    id != model->active_node_id && !na->selected)
+                if (add_to_multiselect && model->active_edge_id > -1)
                 {
-                    multi_deselect_all(model);
+                    edge_attr_hmap_find(
+                        model->edge_attrs, model->active_edge_id)
+                        ->selected = 1;
                 }
                 if (add_to_multiselect && model->active_node_id > -1)
                 {
                     node_attr_hmap_find(
                         model->node_attrs, model->active_node_id)
                         ->selected = 1;
+                }
+                if (!add_to_multiselect && !remove_from_multiselect &&
+                    id != model->active_node_id && !na->selected)
+                {
+                    multi_deselect_all(model);
                 }
                 model->active_node_id = id;
                 model->active_edge_id = -1;

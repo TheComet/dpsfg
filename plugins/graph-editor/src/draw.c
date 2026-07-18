@@ -265,8 +265,7 @@ void draw_help(
 }
 
 /* -------------------------------------------------------------------------- */
-void
-draw_drawing(cairo_t* cr, const struct line_vec* drawing, double zoom)
+void draw_drawing(cairo_t* cr, const struct line_vec* drawing, double zoom)
 {
     int i;
     const struct line* line;
@@ -291,8 +290,8 @@ draw_drawing(cairo_t* cr, const struct line_vec* drawing, double zoom)
 }
 
 /* -------------------------------------------------------------------------- */
-void
-draw_multi_selection(cairo_t* cr, double x1, double y1, double x2, double y2)
+void draw_multi_selection(
+    cairo_t* cr, double x1, double y1, double x2, double y2)
 {
     cairo_set_source_rgb(cr, 0.8, 0.5, 0.0);
     cairo_rectangle(cr, x1, y1, x2 - x1, y2 - y1);
@@ -348,6 +347,17 @@ void draw_edges(
                 cr,
                 e->x,
                 e->y,
+                color.r / 255.0,
+                color.g / 255.0,
+                color.b / 255.0);
+        }
+        if (ea->selected)
+        {
+            draw_selected_symbol(
+                cr,
+                e->x,
+                e->y,
+                GRID / 2.0,
                 color.r / 255.0,
                 color.g / 255.0,
                 color.b / 255.0);

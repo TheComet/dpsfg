@@ -16,6 +16,7 @@ void edge_attr_init(struct edge_attr* ea, struct color color)
 
     ea->drag_begin_x = 0;
     ea->drag_begin_y = 0;
+    ea->selected     = 0;
 }
 
 /* -------------------------------------------------------------------------- */

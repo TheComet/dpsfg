@@ -21,6 +21,7 @@ struct edge_attr
     struct str* expr_str;
     struct color color;
     int drag_begin_x, drag_begin_y;
+    unsigned selected : 1;
 };
 
 HMAP_DECLARE(extern, node_attr_hmap, int, struct node_attr, 16)
