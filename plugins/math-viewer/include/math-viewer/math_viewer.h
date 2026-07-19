@@ -8,11 +8,11 @@ G_DECLARE_FINAL_TYPE(MathViewer, math_viewer, PLUGIN, MATH_VIEWER, GtkBox)
 struct csfg_expr_pool;
 struct csfg_tf_expr;
 
-void        math_viewer_register_type_internal(GTypeModule* type_module);
+void math_viewer_register_type_internal(GTypeModule* type_module);
 MathViewer* math_viewer_new(void);
-void        math_viewer_set_expr(
-           MathViewer* viewer, const struct csfg_expr_pool* pool, int expr);
+void math_viewer_set_expr(
+    MathViewer* viewer, const struct csfg_expr_pool* pool, int expr);
 void math_viewer_set_tf(
-    MathViewer*                  viewer,
+    MathViewer* viewer,
     const struct csfg_expr_pool* pool,
-    const struct csfg_tf_expr*   tf);
+    const struct csfg_tf_expr* tf);
