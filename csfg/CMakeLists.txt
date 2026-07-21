@@ -55,6 +55,7 @@ set (csfg_SOURCES
     "src/symbolic/expr.c"
     "src/symbolic/expr_canonicalize.c"
     "src/symbolic/expr_eval.c"
+    "src/symbolic/expr_layout.c"
     "src/symbolic/expr_next_chain_permutation.c"
     "src/symbolic/expr_integrity_check.c"
     "src/symbolic/expr_parse.c"
