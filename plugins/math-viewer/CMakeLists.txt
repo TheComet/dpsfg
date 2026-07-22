@@ -6,6 +6,7 @@ project ("math-viewer"
 
 find_package (GTK4 REQUIRED COMPONENTS
     gtk glib cairo pango pangocairo harfbuzz gdk-pixbuf graphene)
+find_package (Freetype REQUIRED)
 
 include (DPSFGPlugin)
 dpsfg_add_plugin ("math-viewer"
@@ -16,6 +17,7 @@ dpsfg_add_plugin ("math-viewer"
         "include"
         "${PROJECT_BINARY_DIR}/include"
     LIBS
+        Freetype::Freetype
         DPSFG::plugin
         DPSFG::csfg
         GTK4::glib

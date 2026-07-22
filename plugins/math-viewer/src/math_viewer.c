@@ -2,6 +2,9 @@
 #include "csfg/symbolic/tf_expr.h"
 #include "csfg/util/str.h"
 #include "math-viewer/math_viewer.h"
+#include <cairo-ft.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 struct _MathViewer
 {
@@ -61,6 +64,7 @@ struct csfg_layout_node
     };
 
     int adv_x, height;
+    int baseline_offset, baseline;
     int child[2];
     enum csfg_layout_type type;
 };
@@ -86,24 +90,27 @@ static int new_node(
     struct csfg_layout_vec** nodes,
     enum csfg_layout_type type,
     int adv_x,
-    int height)
+    int height,
+    int baseline_offset)
 {
     struct csfg_layout_node* node = csfg_layout_vec_emplace(nodes);
     if (node == NULL)
         return -1;
 
-    node->type     = type;
-    node->adv_x    = adv_x;
-    node->height   = height;
-    node->child[0] = -1;
-    node->child[1] = -1;
+    node->type            = type;
+    node->adv_x           = adv_x;
+    node->height          = height;
+    node->baseline_offset = baseline_offset;
+    node->baseline        = 0;
+    node->child[0]        = -1;
+    node->child[1]        = -1;
 
     return vec_count(*nodes) - 1;
 }
 static int
 new_node_var(struct csfg_layout_vec** nodes, int adv_x, int height, int var_idx)
 {
-    int n = new_node(nodes, CSFG_LAYOUT_VAR, adv_x, height);
+    int n = new_node(nodes, CSFG_LAYOUT_VAR, adv_x, height, 0);
     if (n < 0)
         return -1;
     vec_get(*nodes, n)->var.idx = var_idx;
@@ -117,20 +124,20 @@ static int new_node_binop(
     int left,
     int right)
 {
-    int n, combined_height, combined_adv_x;
+    int n, lhs_height, rhs_height, max_height;
+    int lhs_adv_x, rhs_adv_x, combined_adv_x;
     if (left < 0 || right < 0)
         return -1;
 
-    combined_height =
-        imax(vec_get(*nodes, left)->height, vec_get(*nodes, right)->height);
-    combined_adv_x =
-        vec_get(*nodes, left)->adv_x + vec_get(*nodes, right)->adv_x;
+    lhs_height = vec_get(*nodes, left)->height;
+    rhs_height = vec_get(*nodes, right)->height;
+    max_height = imax(op_height, imax(lhs_height, rhs_height));
 
-    n = new_node(
-        nodes,
-        type,
-        op_adv_x + combined_adv_x,
-        imax(op_height, combined_height));
+    lhs_adv_x      = vec_get(*nodes, left)->adv_x;
+    rhs_adv_x      = vec_get(*nodes, right)->adv_x;
+    combined_adv_x = lhs_adv_x + op_adv_x + rhs_adv_x;
+
+    n = new_node(nodes, type, combined_adv_x, max_height, 0);
     if (n < 0)
         return -1;
 
@@ -170,7 +177,8 @@ new_node_parens(struct csfg_layout_vec** nodes, int paren_adv_x, int child)
         nodes,
         CSFG_LAYOUT_PARENS,
         paren_adv_x * 2 + vec_get(*nodes, child)->adv_x,
-        vec_get(*nodes, child)->height);
+        vec_get(*nodes, child)->height,
+        0);
     if (n < 0)
         return -1;
 
@@ -180,7 +188,11 @@ new_node_parens(struct csfg_layout_vec** nodes, int paren_adv_x, int child)
     return n;
 }
 static int new_node_frac(
-    struct csfg_layout_vec** nodes, int num, int den, int dist_to_frac_line)
+    struct csfg_layout_vec** nodes,
+    int num,
+    int den,
+    int dist_to_frac_line,
+    int baseline_offset)
 {
     int n, max_width, total_height;
     if (num < 0 || den < 0)
@@ -190,7 +202,8 @@ static int new_node_frac(
     total_height = vec_get(*nodes, num)->height + vec_get(*nodes, den)->height;
     total_height += dist_to_frac_line;
 
-    n = new_node(nodes, CSFG_LAYOUT_FRAC, max_width, total_height);
+    n = new_node(
+        nodes, CSFG_LAYOUT_FRAC, max_width, total_height, baseline_offset);
     if (n < 0)
         return -1;
 
@@ -212,29 +225,32 @@ int csfg_expr_layout(
     int expr,
     cairo_t* cr);
 
-static int layout_lit(
-    struct csfg_layout* layout,
-    const struct csfg_expr_pool* pool,
-    int expr,
-    cairo_t* cr)
+static int layout_lit(struct csfg_layout* layout, double value, cairo_t* cr)
 {
     cairo_text_extents_t ext;
-    double value = pool->nodes[expr].value.lit;
+    int n;
+
     str_clear(layout->str);
     if (str_append_float(&layout->str, value) != 0)
         return -1;
     cairo_text_extents(cr, str_cstr(layout->str), &ext);
-    return new_node(&layout->nodes, CSFG_LAYOUT_LIT, ext.x_advance, ext.height);
+
+    n = new_node(&layout->nodes, CSFG_LAYOUT_LIT, ext.x_advance, ext.height, 0);
+    if (n < 0)
+        return -1;
+
+    vec_get(layout->nodes, n)->lit = value;
+
+    return n;
 }
 
 static int layout_var(
     struct csfg_layout* layout,
     const struct csfg_expr_pool* pool,
-    int expr,
+    int var_idx,
     cairo_t* cr)
 {
     cairo_text_extents_t ext;
-    int var_idx      = pool->nodes[expr].value.var_idx;
     const char* cstr = strlist_cstr(pool->var_names, var_idx);
     cairo_text_extents(cr, cstr, &ext);
     return new_node_var(&layout->nodes, ext.x_advance, ext.height, var_idx);
@@ -244,14 +260,15 @@ static int layout_inf(struct csfg_layout* layout, cairo_t* cr)
 {
     cairo_text_extents_t ext;
     cairo_text_extents(cr, utf8_infinity, &ext);
-    return new_node(&layout->nodes, CSFG_LAYOUT_INF, ext.x_advance, ext.height);
+    return new_node(
+        &layout->nodes, CSFG_LAYOUT_INF, ext.x_advance, ext.height, 0);
 }
 
 static int layout_neg(struct csfg_layout* layout, cairo_t* cr)
 {
     cairo_text_extents_t ext;
     cairo_text_extents(cr, "-", &ext);
-    return new_node(&layout->nodes, CSFG_LAYOUT_NEG, ext.width, ext.height);
+    return new_node(&layout->nodes, CSFG_LAYOUT_NEG, ext.width, ext.height, 0);
 }
 
 static int layout_sub(
@@ -314,10 +331,16 @@ static int layout_frac(
     double den_exp,
     cairo_t* cr)
 {
+    int dist_to_sep, baseline_offset;
+    cairo_font_extents_t fext;
     left  = csfg_expr_layout(layout, pool, left, cr);
     right = csfg_expr_layout(layout, pool, right, cr);
 
-    return new_node_frac(&layout->nodes, left, right, 5);
+    cairo_font_extents(cr, &fext);
+    dist_to_sep     = 5;
+    baseline_offset = (fext.ascent - fext.descent) / 2 + dist_to_sep;
+
+    return new_node_frac(&layout->nodes, left, right, 5, baseline_offset);
 }
 
 static int layout_mul(
@@ -364,7 +387,48 @@ static int layout_mul(
 }
 
 /* -------------------------------------------------------------------------- */
-int csfg_expr_layout(
+static void calc_baselines(struct csfg_layout* layout, int n)
+{
+    int left, right, lhs_baseline, rhs_baseline, max_baseline;
+
+    left  = vec_get(layout->nodes, n)->child[0];
+    right = vec_get(layout->nodes, n)->child[1];
+    if (left > -1)
+        calc_baselines(layout, left);
+    if (right > -1)
+        calc_baselines(layout, right);
+
+    switch (vec_get(layout->nodes, n)->type)
+    {
+        case CSFG_LAYOUT_LIT: break;
+        case CSFG_LAYOUT_VAR: break;
+        case CSFG_LAYOUT_INF: break;
+        case CSFG_LAYOUT_NEG: break;
+
+        case CSFG_LAYOUT_ADD:
+        case CSFG_LAYOUT_SUB:
+        case CSFG_LAYOUT_MUL:
+            lhs_baseline = vec_get(layout->nodes, left)->baseline_offset;
+            rhs_baseline = vec_get(layout->nodes, right)->baseline_offset;
+            max_baseline = imax(lhs_baseline, rhs_baseline);
+            vec_get(layout->nodes, n)->baseline = max_baseline;
+            vec_get(layout->nodes, left)->baseline =
+                max_baseline - lhs_baseline;
+            vec_get(layout->nodes, right)->baseline =
+                max_baseline - rhs_baseline;
+            break;
+
+        case CSFG_LAYOUT_FRAC: break;
+
+        case CSFG_LAYOUT_PARENS:
+            lhs_baseline = vec_get(layout->nodes, left)->baseline;
+            vec_get(layout->nodes, n)->baseline_offset = lhs_baseline;
+            break;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+static int layout_recurse(
     struct csfg_layout* layout,
     const struct csfg_expr_pool* pool,
     int expr,
@@ -376,9 +440,12 @@ int csfg_expr_layout(
     enum csfg_expr_type type = pool->nodes[expr].type;
     switch (type)
     {
-        case CSFG_EXPR_GC : CSFG_DEBUG_ASSERT(0); return -1;
-        case CSFG_EXPR_LIT: return layout_lit(layout, pool, expr, cr);
-        case CSFG_EXPR_VAR: return layout_var(layout, pool, expr, cr);
+        case CSFG_EXPR_GC: CSFG_DEBUG_ASSERT(0); return -1;
+        case CSFG_EXPR_LIT:
+            return layout_lit(layout, pool->nodes[expr].value.lit, cr);
+        case CSFG_EXPR_VAR:
+            return layout_var(
+                layout, pool, pool->nodes[expr].value.var_idx, cr);
         case CSFG_EXPR_INF: return layout_inf(layout, cr);
         case CSFG_EXPR_NEG: return layout_neg(layout, cr);
         case CSFG_EXPR_ADD:
@@ -420,17 +487,29 @@ int csfg_expr_layout(
                 cairo_text_extents(cr, "(", &ext);
                 right = new_node_parens(&layout->nodes, ext.x_advance, right);
             }
-
-            return -1;
-            return new_node_frac(&layout->nodes, left, right, 5);
+            break;
     }
 
-    return 0;
+    return -1;
+}
+
+/* -------------------------------------------------------------------------- */
+int csfg_expr_layout(
+    struct csfg_layout* layout,
+    const struct csfg_expr_pool* pool,
+    int expr,
+    cairo_t* cr)
+{
+    int n = layout_recurse(layout, pool, expr, cr);
+    if (n < 0)
+        return -1;
+    calc_baselines(layout, n);
+    return n;
 }
 
 /* -------------------------------------------------------------------------- */
 int csfg_expr_draw(
-    const struct csfg_layout* layout,
+    struct csfg_layout* layout,
     const struct csfg_expr_pool* pool,
     int n,
     int x,
@@ -438,32 +517,42 @@ int csfg_expr_draw(
     cairo_t* cr)
 {
     enum csfg_layout_type type;
-    int var_idx, left, right, num, den;
+    int baseline, var_idx, left, right, num, den;
     const char* cstr;
 
-    type = vec_get(layout->nodes, n)->type;
+    type     = vec_get(layout->nodes, n)->type;
+    left     = vec_get(layout->nodes, n)->child[0];
+    right    = vec_get(layout->nodes, n)->child[1];
+    baseline = vec_get(layout->nodes, n)->baseline;
+
     switch (type)
     {
-        case CSFG_LAYOUT_LIT: return -1;
+        case CSFG_LAYOUT_LIT:
+            str_clear(layout->str);
+            if (str_append_float(
+                    &layout->str, vec_get(layout->nodes, n)->lit) != 0)
+                return -1;
+            cairo_move_to(cr, x, y + baseline);
+            cairo_show_text(cr, str_cstr(layout->str));
+            break;
+
         case CSFG_LAYOUT_VAR:
             var_idx = vec_get(layout->nodes, n)->var.idx;
             cstr    = strlist_cstr(pool->var_names, var_idx);
-            cairo_move_to(cr, x, y);
+            cairo_move_to(cr, x, y + baseline);
             cairo_show_text(cr, cstr);
             break;
 
         case CSFG_LAYOUT_INF: return -1;
         case CSFG_LAYOUT_NEG: return -1;
+
         case CSFG_LAYOUT_ADD:
         case CSFG_LAYOUT_SUB:
         case CSFG_LAYOUT_MUL:
-            left  = vec_get(layout->nodes, n)->child[0];
-            right = vec_get(layout->nodes, n)->child[1];
-
             csfg_expr_draw(layout, pool, left, x, y, cr);
             x += vec_get(layout->nodes, left)->adv_x;
 
-            cairo_move_to(cr, x, y);
+            cairo_move_to(cr, x, y + baseline);
             cairo_show_text(
                 cr,
                 type == CSFG_LAYOUT_ADD   ? "+"
@@ -504,8 +593,6 @@ int csfg_expr_draw(
             break;
 
         case CSFG_LAYOUT_PARENS:
-            left = vec_get(layout->nodes, n)->child[0];
-
             cairo_move_to(cr, x, y);
             cairo_show_text(cr, "(");
             x += vec_get(layout->nodes, n)->paren.adv_x;
@@ -592,6 +679,14 @@ static void draw_cb(
     cairo_set_line_width(cr, 1.0);
     cairo_stroke(cr);
 
+    FT_Library ft_library;
+    FT_Face ft_face;
+    FT_Init_FreeType(&ft_library);
+    FT_New_Face(ft_library, "latinmodern-math.otf", 0, &ft_face);
+    cairo_font_face_t* font_face =
+        cairo_ft_font_face_create_for_ft_face(ft_face, 0);
+    cairo_set_font_face(cr, font_face);
+
     cairo_set_source_rgb(cr, 0, 0, 0);
     cairo_set_font_size(cr, 32);
     struct csfg_layout layout;
@@ -599,7 +694,7 @@ static void draw_cb(
     csfg_layout_vec_init(&layout.nodes);
     str_init(&layout.str);
     csfg_expr_pool_init(&pool);
-    int expr = csfg_expr_parse(&pool, cstr_view("A / (G1+G2) * s"));
+    int expr = csfg_expr_parse(&pool, cstr_view("1/(1+1/(1+1/(1+1/A))) + 1/(1/(1/(1/A+1)+1)+1)+1"));
     int n    = csfg_expr_layout(&layout, pool, expr, cr);
     csfg_expr_draw(&layout, pool, n, 0, 30, cr);
     csfg_expr_pool_deinit(pool);
